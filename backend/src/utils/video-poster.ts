@@ -36,7 +36,7 @@ export async function extractVideoPoster(relativePath: string): Promise<string |
     })
     return posterRel
   } catch (err) {
-    console.warn(`[video-poster] 海报帧提取失败 ${relativePath}:`, (err as Error).message)
+    console.warn(`[video-poster] Gagal mengekstrak frame poster ${relativePath}:`, (err as Error).message)
     return null
   }
 }

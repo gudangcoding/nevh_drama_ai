@@ -70,7 +70,7 @@ test('backend rejects unsupported providers at DB and route boundaries', () => {
   assert.match(route, /isOfficialProvider/)
   assert.match(route, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
   assert.match(route, /isOfficialProvider\(serviceType,\s*provider\)/)
-  assert.match(route, /不支持的 service_type\/provider/)
+  assert.match(route, /service_type\/provider tidak didukung/)
 })
 
 test('AI config routes reject unsupported service/provider pairs in create, test, and update paths', () => {
@@ -81,18 +81,18 @@ test('AI config routes reject unsupported service/provider pairs in create, test
 
   assert.match(createRoute, /if \(!body\.service_type \|\| !body\.provider\)/)
   assert.match(createRoute, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
-  assert.match(createRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
+  assert.match(createRoute, /badRequest\(c,\s*'service_type\/provider tidak didukung'\)/)
 
   assert.match(testRoute, /if \(!body\.service_type \|\| !body\.provider \|\| !body\.base_url\)/)
   assert.match(testRoute, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
-  assert.match(testRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
+  assert.match(testRoute, /badRequest\(c,\s*'service_type\/provider tidak didukung'\)/)
 
   assert.match(updateRoute, /const serviceType = 'service_type' in body \? body\.service_type : existing\.serviceType/)
   assert.match(updateRoute, /const provider = 'provider' in body \? body\.provider : existing\.provider/)
   assert.doesNotMatch(updateRoute, /body\.service_type \|\| existing\.serviceType/)
   assert.doesNotMatch(updateRoute, /body\.provider \|\| existing\.provider/)
   assert.match(updateRoute, /isOfficialProvider\(serviceType,\s*provider\)/)
-  assert.match(updateRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
+  assert.match(updateRoute, /badRequest\(c,\s*'service_type\/provider tidak didukung'\)/)
 })
 
 test('AI config update route persists service type changes after validation', () => {

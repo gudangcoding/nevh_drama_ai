@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "Huobao Drama Pendek",
+    "title": "Nevh Drama",
     "updateAvailable": "Versi baru v{version} tersedia. Perbarui di Pengaturan → Tentang Pembaruan."
   },
   "common": {
@@ -132,16 +132,22 @@
     },
     "createDialog": {
       "title": "Proyek Baru",
-      "desc": "Pilih episode di halaman proyek setelah dibuat",
+      "desc": "Isi lengkap lalu produksi otomatis berjalan di latar belakang selama berapa episode pun",
       "name": "Nama proyek",
-      "namePlaceholder": "mis. Drama romantis perkotaan \u201CKantor Pos Waktu\u201D",
+      "namePlaceholder": "mis. Drama romantis perkotaan “Kantor Pos Waktu”",
       "style": "Gaya visual",
       "stylePlaceholder": "Pilih gaya",
       "aspectRatio": "Rasio aspek",
       "aspectRatioPlaceholder": "Pilih rasio aspek",
       "aspectRatioHint": "Tetap setelah dibuat; semua video akan menggunakan rasio ini",
+      "synopsis": "Sinopsis",
+      "synopsisPlaceholder": "Tulis sinopsis drama lengkap di sini (jika diisi, produksi otomatis akan langsung berjalan)",
+      "synopsisHint": "Jika diisi, sinopsis otomatis dikembangkan menjadi N skrip episode di latar belakang",
+      "totalEpisodes": "Jumlah episode",
+      "totalEpisodesHint": "Produksi otomatis mengembangkan sinopsis menjadi sejumlah episode ini",
       "submit": "Buat proyek"
     },
+    "productionStarted": "Produksi otomatis untuk \"{title}\" dimulai di latar belakang",
     "deleteDialog": {
       "title": "Hapus proyek",
       "message": "Hapus \"{title}\"? Episode, storyboard, dan catatan pembuatan akan dihapus. Tindakan ini tidak dapat dibatalkan."
@@ -163,6 +169,48 @@
     "tabs": {
       "episodes": "Episode",
       "assets": "Perpustakaan Aset"
+    },
+    "production": {
+      "title": "Produksi Otomatis",
+      "desc": "Dari sinopsis, otomatis buat skrip episode, aset, storyboard, lalu video di latar belakang secara paralel",
+      "phaseLabel": "Tahap",
+      "start": "Mulai Produksi Otomatis",
+      "synopsis": "Sinopsis",
+      "synopsisPlaceholder": "Tulis sinopsis drama lengkap di sini",
+      "totalEpisodes": "Jumlah episode",
+      "readyInfo": "Siap memproduksi {total} episode secara otomatis di latar belakang",
+      "approvalTitle": "Alur cerita & adegan siap diperiksa",
+      "approvalDesc": "Klik setujui untuk mulai membuat video untuk {total} episode sekaligus di latar belakang (maksimal 2 video paralel). Pelajari dulu karakter, adegan, storyboard, dan video yang sudah siap.",
+      "approve": "Setujui & Lanjutkan Video",
+      "cancel": "Batalkan",
+      "resume": "Lanjutkan Produksi",
+      "needSynopsis": "Tambahkan sinopsis terlebih dahulu untuk memulai produksi otomatis",
+      "started": "Produksi otomatis dimulai di latar belakang",
+      "approved": "Disetujui, pembuatan video berjalan di latar belakang",
+      "cancelled": "Produksi dibatalkan",
+      "resumed": "Produksi dilanjutkan",
+      "failedTitle": "Produksi gagal",
+      "interruptedInfo": "Produksi terputus oleh restart aplikasi. Lanjutkan untuk melanjutkan dari titik terakhir; pekerjaan yang sudah jadi tidak akan diulang.",
+      "cancelledInfo": "Produksi dibatalkan. Lanjutkan untuk melanjutkan dari titik terakhir.",
+      "doneInfo": "Produksi selesai — semua episode telah dibuat dan digabung",
+      "status": {
+        "running": "Berjalan",
+        "waitingApproval": "Menunggu Persetujuan",
+        "completed": "Selesai",
+        "failed": "Gagal",
+        "cancelled": "Dibatalkan",
+        "interrupted": "Terputus"
+      },
+      "phase": {
+        "scripts": "Menulis skrip episode",
+        "assets": "Ekstraksi aset",
+        "assetImages": "Gambar aset",
+        "storyboards": "Storyboard & prompt video",
+        "composedImages": "Gambar komposisi",
+        "waitingApproval": "Menunggu persetujuan",
+        "videos": "Pembuatan video",
+        "merging": "Penggabungan video"
+      }
     },
     "ep": {
       "statusTitle": "Klik untuk mengatur status episode",
@@ -269,11 +317,11 @@
     "ai": {
       "title": "Konfigurasi Layanan AI",
       "desc": "Mulai dengan template yang direkomendasikan, lalu sesuaikan per jenis layanan. Meja kerja mengunci kemampuan gambar dan video yang dipilih saat membuat episode.",
-      "quickTitle": "Konfigurasi Cepat Huobao",
+      "quickTitle": "Konfigurasi Cepat Nevh",
       "recommended": "Direkomendasikan",
-      "quickDesc": "Masukkan Kunci API Huobao untuk menulis tiga konfigurasi yang direkomendasikan (teks, gambar, video) sekaligus.",
+      "quickDesc": "Masukkan Kunci API Nevh untuk menulis tiga konfigurasi yang direkomendasikan (teks, gambar, video) sekaligus.",
       "getKey": "Dapatkan kunci di api.firemux.com",
-      "applyQuick": "Terapkan Konfigurasi Huobao",
+      "applyQuick": "Terapkan Konfigurasi Nevh",
       "manualTitle": "Template Manual",
       "manualDesc": "Pilih jenis layanan, lalu isi `provider / base URL / model` yang direkomendasikan dari template.",
       "activeCount": "{n} aktif",
@@ -283,8 +331,8 @@
       "setDefault": "Jadikan model default untuk jenis ini",
       "noBaseUrl": "Base URL belum diatur",
       "test": "Uji",
-      "apiKeyRequired": "Harap masukkan Kunci API Huobao",
-      "quickApplied": "Konfigurasi cepat Huobao telah ditulis",
+      "apiKeyRequired": "Harap masukkan Kunci API Nevh",
+      "quickApplied": "Konfigurasi cepat Nevh telah ditulis",
       "defaultModelSwitched": "Model {type} default beralih ke {model}",
       "meta": {
         "text": "Kemampuan teks: penulisan ulang skrip, ekstraksi aset, breakdown storyboard",
@@ -388,7 +436,7 @@
       "addTitle": "Tambah Layanan {type}",
       "sub": "Pilih template terlebih dahulu — `Base URL` dan model default yang masuk akal akan diisi otomatis.",
       "name": "Nama konfigurasi",
-      "namePlaceholder": "mis. Layanan gambar default Huobao",
+      "namePlaceholder": "mis. Layanan gambar default Nevh",
       "provider": "Penyedia",
       "providerPlaceholder": "Pilih penyedia",
       "priority": "Prioritas",
@@ -878,7 +926,7 @@
     "helpTitle": "Panduan",
     "index": {
       "welcome": {
-        "title": "👋 Selamat datang di Huobao Drama",
+        "title": "👋 Selamat datang di Nevh Drama",
         "desc": "Novel → skrip → aset → storyboard → video → final cut, semua dalam satu tempat. Konfigurasi layanan AI terlebih dahulu, lalu buat proyek pertama Anda."
       },
       "create": {
@@ -887,13 +935,13 @@
       },
       "settings": {
         "title": "Langkah 1 · Konfigurasi layanan AI",
-        "desc": "Setiap fitur AI membutuhkan ini terlebih dahulu. Buka Pengaturan dan tempel Kunci API Huobao untuk mengatur teks/gambar/video dalam satu klik."
+        "desc": "Setiap fitur AI membutuhkan ini terlebih dahulu. Buka Pengaturan dan tempel Kunci API Nevh untuk mengatur teks/gambar/video dalam satu klik."
       }
     },
     "settings": {
       "quick": {
         "title": "Pengaturan tercepat: Pengaturan Cepat",
-        "desc": "Tempel Kunci API Huobao untuk menulis tiga konfigurasi yang direkomendasikan (teks/gambar/video) sekaligus, dengan pengujian konektivitas."
+        "desc": "Tempel Kunci API Nevh untuk menulis tiga konfigurasi yang direkomendasikan (teks/gambar/video) sekaligus, dengan pengujian konektivitas."
       },
       "nav": {
         "title": "Segalanya ada di sini",
@@ -922,5 +970,33 @@
         "desc": "Klik tombol \"?\" ini untuk memutar ulang panduan halaman ini. Selamat berkreasi!"
       }
     }
+  },
+  "auth": {
+    "subtitle": "Produser Drama AI",
+    "registerTitle": "Buat Akun Baru",
+    "registerSubtitle": "Mulai membuat drama AI Anda sendiri",
+    "username": "Username",
+    "usernamePlaceholder": "Masukkan username",
+    "usernameHint": "3–32 karakter, huruf/angka/_.-",
+    "password": "Kata Sandi",
+    "passwordPlaceholder": "Masukkan kata sandi",
+    "passwordHint": "Minimal 6 karakter",
+    "confirmPassword": "Konfirmasi Kata Sandi",
+    "confirmPasswordPlaceholder": "Ulangi kata sandi",
+    "fillAllFields": "Harap isi semua kolom",
+    "passwordMismatch": "Kata sandi dan konfirmasi tidak cocok",
+    "login": "Masuk",
+    "loggingIn": "Sedang masuk...",
+    "register": "Daftar",
+    "noAccount": "Belum punya akun?",
+    "haveAccount": "Sudah punya akun?",
+    "loginSuccess": "Berhasil masuk",
+    "loginFailed": "Gagal masuk, silakan coba lagi",
+    "registerSuccess": "Akun berhasil dibuat",
+    "registerFailed": "Gagal membuat akun, silakan coba lagi",
+    "creatingAccount": "Membuat akun...",
+    "roleAdmin": "Admin",
+    "roleUser": "Pengguna",
+    "logout": "Keluar"
   }
 }

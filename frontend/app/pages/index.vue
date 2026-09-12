@@ -173,6 +173,16 @@
               <BaseSelect v-model="form.aspect_ratio" :options="aspectRatioOptions" :placeholder="t('index.createDialog.aspectRatioPlaceholder')" />
               <span class="field-hint">{{ t('index.createDialog.aspectRatioHint') }}</span>
             </label>
+            <label class="field">
+              <span class="field-label">{{ t('index.createDialog.synopsis') }}</span>
+              <textarea v-model="form.synopsis" class="input textarea" rows="4" :placeholder="t('index.createDialog.synopsisPlaceholder')"></textarea>
+              <span class="field-hint">{{ t('index.createDialog.synopsisHint') }}</span>
+            </label>
+            <label class="field">
+              <span class="field-label">{{ t('index.createDialog.totalEpisodes') }}</span>
+              <input v-model.number="form.total_episodes" type="number" class="input" min="1" max="200" :placeholder="t('index.createDialog.autoProduce')" />
+              <span class="field-hint">{{ t('index.createDialog.totalEpisodesHint') }}</span>
+            </label>
           </div>
           <div class="dialog-foot">
             <button type="button" class="btn" @click="showCreate = false">{{ t('common.cancel') }}</button>
@@ -223,7 +233,7 @@ const sortOptions = computed(() => ([
 const activeMenuId = ref(null)
 const dramaToDelete = ref(null)
 const deletingDrama = ref(false)
-const form = ref({ title: '', style: '', aspect_ratio: '16:9' })
+const form = ref({ title: '', style: '', aspect_ratio: '16:9', synopsis: '', total_episodes: 1 })
 const stylePresets = ref([])
 const styleSelectOptions = computed(() => stylePresets.value.map(p => ({ label: presetName(p), value: p.value })))
 const selectedStyleDesc = computed(() => {
@@ -312,7 +322,12 @@ async function load() {
 async function create() {
   if (!form.value.title?.trim()) return
   try {
-    const d = await dramaAPI.create(form.value)
+    const autoGenerate = Boolean(form.value.synopsis?.trim() && (form.value.total_episodes || 1) > 0)
+    const payload = { ...form.value, auto_generate: autoGenerate }
+    const d = await dramaAPI.create(payload)
+    if (d?.production) {
+      toast.success(t('index.productionStarted', { title: d.title }))
+    }
     showCreate.value = false
     navigateTo(`/drama/${d.id}`)
   } catch (e) {

@@ -10,7 +10,7 @@ app.post('/image', async (c) => {
   const file = body['file']
 
   if (!file || !(file instanceof File)) {
-    return badRequest(c, '文件必填')
+    return badRequest(c, 'File wajib diisi')
   }
 
   const buffer = await file.arrayBuffer()
@@ -43,18 +43,18 @@ async function saveMediaUpload(
   const body = await c.req.parseBody()
   const file = body['file']
   if (!file || !(file instanceof File)) {
-    return badRequest(c, '文件必填')
+    return badRequest(c, 'File wajib diisi')
   }
   const label = kind === 'video' ? 'video' : 'audio'
   const ext = extOf(file.name)
   // MIME bisa dipalsukan, ekstensi sebagai cadangan; kosong / octet-stream dianggap tidak dikenal, hanya validasi berdasarkan ekstensi
   const mimeKnown = file.type && file.type !== 'application/octet-stream'
   if (!allowedExt.has(ext) || (mimeKnown && !allowedMime.has(file.type))) {
-    return badRequest(c, `仅支持 ${Array.from(allowedExt).join('/')} 格式的${label}文件`)
+    return badRequest(c, `Hanya file ${label} berformat ${Array.from(allowedExt).join('/')} yang didukung`)
   }
   const buffer = await file.arrayBuffer()
   if (buffer.byteLength > maxBytes) {
-    return badRequest(c, `${label}文件大小不能超过 ${Math.round(maxBytes / 1024 / 1024)}MB`)
+    return badRequest(c, `Ukuran file ${label} tidak boleh melebihi ${Math.round(maxBytes / 1024 / 1024)}MB`)
   }
   const path = await saveUploadedFile(buffer, 'uploads', file.name)
   return success(c, { url: `/${path}`, path })

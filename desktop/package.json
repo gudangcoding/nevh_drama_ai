@@ -1,10 +1,10 @@
 {
-  "name": "huobao-drama-desktop",
-  "productName": "HuobaoDrama",
-  "version": "4.3.0",
+  "name": "nevh-drama-desktop",
+  "productName": "Nevh Drama",
+  "version": "5.0.0",
   "private": true,
-  "description": "火宝短剧桌面版（Electron 壳）",
-  "author": "Huobao",
+  "description": "Nevh Drama 桌面版（Electron 壳）",
+  "author": "Nevh",
   "main": "dist/main.js",
   "scripts": {
     "build:backend": "node scripts/build-backend.mjs",

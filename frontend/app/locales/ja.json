@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "火宝ショートドラマ",
+    "title": "Nevh Drama",
     "updateAvailable": "新バージョン v{version} があります。「設定 → 更新について」でアップグレードできます"
   },
   "common": {
@@ -269,11 +269,11 @@
     "ai": {
       "title": "AI サービス設定",
       "desc": "まず推奨テンプレートで設定を作成し、サービスタイプごとに微調整します。ワークベンチで話を作成する際に選択した画像・動画能力がロックされます。",
-      "quickTitle": "火宝クイック設定",
+      "quickTitle": "Nevh クイック設定",
       "recommended": "おすすめ",
-      "quickDesc": "Huobao API Key を入力すると、テキスト・画像・動画の 3 つの推奨設定を一括で書き込みます。",
+      "quickDesc": "Nevh API Key を入力すると、テキスト・画像・動画の 3 つの推奨設定を一括で書き込みます。",
       "getKey": "api.firemux.com で Key を取得",
-      "applyQuick": "火宝設定を書き込む",
+      "applyQuick": "Nevh 設定を書き込む",
       "manualTitle": "手動テンプレート",
       "manualDesc": "サービスタイプを選ぶと、推奨の `provider / base URL / model` がテンプレートから入力されます。",
       "activeCount": "{n} 件有効",
@@ -283,8 +283,8 @@
       "setDefault": "このタイプのデフォルトモデルに設定",
       "noBaseUrl": "Base URL 未設定",
       "test": "テスト",
-      "apiKeyRequired": "Huobao API Key を入力してください",
-      "quickApplied": "火宝クイック設定を書き込みました",
+      "apiKeyRequired": "Nevh API Key を入力してください",
+      "quickApplied": "Nevh クイック設定を書き込みました",
       "defaultModelSwitched": "デフォルト{type}モデルを {model} に切り替えました",
       "meta": {
         "text": "脚本リライト、キャラクター・シーン抽出、分镜分解などの Agent テキスト能力",
@@ -388,7 +388,7 @@
       "addTitle": "{type}サービスを追加",
       "sub": "まずテンプレートを選ぶと、適切な `Base URL` とデフォルトモデルが自動入力されます。",
       "name": "設定名",
-      "namePlaceholder": "例：火宝デフォルト画像サービス",
+      "namePlaceholder": "例：Nevh デフォルト画像サービス",
       "provider": "プロバイダー",
       "providerPlaceholder": "プロバイダーを選択",
       "priority": "優先度",
@@ -878,7 +878,7 @@
     "helpTitle": "ガイド",
     "index": {
       "welcome": {
-        "title": "👋 火宝短劇へようこそ",
+        "title": "👋 Nevh Drama へようこそ",
         "desc": "小説 → 脚本 → アセット → 絵コンテ → 動画 → 完成、すべてワンストップ。まず AI サービスを設定し、最初のプロジェクトを作成しましょう。"
       },
       "create": {
@@ -887,13 +887,13 @@
       },
       "settings": {
         "title": "ステップ 1 · AI サービスを設定",
-        "desc": "すべての AI 機能に事前設定が必要です。「設定」ページで Huobao API キーを貼り、テキスト/画像/動画をワンクリック設定しましょう。"
+        "desc": "すべての AI 機能に事前設定が必要です。「設定」ページで Nevh API キーを貼り、テキスト/画像/動画をワンクリック設定しましょう。"
       }
     },
     "settings": {
       "quick": {
         "title": "最速セットアップ：クイック設定",
-        "desc": "Huobao API キーを貼り付けると推奨 3 設定（テキスト/画像/動画）を一括書き込み。接続テスト対応。"
+        "desc": "Nevh API キーを貼り付けると推奨 3 設定（テキスト/画像/動画）を一括書き込み。接続テスト対応。"
       },
       "nav": {
         "title": "すべてここに",
@@ -922,5 +922,33 @@
         "desc": "この「?」ボタンでこのページのガイドを再表示できます。良い制作を！"
       }
     }
+  },
+  "auth": {
+    "subtitle": "AIドラマプロデューサー",
+    "registerTitle": "新規アカウント作成",
+    "registerSubtitle": "自身のAIドラマ制作を始めましょう",
+    "username": "ユーザー名",
+    "usernamePlaceholder": "ユーザー名を入力",
+    "usernameHint": "3〜32文字、英数字/_.-",
+    "password": "パスワード",
+    "passwordPlaceholder": "パスワードを入力",
+    "passwordHint": "6文字以上",
+    "confirmPassword": "パスワード確認",
+    "confirmPasswordPlaceholder": "パスワードを再入力",
+    "fillAllFields": "すべての項目を入力してください",
+    "passwordMismatch": "パスワードが一致しません",
+    "login": "ログイン",
+    "loggingIn": "ログイン中...",
+    "register": "新規登録",
+    "noAccount": "アカウントをお持ちでないですか？",
+    "haveAccount": "アカウントをお持ちですか？",
+    "loginSuccess": "ログインしました",
+    "loginFailed": "ログインに失敗しました",
+    "registerSuccess": "アカウントを作成しました",
+    "registerFailed": "アカウント作成に失敗しました",
+    "creatingAccount": "アカウント作成中...",
+    "roleAdmin": "管理者",
+    "roleUser": "ユーザー",
+    "logout": "ログアウト"
   }
 }

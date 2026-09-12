@@ -68,7 +68,7 @@ function platformKey(): string {
 
 /** Path .app dari app yang terinstal (hanya macOS, dalam kondisi打包) */
 function installedAppBundle(): string {
-  // process.execPath = .../HuobaoDrama.app/Contents/MacOS/HuobaoDrama
+  // process.execPath = .../Nevh Drama.app/Contents/MacOS/Nevh Drama
   return path.resolve(path.dirname(process.execPath), '..', '..')
 }
 
@@ -170,12 +170,12 @@ async function doApply(): Promise<void> {
 
   if (process.platform === 'darwin') {
     const bundle = installedAppBundle()
-    const tmpExtract = path.join(app.getPath('temp'), `huobao-update-extract-${Date.now()}`)
+    const tmpExtract = path.join(app.getPath('temp'), `nevh-update-extract-${Date.now()}`)
     await new Promise<void>((resolve, reject) => {
       execFile('unzip', ['-q', '-o', downloaded, '-d', tmpExtract], err => (err ? reject(err) : resolve()))
     })
-    const newApp = path.join(tmpExtract, 'HuobaoDrama.app')
-    if (!fs.existsSync(newApp)) throw new Error('Isi paket pembaruan tidak normal (HuobaoDrama.app tidak ditemukan)')
+    const newApp = path.join(tmpExtract, 'Nevh Drama.app')
+    if (!fs.existsSync(newApp)) throw new Error('Isi paket pembaruan tidak normal (Nevh Drama.app tidak ditemukan)')
 
     const oldBundle = `${bundle}.old`
     fs.rmSync(oldBundle, { recursive: true, force: true })

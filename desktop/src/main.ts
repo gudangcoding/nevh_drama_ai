@@ -40,7 +40,7 @@ let currentDataDir = ''
 // tidak bergantung pada nama package.json (setelah打包 nama yang sama dengan dev会导致 single instance lock salah kunci)
 app.setPath('userData', path.join(
   app.getPath('appData'),
-  app.isPackaged ? 'HuobaoDrama' : 'HuobaoDrama-Dev',
+  app.isPackaged ? 'Nevh Drama' : 'Nevh Drama-Dev',
 ))
 
 if (!app.requestSingleInstanceLock()) {
@@ -191,7 +191,7 @@ function startBackend(): void {
     backend = null
     // Exit selama migrasi/restart adalah perilaku yang diharapkan, dikelola oleh pemanggil
     if (!quitting && !backendRestarting) {
-      dialog.showErrorBox('Huobao Drama', `Layanan latar belakang keluar secara tidak terduga (code ${code}), aplikasi akan ditutup. Silakan mulai ulang.`)
+      dialog.showErrorBox('Nevh Drama', `Layanan latar belakang keluar secara tidak terduga (code ${code}), aplikasi akan ditutup. Silakan mulai ulang.`)
       app.quit()
     }
   })
@@ -203,7 +203,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    title: 'Huobao Drama',
+    title: 'Nevh Drama',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -262,7 +262,7 @@ async function bootstrap() {
     await createWindow()
   } catch (err) {
     console.error('[main] Startup gagal:', err)
-    dialog.showErrorBox('Huobao Drama', `Startup gagal:\n${(err as Error)?.message || err}`)
+    dialog.showErrorBox('Nevh Drama', `Startup gagal:\n${(err as Error)?.message || err}`)
     app.quit()
   }
 }

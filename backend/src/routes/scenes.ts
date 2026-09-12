@@ -6,14 +6,16 @@ import { generateImage } from '../services/generation.js'
 import { getDramaStylePrompt } from '../services/style-preset.js'
 import { ensureSceneFinalPrompt } from '../services/final-prompt.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { assertDramaAccess, assertSceneAccess } from '../services/ownership.js'
 
 const app = new Hono()
 
 // POST /scenes — menambahkan adegan secara manual (saat episode_id diberikan, akan dikaitkan ke episode tersebut)
 app.post('/', async (c) => {
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
-  if (!body.location?.trim()) return badRequest(c, '地点必填')
+  if (!body.drama_id) return badRequest(c, 'drama_id wajib diisi')
+  await assertDramaAccess(c, Number(body.drama_id))
+  if (!body.location?.trim()) return badRequest(c, 'Lokasi wajib diisi')
   const ts = now()
   const res = await db.insert(schema.scenes).values({
     dramaId: body.drama_id,
@@ -41,6 +43,7 @@ app.post('/', async (c) => {
 // PUT /scenes/:id
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertSceneAccess(c, id)
   const body = await c.req.json()
   const updates: Record<string, any> = { updatedAt: now() }
   if (body.location !== undefined) updates.location = body.location
@@ -66,12 +69,14 @@ app.put('/:id', async (c) => {
 // POST /scenes/:id/generate-image
 app.post('/:id/generate-image', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertSceneAccess(c, id)
   const body = await c.req.json()
   const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, id))
-  if (!scene) return badRequest(c, '场景不存在')
-  if (!body.episode_id) return badRequest(c, 'episode_id 必填')
+  if (!scene) return badRequest(c, 'Scene tidak ditemukan')
+  if (!body.episode_id) return badRequest(c, 'episode_id wajib diisi')
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
-  if (!ep) return badRequest(c, '剧集不存在')
+  if (!ep) return badRequest(c, 'Episode tidak ditemukan')
+  if (ep.dramaId !== scene.dramaId) return badRequest(c, 'Scene dan episode tidak berada di drama yang sama')
 
   const stylePrompt = await getDramaStylePrompt(scene.dramaId)
   const finalPrompt = await ensureSceneFinalPrompt(scene, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
@@ -80,9 +85,9 @@ app.post('/:id/generate-image', async (c) => {
     stylePrompt || '',
     scene.location,
     scene.time || '',
-    scene.prompt || '高质量场景',
-    scene.lighting || '电影感光影',
-    '画面中没有任何人物，空场景，只有场景本身',
+    scene.prompt || 'high quality scene',
+    scene.lighting || 'cinematic lighting',
+    'no characters in the frame, empty scene, only the location itself',
   ].filter(Boolean).join(', ')
   try {
     logTaskStart('SceneImage', 'generate', { sceneId: id, episodeId: ep.id, dramaId: scene.dramaId, location: scene.location })
@@ -100,19 +105,21 @@ app.post('/:id/generate-image', async (c) => {
 // POST /scenes/:id/generate-prompt — buat ulang/generate ulang final prompt sudut pandang tetap (tanpa membuat gambar)
 app.post('/:id/generate-prompt', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertSceneAccess(c, id)
   const body = await c.req.json()
   const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, id))
-  if (!scene) return badRequest(c, '场景不存在')
-  if (!body.episode_id) return badRequest(c, 'episode_id 必填')
+  if (!scene) return badRequest(c, 'Scene tidak ditemukan')
+  if (!body.episode_id) return badRequest(c, 'episode_id wajib diisi')
 
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
-  if (!ep) return badRequest(c, '剧集不存在')
+  if (!ep) return badRequest(c, 'Episode tidak ditemukan')
+  if (ep.dramaId !== scene.dramaId) return badRequest(c, 'Scene dan episode tidak berada di drama yang sama')
 
   logTaskStart('FinalPrompt', 'scene-generate', { sceneId: id, episodeId: ep.id, force: !!body.force })
   const finalPrompt = await ensureSceneFinalPrompt(scene, ep.id, !!body.force, { model: body.text_model, configId: body.text_config_id ?? undefined })
   if (!finalPrompt) {
     logTaskError('FinalPrompt', 'scene-generate', { sceneId: id, error: 'agent returned empty prompt' })
-    return badRequest(c, '最终提示词生成失败，请重试')
+    return badRequest(c, 'Gagal membuat prompt akhir, silakan coba lagi')
   }
   logTaskSuccess('FinalPrompt', 'scene-generate', { sceneId: id })
   return success(c, { final_prompt: finalPrompt })
@@ -121,6 +128,7 @@ app.post('/:id/generate-prompt', async (c) => {
 // DELETE /scenes/:id — soft delete (mempertahankan catatan pembuatan riwayat)
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertSceneAccess(c, id)
   await db.update(schema.scenes).set({ deletedAt: now(), updatedAt: now() }).where(eq(schema.scenes.id, id))
   return success(c)
 })

@@ -266,7 +266,7 @@ export async function runMigration(deps: MigrationDeps, opts: MigrateOptions): P
         deps.markRestartingFalse()
       } catch (recoverErr) {
         console.error('[migrate] Pemulihan backend gagal:', recoverErr)
-        dialog.showErrorBox('Huobao Drama', `Migrasi penyimpanan gagal dan pemulihan layanan latar belakang gagal, aplikasi akan ditutup.\nError asli: ${message}`)
+        dialog.showErrorBox('Nevh Drama', `Migrasi penyimpanan gagal dan pemulihan layanan latar belakang gagal, aplikasi akan ditutup.\nError asli: ${message}`)
         app.quit()
         return
       }

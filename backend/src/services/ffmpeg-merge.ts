@@ -12,6 +12,7 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from '../utils/response.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { translateApiError } from '../utils/error-translate.js'
 import { extractVideoPoster } from '../utils/video-poster.js'
 import { ffmpeg, checkFfmpegSuite } from '../utils/ffmpeg.js'
 import { DATA_ROOT, STORAGE_ROOT } from '../utils/paths.js'
@@ -99,7 +100,7 @@ export async function mergeEpisodeVideos(
     logTaskError('MergeTask', 'episode-merge', { mergeId, episodeId, error: err.message })
     console.error(`[Merge] Failed:`, err)
     await db.update(schema.videoMerges)
-      .set({ status: 'failed', errorMsg: err.message })
+      .set({ status: 'failed', errorMsg: translateApiError(err.message) })
       .where(eq(schema.videoMerges.id, mergeId))
   })
 

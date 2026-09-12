@@ -33,6 +33,128 @@
       </button>
     </div>
 
+    <!-- Panel produksi otomatis lintas-episode -->
+    <div class="prod-panel card">
+      <div class="prod-head">
+        <div class="prod-head-copy">
+          <div class="prod-title-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <h2 class="prod-title">{{ t('detail.production.title') }}</h2>
+            <span v-if="production" :class="['tag', 'prod-status', `prod-st-${production.status}`]">
+              <span class="status-dot" :class="prodStatusDotCls(production)"></span>
+              {{ prodStatusLabel(production) }}
+            </span>
+          </div>
+          <p class="prod-desc">
+            <template v-if="production">{{ t('detail.production.phaseLabel') }}: <b>{{ prodPhaseLabel(production) }}</b><span v-if="production.stage_detail"> — {{ production.stage_detail }}</span></template>
+            <template v-else>{{ t('detail.production.desc') }}</template>
+          </p>
+        </div>
+      </div>
+
+      <!-- Mulai produksi (belum ada job) -->
+      <div v-if="!production" class="prod-body">
+        <div v-if="drama.synopsis" class="prod-info">
+          {{ t('detail.production.readyInfo', { total: localTotalEpisodes }) }}
+        </div>
+        <div v-else class="prod-inputs">
+          <label class="field prod-field">
+            <span class="field-label">{{ t('detail.production.synopsis') }}</span>
+            <textarea v-model="localSynopsis" class="input textarea" rows="4" :placeholder="t('detail.production.synopsisPlaceholder')"></textarea>
+          </label>
+          <label class="field prod-field prod-field-num">
+            <span class="field-label">{{ t('detail.production.totalEpisodes') }}</span>
+            <input v-model.number="localTotalEpisodes" type="number" class="input" min="1" max="200" />
+          </label>
+        </div>
+        <div class="prod-actions">
+          <button class="btn btn-primary" :disabled="productionBusy" @click="startProdAuto">
+            <Loader2 v-if="productionBusy" :size="14" class="animate-spin" />
+            {{ t('detail.production.start') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Menunggu persetujuan -->
+      <div v-else-if="production.status === 'waiting_approval'" class="prod-body">
+        <div class="prod-info prod-approval">
+          <span class="prod-approval-icon">👀</span>
+          <div>
+            <p class="prod-approval-title">{{ t('detail.production.approvalTitle') }}</p>
+            <p class="prod-approval-desc">{{ t('detail.production.approvalDesc', { total: production.total_episodes }) }}</p>
+          </div>
+        </div>
+        <div class="prod-actions">
+          <button class="btn btn-primary" :disabled="productionBusy" @click="approveProd">
+            <Loader2 v-if="productionBusy" :size="14" class="animate-spin" />
+            {{ t('detail.production.approve') }}
+          </button>
+          <button class="btn" :disabled="productionBusy" @click="cancelProd">{{ t('detail.production.cancel') }}</button>
+        </div>
+      </div>
+
+      <!-- Sedang berjalan -->
+      <div v-else-if="production.status === 'running'" class="prod-body">
+        <div class="prod-progress">
+          <div class="prod-progress-track">
+            <div class="prod-progress-bar" :style="{ width: `${prodPercent(production)}%` }"></div>
+          </div>
+          <span class="prod-percent">{{ prodPercent(production) }}%</span>
+        </div>
+        <p v-if="production.stage_detail" class="prod-desc">{{ production.stage_detail }}</p>
+        <div class="prod-actions">
+          <button class="btn" :disabled="productionBusy" @click="cancelProd">{{ t('detail.production.cancel') }}</button>
+        </div>
+      </div>
+
+      <!-- Gagal -->
+      <div v-else-if="production.status === 'failed'" class="prod-body">
+        <div class="prod-error">
+          <p class="prod-error-title">{{ t('detail.production.failedTitle') }}</p>
+          <p class="prod-error-desc">{{ production.error_msg }}</p>
+        </div>
+        <div class="prod-actions">
+          <button class="btn btn-primary" :disabled="productionBusy" @click="resumeProd">
+            <Loader2 v-if="productionBusy" :size="14" class="animate-spin" />
+            {{ t('detail.production.resume') }}
+          </button>
+          <button class="btn" :disabled="productionBusy" @click="cancelProd">{{ t('detail.production.cancel') }}</button>
+        </div>
+      </div>
+
+      <!-- Terputus -->
+      <div v-else-if="production.status === 'interrupted'" class="prod-body">
+        <div class="prod-info">
+          {{ t('detail.production.interruptedInfo') }}
+        </div>
+        <div class="prod-actions">
+          <button class="btn btn-primary" :disabled="productionBusy" @click="resumeProd">
+            <Loader2 v-if="productionBusy" :size="14" class="animate-spin" />
+            {{ t('detail.production.resume') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Dibatalkan -->
+      <div v-else-if="production.status === 'cancelled'" class="prod-body">
+        <div class="prod-info">{{ t('detail.production.cancelledInfo') }}</div>
+        <div class="prod-actions">
+          <button class="btn btn-primary" :disabled="productionBusy" @click="resumeProd">
+            <Loader2 v-if="productionBusy" :size="14" class="animate-spin" />
+            {{ t('detail.production.resume') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Selesai -->
+      <div v-else class="prod-body">
+        <div class="prod-info prod-done">
+          <span class="prod-done-icon">✅</span>
+          <span>{{ t('detail.production.doneInfo') }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Tab utama: daftar episode / perpustakaan aset -->
     <nav class="page-tabs">
       <button type="button" :class="['tab-btn', { on: activeTab === 'episodes' }]" @click="activeTab = 'episodes'">
@@ -565,8 +687,9 @@
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI } from '~/composables/useApi'
+import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI, productionAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
+import { Loader2 } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
 
@@ -641,11 +764,140 @@ async function setEpisodeStatus(ep, status) {
 
 async function load() {
   try {
-    drama.value = await dramaAPI.get(dramaId)
+    const d = await dramaAPI.get(dramaId)
+    drama.value = d
+    if (!localSynopsis && d.synopsis) localSynopsis.value = d.synopsis
+    localTotalEpisodes.value = Number(d.total_episodes || d.totalEpisodes || 1)
   } catch (e) {
     toastError(e)
   }
 }
+
+// ─── Produksi otomatis lintas-episode ───────────────────────────────────────
+const production = ref(null)
+const productionBusy = ref(false)
+const productionTimer = ref(null)
+const localSynopsis = ref('')
+const localTotalEpisodes = ref(1)
+
+const phaseLabels = {
+  scripts: () => t('detail.production.phase.scripts'),
+  assets: () => t('detail.production.phase.assets'),
+  asset_images: () => t('detail.production.phase.assetImages'),
+  storyboards: () => t('detail.production.phase.storyboards'),
+  composed_images: () => t('detail.production.phase.composedImages'),
+  waiting_approval: () => t('detail.production.phase.waitingApproval'),
+  videos: () => t('detail.production.phase.videos'),
+  merging: () => t('detail.production.phase.merging'),
+}
+const statusLabels = {
+  running: () => t('detail.production.status.running'),
+  waiting_approval: () => t('detail.production.status.waitingApproval'),
+  completed: () => t('detail.production.status.completed'),
+  failed: () => t('detail.production.status.failed'),
+  cancelled: () => t('detail.production.status.cancelled'),
+  interrupted: () => t('detail.production.status.interrupted'),
+}
+
+function prodPhaseLabel(p) {
+  return phaseLabels[p?.phase] ? phaseLabels[p.phase]() : p?.phase || '-'
+}
+function prodStatusLabel(p) {
+  return statusLabels[p?.status] ? statusLabels[p.status]() : p?.status || '-'
+}
+function prodStatusDotCls(p) {
+  if (p?.status === 'completed') return 'dot-done'
+  if (['failed', 'cancelled'].includes(p?.status)) return 'dot-error'
+  if (['running', 'waiting_approval'].includes(p?.status)) return 'dot-active'
+  return 'dot-pending'
+}
+function prodPercent(p) {
+  return Math.min(100, Math.max(0, Number(p?.progress?.percent) || 0))
+}
+function isProdActive() {
+  return ['running', 'waiting_approval'].includes(production.value?.status)
+}
+function canStartProduction() {
+  return !production.value || ['completed', 'failed', 'cancelled', 'interrupted'].includes(production.value.status)
+}
+function hasProductionError() {
+  return ['failed'].includes(production.value?.status)
+}
+
+async function refreshProduction() {
+  try {
+    const res = await productionAPI.status(dramaId)
+    production.value = res?.production || null
+    if (res?.production && !['running', 'waiting_approval'].includes(res.production.status)) stopProductionPolling()
+  } catch (e) {
+    // Job belum ada → null; error lain diabaikan
+  }
+}
+
+function startProductionPolling() {
+  stopProductionPolling()
+  productionTimer.value = setInterval(refreshProduction, 5000)
+}
+function stopProductionPolling() {
+  if (productionTimer.value) {
+    clearInterval(productionTimer.value)
+    productionTimer.value = null
+  }
+}
+
+function watchProductionStatus(p) {
+  if (p?.status === 'running') startProductionPolling()
+  else stopProductionPolling()
+}
+
+async function runProductionAction(fn, successMsg) {
+  productionBusy.value = true
+  try {
+    const res = await fn()
+    production.value = res?.production || production.value
+    if (successMsg) toast.success(successMsg)
+    watchProductionStatus(production.value)
+    load()
+  } catch (e) {
+    toastError(e)
+  } finally {
+    productionBusy.value = false
+  }
+}
+
+async function startProdAuto() {
+  if (!localSynopsis.value.trim()) {
+    toast.error(t('detail.production.needSynopsis'))
+    return
+  }
+  productionBusy.value = true
+  try {
+    await dramaAPI.update(dramaId, { synopsis: localSynopsis.value.trim(), total_episodes: Math.max(1, localTotalEpisodes.value || 1) })
+    const res = await productionAPI.start(dramaId, {})
+    production.value = res?.production || production.value
+    toast.success(t('detail.production.started'))
+    watchProductionStatus(production.value)
+    load()
+  } catch (e) {
+    toastError(e)
+  } finally {
+    productionBusy.value = false
+  }
+}
+
+async function approveProd() {
+  await runProductionAction(() => productionAPI.approve(dramaId), t('detail.production.approved'))
+}
+
+async function cancelProd() {
+  await runProductionAction(() => productionAPI.cancel(dramaId), t('detail.production.cancelled'))
+}
+
+async function resumeProd() {
+  await runProductionAction(() => productionAPI.resume(dramaId), t('detail.production.resumed'))
+}
+
+onUnmounted(stopProductionPolling)
 
 function openAddEpisode() {
   newEpisodeTitle.value = ''
@@ -914,7 +1166,11 @@ async function saveEdit() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  await refreshProduction()
+  watchProductionStatus(production.value)
+})
 </script>
 
 <style scoped>
@@ -936,6 +1192,58 @@ onMounted(load)
 }
 .head-info { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .head-action { flex-shrink: 0; }
+
+/* Panel produksi otomatis */
+.prod-panel {
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 14px;
+}
+.prod-head { display: flex; align-items: flex-start; gap: 12px; }
+.prod-head-copy { flex: 1; min-width: 0; }
+.prod-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.prod-title-row > svg { color: var(--accent); flex-shrink: 0; }
+.prod-title { font-size: 14px; font-weight: 700; margin: 0; }
+.prod-desc { margin: 4px 0 0; font-size: 12.5px; color: var(--text-2); line-height: 1.6; }
+.prod-status { flex-shrink: 0; }
+.prod-st-running, .prod-st-waiting_approval { color: var(--text-0); }
+.prod-st-completed { color: var(--green-1, #22c55e); }
+.prod-st-failed, .prod-st-cancelled { color: var(--danger, #ef4444); }
+.prod-st-interrupted { color: var(--amber, #f59e0b); }
+.prod-body { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.prod-info {
+  font-size: 13px; color: var(--text-2);
+  background: var(--bg-sub); border: 1px dashed var(--border);
+  border-radius: var(--radius-md); padding: 10px 14px; line-height: 1.6;
+}
+.prod-approval { display: flex; gap: 12px; align-items: flex-start; }
+.prod-approval-icon { font-size: 22px; line-height: 1; }
+.prod-approval-title { margin: 0; font-weight: 700; color: var(--text-0); font-size: 13.5px; }
+.prod-approval-desc { margin: 4px 0 0; font-size: 12.5px; color: var(--text-2); }
+.prod-done { display: flex; align-items: center; gap: 10px; border-style: solid; border-color: rgba(34,197,94,.35); color: var(--green-1, #22c55e); }
+.prod-done-icon { font-size: 18px; line-height: 1; }
+.prod-error {
+  font-size: 13px; color: var(--danger, #ef4444);
+  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.3);
+  border-radius: var(--radius-md); padding: 10px 14px;
+}
+.prod-error-title { margin: 0; font-weight: 700; font-size: 13.5px; }
+.prod-error-desc { margin: 4px 0 0; font-size: 12.5px; color: var(--text-2); line-height: 1.6; word-break: break-word; }
+.prod-progress { display: flex; align-items: center; gap: 12px; }
+.prod-progress-track {
+  flex: 1; height: 8px; border-radius: 99px;
+  background: var(--overlay-track); overflow: hidden;
+}
+.prod-progress-bar {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2, var(--accent)));
+  transition: width .5s var(--ease-out);
+}
+.prod-percent { font-size: 12.5px; font-weight: 700; color: var(--text-1); min-width: 42px; text-align: right; }
+.prod-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.prod-inputs { display: flex; gap: 14px; flex-wrap: wrap; }
+.prod-field { flex: 1 1 260px; }
+.prod-field-num { flex: 0 1 140px; }
 
 .back-btn {
   width: 30px; height: 30px; flex-shrink: 0;

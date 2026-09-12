@@ -27,7 +27,7 @@ test('volcengine video adapter only supports Seedance 2.0 models and reference m
 
   // 素材上限 9/3/3、音频需视觉素材约束、至少一个素材或 prompt
   assert.match(adapter, /REF_LIMITS = \{ images: 9, videos: 3, audios: 3 \}/)
-  assert.match(adapter, /参考音频需要至少 1 个参考图片或视频/)
+  assert.match(adapter, /Audio referensi membutuhkan minimal 1 gambar atau video referensi/)
   assert.match(adapter, /多模态参考模式需要至少一个参考素材或 prompt/)
 
   // generate_audio 可配置（默认开），时长支持 4-15 秒；分辨率随集固定（480p/720p，默认 720p）
@@ -59,7 +59,7 @@ test('video resolution is fixed per episode, editable, and locked into video tas
   assert.match(episodes, /\['480p', '720p', '1080p'\]\.includes\(body\.resolution\)/)
   // PUT 可修改，白名单校验
   assert.match(episodes, /'status', 'resolution'\]/)
-  assert.match(episodes, /resolution 只支持 480p \/ 720p/)
+  assert.match(episodes, /resolution hanya mendukung 480p \/ 720p/)
   // 视频任务锁定集的分辨率（优先于请求体）
   assert.match(tasks, /episodeResolution = ep\.resolution/)
   assert.match(tasks, /resolution: episodeResolution \|\| videoBody!\.resolution/)
@@ -83,7 +83,7 @@ test('tasks route validates reference-mode requirements for video tasks', () => 
   const route = read('src/routes/tasks.ts')
 
   // 统一任务入口：type 分派 image/video
-  assert.match(route, /type 必须为 image 或 video/)
+  assert.match(route, /type harus image atau video/)
   assert.match(route, /generateImage\(\{/)
   assert.match(route, /generateVideo\(\{/)
 
@@ -94,9 +94,9 @@ test('tasks route validates reference-mode requirements for video tasks', () => 
   // Wan 3.0 官方入参兼容层会把 input.media 归一到 first_frame_url/last_frame_url 等扁平字段
 
   // 多模态参考校验并固定 reference 模式
-  assert.match(route, /参考素材超限：图片≤9、视频≤3、音频≤3/)
-  assert.match(route, /参考音频需要至少 1 个参考图片或视频/)
-  assert.match(route, /视频生成需要至少一个参考素材或 prompt/)
+  assert.match(route, /Batas media referensi terlampaui: gambar≤9, video≤3, audio≤3/)
+  assert.match(route, /Audio referensi membutuhkan minimal 1 gambar atau video referensi/)
+  assert.match(route, /Pembuatan video membutuhkan minimal satu media referensi atau prompt/)
   assert.match(route, /referenceMode: 'reference'/)
   assert.match(route, /referenceVideoUrls: videoBody!\.reference_video_urls/)
   assert.match(route, /referenceAudioUrls: videoBody!\.reference_audio_urls/)

@@ -6,6 +6,7 @@
 import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { translateApiError } from '../utils/error-translate.js'
 
 export type ExtractTarget = 'characters' | 'scenes' | 'props'
 export const EXTRACT_TARGETS: ExtractTarget[] = ['characters', 'scenes', 'props']
@@ -75,7 +76,7 @@ export function startExtraction(episodeId: number, dramaId: number, target: Extr
     .catch((err: any) => {
       task.status = 'error'
       task.finished_at = new Date().toISOString()
-      task.error = err?.message || 'Ekstraksi gagal'
+      task.error = translateApiError(err?.message || 'Ekstraksi gagal')
       logTaskError('Extract', target, { episodeId, error: err?.message })
     })
   return true

@@ -6,6 +6,16 @@ import { generateImage, generateVideo } from '../services/generation.js'
 import { getActiveConfig, getConfigById } from '../services/ai.js'
 import { getDramaStylePrompt } from '../services/style-preset.js'
 import { logTaskError, logTaskPayload, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { translateApiError } from '../utils/error-translate.js'
+import {
+  assertDramaAccess,
+  assertStoryboardAccess,
+  assertSceneAccess,
+  assertCharacterAccess,
+  assertPropAccess,
+  assertTaskAccess,
+  filterTasksByOwnership,
+} from '../services/ownership.js'
 
 const app = new Hono()
 
@@ -58,21 +68,21 @@ function normalizeVideoRequest(body: any) {
 
 function validateVideoRequest(body: any, provider?: string): string | null {
   for (const key of ['reference_image_urls', 'reference_video_urls', 'reference_audio_urls']) {
-    if (body[key] !== undefined && !Array.isArray(body[key])) return `${key} 必须为数组`
+    if (body[key] !== undefined && !Array.isArray(body[key])) return `${key} harus berupa array`
     if (Array.isArray(body[key]) && body[key].some((url: any) => typeof url !== 'string' || !url.trim())) {
-      return `${key} 中的每个 URL 都必须为非空字符串`
+      return `${key} harus berisi URL berupa string tidak kosong`
     }
   }
 
   if (body.official_media.length) {
     for (const item of body.official_media) {
       if (!item || typeof item !== 'object' || !WAN_MEDIA_TYPES.has(item.type) || typeof item.url !== 'string' || !item.url.trim()) {
-        return 'input.media 中的每项都必须包含官方支持的 type 和非空 url'
+        return 'Setiap item input.media harus memiliki type dan url yang valid (bukan string kosong)'
       }
     }
     for (const type of ['first_frame', 'last_frame', 'file', 'link']) {
       if (body.official_media.filter((item: any) => item.type === type).length > 1) {
-        return `Wan 3.0 input.media 中 ${type} 最多 1 项`
+        return `Wan 3.0, ${type} di input.media maksimal 1 item`
       }
     }
   }
@@ -86,21 +96,21 @@ function validateVideoRequest(body: any, provider?: string): string | null {
   const link = Boolean(body.link_url)
 
   if ((provider || '').toLowerCase() === 'aliyun') {
-    if (imgs > 10 || vids > 5 || auds > 5) return 'Wan 3.0 参考素材超限：图片≤10、视频≤5、音频≤5'
-    if (last && !first) return 'Wan 3.0 尾帧必须与首帧同时传入'
-    if (file && link) return 'Wan 3.0 file 与 link 不能同时传入'
+    if (imgs > 10 || vids > 5 || auds > 5) return 'Wan 3.0 batas media referensi terlampaui: gambar≤10, video≤5, audio≤5'
+    if (last && !first) return 'Wan 3.0 frame terakhir harus dikirim bersama frame awal'
+    if (file && link) return 'Wan 3.0 file dan link tidak boleh dikirim bersamaan'
     if ((first || last) && (imgs + vids + auds > 0 || file || link)) {
-      return 'Wan 3.0 的 first_frame/last_frame 不能与 reference_image/reference_video/reference_audio/file/link 混用'
+      return 'Wan 3.0 first_frame/last_frame tidak boleh dicampur dengan reference_image/reference_video/reference_audio/file/link'
     }
     const total = imgs + vids + auds + Number(first) + Number(last) + Number(file) + Number(link)
-    if (total > 20) return 'Wan 3.0 input.media 最多 20 项'
+    if (total > 20) return 'Wan 3.0 input.media maksimal 20 item'
   } else {
-    if (imgs > 9 || vids > 3 || auds > 3) return '参考素材超限：图片≤9、视频≤3、音频≤3'
-    if (auds > 0 && imgs + vids === 0) return '参考音频需要至少 1 个参考图片或视频'
+    if (imgs > 9 || vids > 3 || auds > 3) return 'Batas media referensi terlampaui: gambar≤9, video≤3, audio≤3'
+    if (auds > 0 && imgs + vids === 0) return 'Audio referensi membutuhkan minimal 1 gambar atau video referensi'
   }
 
   if (!String(body.prompt || '').trim() && imgs + vids + auds === 0 && !first && !last && !file && !link) {
-    return '视频生成需要至少一个参考素材或 prompt'
+    return 'Pembuatan video membutuhkan minimal satu media referensi atau prompt'
   }
   return null
 }
@@ -109,10 +119,17 @@ function validateVideoRequest(body: any, provider?: string): string | null {
 app.post('/', async (c) => {
   const body = await c.req.json()
   const type = body.type as TaskType
-  if (type !== 'image' && type !== 'video') return badRequest(c, 'type 必须为 image 或 video')
+  if (type !== 'image' && type !== 'video') return badRequest(c, 'type harus image atau video')
+
+  // Tegakkan pemilikan drama sebelum membuat tugas
+  if (body.storyboard_id != null) await assertStoryboardAccess(c, Number(body.storyboard_id))
+  else if (body.scene_id != null) await assertSceneAccess(c, Number(body.scene_id))
+  else if (body.character_id != null) await assertCharacterAccess(c, Number(body.character_id))
+  else if (body.prop_id != null) await assertPropAccess(c, Number(body.prop_id))
+  else if (body.drama_id != null) await assertDramaAccess(c, Number(body.drama_id))
 
   if (type === 'image') {
-    if (!body.prompt) return badRequest(c, '提示词必填')
+    if (!body.prompt) return badRequest(c, 'Prompt wajib diisi')
   }
 
   const videoBody = type === 'video' ? normalizeVideoRequest(body) : null
@@ -199,18 +216,22 @@ app.post('/', async (c) => {
     const [record] = await db.select().from(schema.sysTask)
       .where(eq(schema.sysTask.id, id))
     logTaskSuccess('TaskAPI', 'generate', { taskId: id, type, provider: record?.provider })
-    return created(c, record)
+    const recOut: any = { ...record }
+    if (recOut.errorMsg) recOut.errorMsg = translateApiError(recOut.errorMsg)
+    return created(c, recOut)
   } catch (err: any) {
     logTaskError('TaskAPI', 'generate', { type, error: err.message })
-    return badRequest(c, err.message)
+    return badRequest(c, translateApiError(err.message))
   }
 })
 
 // GET /tasks/:id — poll status tugas
 app.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertTaskAccess(c, id)
   const [row] = await db.select().from(schema.sysTask)
     .where(eq(schema.sysTask.id, id))
+  if (row && row.errorMsg) row.errorMsg = translateApiError(row.errorMsg)
   return success(c, row || null)
 })
 
@@ -226,12 +247,18 @@ app.get('/', async (c) => {
   if (storyboardId) rows = rows.filter(r => r.storyboardId === Number(storyboardId))
   if (dramaId) rows = rows.filter(r => r.dramaId === Number(dramaId))
 
+  rows = await filterTasksByOwnership(c, rows)
+
+  rows.forEach(r => {
+    if (r.errorMsg) r.errorMsg = translateApiError(r.errorMsg)
+  })
   return success(c, rows)
 })
 
 // DELETE /tasks/:id
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertTaskAccess(c, id)
   await db.delete(schema.sysTask).where(eq(schema.sysTask.id, id))
   return success(c)
 })

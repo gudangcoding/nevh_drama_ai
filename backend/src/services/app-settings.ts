@@ -19,12 +19,12 @@ function isContentLanguage(v: unknown): v is ContentLanguage {
   return typeof v === 'string' && (CONTENT_LANGUAGES as readonly string[]).includes(v)
 }
 
-/** Membaca bahasa konten global; fallback ke 'zh' jika tidak disetel atau nilai tidak valid (mempertahankan perilaku default historis) */
+/** Membaca bahasa konten global; fallback ke 'id' jika tidak disetel atau nilai tidak valid (default Bahasa Indonesia) */
 export function getContentLanguage(): ContentLanguage {
   const row = db.select().from(schema.appSettings)
     .where(eq(schema.appSettings.key, CONTENT_LANGUAGE_KEY))
     .get()
-  return isContentLanguage(row?.value) ? row.value : 'zh'
+  return isContentLanguage(row?.value) ? row.value : 'id'
 }
 
 /** Menulis bahasa konten global (upsert) */

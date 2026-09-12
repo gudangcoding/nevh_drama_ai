@@ -23,11 +23,15 @@ import props from './routes/props.js'
 import settings from './routes/settings.js'
 import storage from './routes/storage.js'
 import serverUpdate from './routes/serverUpdate.js'
+import auth from './routes/auth.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
+import { requireAuth } from './middleware/auth.js'
 import { db, schema } from './db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from './utils/response.js'
 import { DATA_ROOT } from './utils/paths.js'
+import { markInterruptedJobs } from './services/production.js'
+import { seedDefaultAdmin, cleanupExpiredSessions } from './services/auth.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '../..')
@@ -50,25 +54,35 @@ app.get('/api/v1/health', (c) => c.json({
 }))
 
 // API routes
+// Rute publik: health + autentikasi (register/login/logout). /auth/me dilindungi internal.
 const api = new Hono()
-api.route('/dramas', dramas)
-api.route('/episodes', episodes)
-api.route('/storyboards', storyboards)
-api.route('/scenes', scenes)
-api.route('/characters', characters)
-api.route('/tasks', tasks)
-api.route('/upload', upload)
-api.route('/ai-configs', aiConfigs)
-api.route('/ai-providers', aiProviders)
-api.route('/style-presets', stylePresets)
-api.route('/prompts', prompts)
-api.route('/agent', agent)
-api.route('/merge', merge)
-api.route('/skills', skills)
-api.route('/props', props)
-api.route('/storage', storage)
-api.route('/settings', settings)
-api.route('/server-update', serverUpdate)
+api.route('/auth', auth)
+
+// Rute terlindungi: semua rute lain memerlukan token login yang valid.
+// Isolasi data (user hanya melihat drama miliknya, admin melihat semua) ditegakkan per-handler
+// melalui services/ownership.ts.
+const protectedApi = new Hono()
+protectedApi.use('*', requireAuth)
+protectedApi.route('/dramas', dramas)
+protectedApi.route('/episodes', episodes)
+protectedApi.route('/storyboards', storyboards)
+protectedApi.route('/scenes', scenes)
+protectedApi.route('/characters', characters)
+protectedApi.route('/tasks', tasks)
+protectedApi.route('/upload', upload)
+protectedApi.route('/ai-configs', aiConfigs)
+protectedApi.route('/ai-providers', aiProviders)
+protectedApi.route('/style-presets', stylePresets)
+protectedApi.route('/prompts', prompts)
+protectedApi.route('/agent', agent)
+protectedApi.route('/merge', merge)
+protectedApi.route('/skills', skills)
+protectedApi.route('/props', props)
+protectedApi.route('/storage', storage)
+protectedApi.route('/settings', settings)
+protectedApi.route('/server-update', serverUpdate)
+
+api.route('/', protectedApi)
 
 app.route('/api/v1', api)
 
@@ -86,17 +100,24 @@ app.use('*', serveStatic({ root: distPath }))
 app.get('*', serveStatic({ root: distPath, path: 'index.html' }))
 
 const port = Number(process.env.PORT || 5679)
-console.log(`🚀 Huobao Drama TS server on http://localhost:${port}`)
+console.log(`🚀 Nevh Drama TS server on http://localhost:${port}`)
 
 // Setelah restart proses, semua thread polling di memori hilang, tugas processing yang tersisa tidak akan pernah selesai,
 // Saat startup ditandai sebagai failed secara seragam, untuk menghindari frontend terus menampilkan "sedang membuat"
 db.update(schema.sysTask)
-  .set({ status: 'failed', errorMsg: '服务重启，生成任务中断，请重试', updatedAt: now() })
+  .set({ status: 'failed', errorMsg: 'Server dimulai ulang, tugas pembuatan terputus, silakan coba lagi', updatedAt: now() })
   .where(eq(schema.sysTask.status, 'processing'))
   .then(res => {
     const affected = res?.changes ?? 0
-    if (affected > 0) console.log(`🔁 已清理 ${affected} 个中断的生成任务`)
+    if (affected > 0) console.log(`🔁 Membersihkan ${affected} tugas pembuatan yang terputus`)
   })
-  .catch(err => console.error('清理中断任务失败:', err?.message))
+  .catch(err => console.error('Gagal membersihkan tugas yang terputus:', err?.message))
+
+// Job produksi lintas-episode yang sedang berjalan saat proses mati dianggap terputus (waiting_approval dipertahankan)
+markInterruptedJobs().catch(err => console.error('Gagal menandai job produksi yang terputus:', err?.message))
+
+// Multi-pengguna: buat akun admin default (admin/admin) + tetapkan drama lama tanpa pemilik ke admin, hapus sesi kedaluwarsa
+seedDefaultAdmin().catch(err => console.error('Gagal menyiapkan akun admin default:', err?.message))
+cleanupExpiredSessions().catch(() => {})
 
 serve({ fetch: app.fetch, port })

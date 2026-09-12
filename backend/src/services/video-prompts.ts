@@ -7,6 +7,7 @@ import { db, schema } from '../db/index.js'
 import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { translateApiError } from '../utils/error-translate.js'
 
 export interface VideoPromptBatchStatus {
   status: 'running' | 'done' | 'error'
@@ -97,7 +98,7 @@ Panggil read_storyboard_context terlebih dahulu untuk mendapatkan deskripsi visu
     .catch((err: any) => {
       task.status = 'error'
       task.finished_at = new Date().toISOString()
-      task.error = err?.message || 'Pembuatan massal gagal'
+      task.error = translateApiError(err?.message || 'Pembuatan massal gagal')
       logTaskError('VideoPrompt', 'batch', { episodeId, error: err?.message })
     })
   return { started: true, total: pending.length }

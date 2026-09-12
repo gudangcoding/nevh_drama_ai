@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "Huobao Shorts",
+    "title": "Nevh Drama",
     "updateAvailable": "New version v{version} is available. Upgrade in Settings → About."
   },
   "common": {
@@ -269,11 +269,11 @@
     "ai": {
       "title": "AI Service Configs",
       "desc": "Start with a recommended template, then fine-tune per service type. The workbench locks the chosen image and video capabilities when creating an episode.",
-      "quickTitle": "Huobao Quick Config",
+      "quickTitle": "Nevh Quick Config",
       "recommended": "Recommended",
-      "quickDesc": "Enter a Huobao API Key to write three recommended configs (text, image, video) at once.",
+      "quickDesc": "Enter a Nevh API Key to write three recommended configs (text, image, video) at once.",
       "getKey": "Get a key at api.firemux.com",
-      "applyQuick": "Apply Huobao Config",
+      "applyQuick": "Apply Nevh Config",
       "manualTitle": "Manual Templates",
       "manualDesc": "Pick a service type, then fill the recommended `provider / base URL / model` from a template.",
       "activeCount": "{n} active",
@@ -283,8 +283,8 @@
       "setDefault": "Set as default model for this type",
       "noBaseUrl": "Base URL not set",
       "test": "Test",
-      "apiKeyRequired": "Please enter a Huobao API Key",
-      "quickApplied": "Huobao quick config written",
+      "apiKeyRequired": "Please enter a Nevh API Key",
+      "quickApplied": "Nevh quick config written",
       "defaultModelSwitched": "Default {type} model switched to {model}",
       "meta": {
         "text": "Text capabilities: script rewriting, asset extraction, storyboard breaking",
@@ -388,7 +388,7 @@
       "addTitle": "Add {type} Service",
       "sub": "Pick a template first — a sensible `Base URL` and default models will be filled in automatically.",
       "name": "Config name",
-      "namePlaceholder": "e.g. Huobao default image service",
+      "namePlaceholder": "e.g. Nevh default image service",
       "provider": "Provider",
       "providerPlaceholder": "Select a provider",
       "priority": "Priority",
@@ -878,7 +878,7 @@
     "helpTitle": "Guide",
     "index": {
       "welcome": {
-        "title": "👋 Welcome to Huobao Drama",
+        "title": "👋 Welcome to Nevh Drama",
         "desc": "Novel → script → assets → storyboard → video → final cut, all in one place. Configure AI services first, then create your first project."
       },
       "create": {
@@ -887,13 +887,13 @@
       },
       "settings": {
         "title": "Step 1 · Configure AI services",
-        "desc": "Every AI feature needs this first. Open Settings and paste a Huobao API Key to set up text/image/video in one click."
+        "desc": "Every AI feature needs this first. Open Settings and paste a Nevh API Key to set up text/image/video in one click."
       }
     },
     "settings": {
       "quick": {
         "title": "Fastest setup: Quick Setup",
-        "desc": "Paste a Huobao API Key to write the three recommended configs (text/image/video) at once, with connectivity testing."
+        "desc": "Paste a Nevh API Key to write the three recommended configs (text/image/video) at once, with connectivity testing."
       },
       "nav": {
         "title": "Everything lives here",
@@ -922,5 +922,33 @@
         "desc": "Click this \"?\" button to replay this page's guide. Happy creating!"
       }
     }
+  },
+  "auth": {
+    "subtitle": "AI Drama Producer",
+    "registerTitle": "Create New Account",
+    "registerSubtitle": "Start building your own AI drama",
+    "username": "Username",
+    "usernamePlaceholder": "Enter username",
+    "usernameHint": "3–32 chars, letters/numbers/_.-",
+    "password": "Password",
+    "passwordPlaceholder": "Enter password",
+    "passwordHint": "Minimum 6 characters",
+    "confirmPassword": "Confirm Password",
+    "confirmPasswordPlaceholder": "Repeat password",
+    "fillAllFields": "Please fill in all fields",
+    "passwordMismatch": "Passwords do not match",
+    "login": "Log In",
+    "loggingIn": "Logging in...",
+    "register": "Sign Up",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "loginSuccess": "Logged in successfully",
+    "loginFailed": "Login failed, please try again",
+    "registerSuccess": "Account created successfully",
+    "registerFailed": "Failed to create account, please try again",
+    "creatingAccount": "Creating account...",
+    "roleAdmin": "Admin",
+    "roleUser": "User",
+    "logout": "Log Out"
   }
 }

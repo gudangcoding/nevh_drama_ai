@@ -14,9 +14,14 @@ import MigrateOverlay from '~/components/MigrateOverlay.vue'
 import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
 import { useTheme } from '~/composables/useTheme'
+import { useAuth } from '~/composables/useAuth'
 
 const { t } = useI18n()
 const { resolvedTheme } = useTheme()
+
+// Pulihkan sesi login setelah muat ulang halaman (validasi token via /auth/me)
+const { restoreSession } = useAuth()
+onMounted(() => { restoreSession() })
 
 // Judul dokumen responsif ( judul statis nuxt.config.ts hanya untuk SSR/cadangan)
 useHead(() => ({ title: t('app.title') }))

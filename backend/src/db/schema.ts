@@ -5,10 +5,28 @@
  */
 import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core'
 
+export const users = sqliteTable('users', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  username: text('username').notNull().unique(),
+  role: text('role').notNull().default('user'),
+  passwordHash: text('password_hash').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+export const sessions = sqliteTable('sessions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  token: text('token').notNull().unique(),
+  expiresAt: text('expires_at').notNull(),
+  createdAt: text('created_at').notNull(),
+})
+
 export const dramas = sqliteTable('dramas', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   title: text('title').notNull(),
   description: text('description'),
+  synopsis: text('synopsis'),
   genre: text('genre'),
   style: text('style').default('3d'),
   aspectRatio: text('aspect_ratio').default('16:9'),
@@ -18,6 +36,7 @@ export const dramas = sqliteTable('dramas', {
   thumbnail: text('thumbnail'),
   tags: text('tags'),
   metadata: text('metadata'),
+  userId: integer('user_id'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),
@@ -287,5 +306,23 @@ export const assets = sqliteTable('assets', {
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+// Job produksi otomatis lintas-episode: sinopsis → skrip → aset+gambar → persetujuan → video → merge
+export const productionJobs = sqliteTable('production_jobs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dramaId: integer('drama_id').notNull(),
+  totalEpisodes: integer('total_episodes').notNull(),
+  // scripts → assets → asset_images → storyboards → composed_images → waiting_approval → videos → merging
+  phase: text('phase').notNull().default('scripts'),
+  // running | waiting_approval | completed | failed | cancelled | interrupted
+  status: text('status').notNull().default('running'),
+  stageDetail: text('stage_detail'),
+  // { text_config_id, text_model, image_config_id, video_config_id, episode_resolution }
+  config: text('config'),
+  approvedAt: text('approved_at'),
+  errorMsg: text('error_msg'),
+  createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 })

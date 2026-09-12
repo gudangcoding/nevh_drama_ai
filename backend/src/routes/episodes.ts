@@ -6,19 +6,22 @@ import { toSnakeCaseArray, toSnakeCase } from '../utils/transform.js'
 import { getActiveConfigId } from '../services/ai.js'
 import { EXTRACT_TARGETS, getExtractionStatus, startExtraction, type ExtractTarget } from '../services/extraction.js'
 import { getVideoPromptBatchStatus, startVideoPromptBatch } from '../services/video-prompts.js'
+import { translateApiError } from '../utils/error-translate.js'
+import { assertEpisodeAccess, assertDramaAccess } from '../services/ownership.js'
 
 const app = new Hono()
 
 // POST /episodes — Create a new episode
 app.post('/', async (c) => {
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
+  if (!body.drama_id) return badRequest(c, 'drama_id wajib diisi')
+  await assertDramaAccess(c, Number(body.drama_id))
 
   // Konfigurasi gambar/video: yang diberikan secara eksplisit diprioritaskan, jika tidak ada secara otomatis mengunci konfigurasi resmi tertinggi yang sedang aktif
   const imageConfigId = body.image_config_id ?? await getActiveConfigId('image')
   const videoConfigId = body.video_config_id ?? await getActiveConfigId('video')
-  if (!imageConfigId) return badRequest(c, '未找到启用的图片生成配置，请先在设置中心添加')
-  if (!videoConfigId) return badRequest(c, '未找到启用的视频生成配置，请先在设置中心添加')
+  if (!imageConfigId) return badRequest(c, 'Tidak ditemukan konfigurasi pembuatan gambar yang aktif, silakan tambahkan dulu di Pusat Pengaturan')
+  if (!videoConfigId) return badRequest(c, 'Tidak ditemukan konfigurasi pembuatan video yang aktif, silakan tambahkan dulu di Pusat Pengaturan')
   const ts = now()
 
   // Get next episode number (mengabaikan episode yang sudah dihapus lunak, setelah menghapus episode tengah nomor baru dapat menggunakan kembali nilai maksimum setelah celah yang kosong)
@@ -30,7 +33,7 @@ app.post('/', async (c) => {
   const res = await db.insert(schema.episodes).values({
     dramaId: body.drama_id,
     episodeNumber: nextNum,
-    title: body.title || `第${nextNum}集`,
+    title: body.title || `Episode ${nextNum}`,
     imageConfigId,
     videoConfigId,
     // Resolusi video ditetapkan saat pembuatan episode (480p/720p/1080p), dapat diubah kemudian melalui PUT; setiap adaptor video kemudian memetakan ke level vendor
@@ -54,6 +57,7 @@ app.post('/', async (c) => {
 // PUT /episodes/:id - Update episode fields
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, id)
   const body = await c.req.json()
 
   const allowed = ['content', 'script_content', 'title', 'description', 'status', 'resolution']
@@ -61,9 +65,9 @@ app.put('/:id', async (c) => {
   for (const key of allowed) {
     if (key in body) updates[key] = body[key]
   }
-  if (Object.keys(updates).length === 0) return badRequest(c, '没有可更新的字段')
+  if (Object.keys(updates).length === 0) return badRequest(c, 'Tidak ada field yang dapat diperbarui')
   if ('resolution' in updates && !['480p', '720p', '1080p'].includes(updates.resolution)) {
-    return badRequest(c, 'resolution 只支持 480p / 720p / 1080p')
+    return badRequest(c, 'resolution hanya mendukung 480p / 720p / 1080p')
   }
 
   // Map snake_case to camelCase for drizzle
@@ -82,8 +86,9 @@ app.put('/:id', async (c) => {
 // DELETE /episodes/:id - Soft delete episode (storyboard/catatan pembuatannya tetap tersimpan namun tidak dapat diakses)
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, id)
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
-  if (!ep) return notFound(c, '剧集不存在')
+  if (!ep) return notFound(c, 'Episode tidak ditemukan')
   await db.update(schema.episodes).set({ deletedAt: now(), updatedAt: now() })
     .where(eq(schema.episodes.id, id))
   return success(c)
@@ -92,6 +97,7 @@ app.delete('/:id', async (c) => {
 // GET /episodes/:id/characters — characters linked to this episode
 app.get('/:id/characters', async (c) => {
   const episodeId = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, episodeId)
   const links = await db.select().from(schema.episodeCharacters)
     .where(eq(schema.episodeCharacters.episodeId, episodeId))
   const charIds = links.map(l => l.characterId)
@@ -104,6 +110,7 @@ app.get('/:id/characters', async (c) => {
 // GET /episodes/:id/scenes — scenes linked to this episode
 app.get('/:id/scenes', async (c) => {
   const episodeId = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, episodeId)
   const links = await db.select().from(schema.episodeScenes)
     .where(eq(schema.episodeScenes.episodeId, episodeId))
   const sceneIds = links.map(l => l.sceneId)
@@ -116,6 +123,7 @@ app.get('/:id/scenes', async (c) => {
 // GET /episodes/:id/props — props linked to this episode
 app.get('/:id/props', async (c) => {
   const episodeId = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, episodeId)
   const links = await db.select().from(schema.episodeProps)
     .where(eq(schema.episodeProps.episodeId, episodeId))
   const propIds = links.map(l => l.propId)
@@ -128,11 +136,12 @@ app.get('/:id/props', async (c) => {
 // POST /episodes/:id/extract — ekstrak aset secara asinkron (target: characters | scenes | props), langsung dikembalikan, frontend mem-poll status
 app.post('/:id/extract', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, id)
   const body = await c.req.json()
   const target = body.target as ExtractTarget
-  if (!EXTRACT_TARGETS.includes(target)) return badRequest(c, 'target 必须是 characters / scenes / props')
+  if (!EXTRACT_TARGETS.includes(target)) return badRequest(c, 'target harus characters / scenes / props')
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
-  if (!ep) return notFound(c, '剧集不存在')
+  if (!ep) return notFound(c, 'Episode tidak ditemukan')
   const started = startExtraction(ep.id, ep.dramaId, target, { model: body.model || undefined, configId: body.config_id ?? undefined })
   return success(c, { target, status: 'running', already_running: !started })
 })
@@ -140,15 +149,17 @@ app.post('/:id/extract', async (c) => {
 // GET /episodes/:id/extract-status — query status tugas ekstraksi tiga jenis aset
 app.get('/:id/extract-status', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, id)
   return success(c, getExtractionStatus(id))
 })
 
 // POST /episodes/:id/generate-video-prompts — buat secara asinkron batch untuk storyboard yang kekurangan video prompt (langsung dikembalikan, frontend mem-poll status)
 app.post('/:id/generate-video-prompts', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, id)
   const body = await c.req.json().catch(() => ({}))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
-  if (!ep) return notFound(c, '剧集不存在')
+  if (!ep) return notFound(c, 'Episode tidak ditemukan')
   const storyboardIds = Array.isArray(body.storyboard_ids)
     ? body.storyboard_ids.map(Number).filter((n: number) => Number.isInteger(n) && n > 0)
     : undefined
@@ -161,12 +172,14 @@ app.post('/:id/generate-video-prompts', async (c) => {
 // GET /episodes/:id/video-prompts-status — query status tugas video prompt batch
 app.get('/:id/video-prompts-status', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, id)
   return success(c, getVideoPromptBatchStatus(id))
 })
 
 // GET /episodes/:episode_id/storyboards
 app.get('/:episode_id/storyboards', async (c) => {
   const episodeId = Number(c.req.param('episode_id'))
+  await assertEpisodeAccess(c, episodeId)
   const rows = await db.select().from(schema.storyboards)
     .where(eq(schema.storyboards.episodeId, episodeId))
     .orderBy(schema.storyboards.storyboardNumber)
@@ -217,8 +230,9 @@ app.get('/:episode_id/storyboards', async (c) => {
 // sys_task tidak memiliki episode_id, dikaitkan ke episode saat ini melalui kunci relasi storyboard/scene/character/prop
 app.get('/:id/generation-tasks', async (c) => {
   const episodeId = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, episodeId)
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
-  if (!ep) return notFound(c, '剧集不存在')
+  if (!ep) return notFound(c, 'Episode tidak ditemukan')
 
   const sbs = await db.select().from(schema.storyboards).where(eq(schema.storyboards.episodeId, episodeId))
   const storyboardIds = new Set(sbs.map(s => s.id))
@@ -236,7 +250,7 @@ app.get('/:id/generation-tasks', async (c) => {
   const propIds = new Set(dramaProps.map(p => p.id))
 
   const allTasks = await db.select().from(schema.sysTask).where(eq(schema.sysTask.dramaId, ep.dramaId))
-  const tasks = allTasks
+  const tasksRaw = allTasks
     .filter(t =>
       (t.storyboardId && storyboardIds.has(t.storyboardId)) ||
       (t.sceneId && sceneIds.has(t.sceneId)) ||
@@ -245,10 +259,22 @@ app.get('/:id/generation-tasks', async (c) => {
     )
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
 
-  const merges = (await db.select().from(schema.videoMerges)
+  const tasks = tasksRaw.map((t: any) => {
+    const plain = toSnakeCase(t)
+    plain.error_msg = t.errorMsg ? translateApiError(t.errorMsg) : null
+    return plain
+  })
+
+  const mergesRaw = (await db.select().from(schema.videoMerges)
     .where(and(eq(schema.videoMerges.episodeId, episodeId), isNull(schema.videoMerges.deletedAt))))
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, 20)
+
+  const merges = mergesRaw.map((m) => {
+    const plain = toSnakeCase(m)
+    plain.error_msg = m.errorMsg ? translateApiError(m.errorMsg) : null
+    return plain
+  })
 
   return success(c, {
     tasks: toSnakeCaseArray(tasks),
@@ -258,8 +284,9 @@ app.get('/:id/generation-tasks', async (c) => {
 
 app.get('/:id/pipeline-status', async (c) => {
   const episodeId = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, episodeId)
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
-  if (!ep) return notFound(c, '剧集不存在')
+  if (!ep) return notFound(c, 'Episode tidak ditemukan')
 
   const chars = await db.select().from(schema.characters).where(eq(schema.characters.dramaId, ep.dramaId))
   const scenes = await db.select().from(schema.scenes).where(eq(schema.scenes.dramaId, ep.dramaId))

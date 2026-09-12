@@ -7,10 +7,29 @@
 import type Database from 'better-sqlite3'
 
 export const sqliteSchemaStatements = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    role TEXT NOT NULL DEFAULT 'user',
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id)`,
+
   `CREATE TABLE IF NOT EXISTS dramas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     description TEXT,
+    synopsis TEXT,
     genre TEXT,
     style TEXT DEFAULT '3d',
     aspect_ratio TEXT DEFAULT '16:9',
@@ -294,6 +313,21 @@ export const sqliteSchemaStatements = [
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+
+  `CREATE TABLE IF NOT EXISTS production_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drama_id INTEGER NOT NULL,
+    total_episodes INTEGER NOT NULL,
+    phase TEXT NOT NULL DEFAULT 'scripts',
+    status TEXT NOT NULL DEFAULT 'running',
+    stage_detail TEXT,
+    config TEXT,
+    approved_at TEXT,
+    error_msg TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_production_jobs_drama_id ON production_jobs (drama_id)`,
 ]
 
 /**
@@ -417,11 +451,29 @@ export function initSqliteSchema(sqlite: Database.Database) {
     const legacyPrompt = LEGACY_SEED_PROMPTS[s.value]
     if (legacyPrompt) {
       const res = upgradeSeed.run(s.name, s.prompt, s.description, s.sortOrder, ts, s.value, legacyPrompt)
-      if (res.changes > 0) console.log(`🎨 风格预设「${s.name}」已升级为结构化提示词`)
+      if (res.changes > 0) console.log(`🎨 Preset gaya "${s.name}" telah di-upgrade ke prompt terstruktur`)
     }
   }
   for (const [value, prompt] of Object.entries(REMOVED_SEED_PROMPTS)) {
     const res = removeSeed.run(value, prompt)
-    if (res.changes > 0) console.log(`🗑️ 风格预设「${value}」已下架`)
+    if (res.changes > 0) console.log(`🗑️ Preset gaya "${value}" telah diarsipkan`)
+  }
+
+  // Bahasa konten AI default Bahasa Indonesia untuk instalasi baru/upgrade yang belum pernah menyetel (idempoten)
+  sqlite.prepare(
+    'INSERT INTO app_settings ("key", "value", "updated_at") SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM app_settings WHERE "key" = ?)'
+  ).run('content_language', 'id', new Date().toISOString(), 'content_language')
+
+  // Migrasi DB lama: tambah kolom synopsis pada dramas jika belum ada (SQLite tidak mendukung ADD COLUMN IF NOT EXISTS)
+  const dramaCols = sqlite.prepare('PRAGMA table_info(dramas)').all() as { name: string }[]
+  if (!dramaCols.some(col => col.name === 'synopsis')) {
+    sqlite.exec('ALTER TABLE dramas ADD COLUMN synopsis TEXT')
+    console.log('📚 Kolom "dramas.synopsis" telah ditambahkan (migrasi otomatis)')
+  }
+  // Migrasi DB lama: tambah kolom user_id pada dramas untuk pemilik konten (admin multi-pengguna)
+  const dramaColsV2 = sqlite.prepare('PRAGMA table_info(dramas)').all() as { name: string }[]
+  if (!dramaColsV2.some(col => col.name === 'user_id')) {
+    sqlite.exec('ALTER TABLE dramas ADD COLUMN user_id INTEGER')
+    console.log('👤 Kolom "dramas.user_id" telah ditambahkan (migrasi otomatis)')
   }
 }

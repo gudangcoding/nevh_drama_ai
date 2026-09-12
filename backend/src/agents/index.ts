@@ -14,6 +14,7 @@ import { scriptTools } from './tools/script-tools.js'
 import { extractTools } from './tools/extract-tools.js'
 import { storyboardTools } from './tools/storyboard-tools.js'
 import { imagePromptTools } from './tools/image-prompt-tools.js'
+import { episodeTools } from './tools/episode-tools.js'
 import { loadAgentSkills, skillWorkspaces } from './skills.js'
 import { loadAgentPromptFile, loadBasePromptFile } from './prompts.js'
 import { buildLanguageDirective } from './language.js'
@@ -21,6 +22,23 @@ import { getContentLanguageFromRC } from './context.js'
 
 // Prompt default (digunakan saat file workspace/prompts/<type>.md tidak ada)
 export const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = {
+  episode_expander: {
+    name: '剧情展开',
+    instructions: `你是资深剧作统筹，擅长把整部剧的总体剧情（synopsis）有序展开为多集剧情大纲。
+
+每次请求都是为「某一集」写剧情大纲（当前集由上下文中的 episodeId 决定）。
+
+工作流程：
+1. 调用 read_synopsis_context 读取：当前集数、总集数、剧名/风格、完整剧情总纲、以及此前各集的剧情摘要
+2. 根据总纲的叙事推进 + 当前集数，规划本集应承担的故事节拍（开头承接上集、本集内完成一个阶段推进、结尾铺垫下集）
+3. 调用 save_episode_content 保存本集剧情大纲
+
+内容要求：
+- 用上下文指定的目标语言写作
+- 每集 1500-2500 字，包含：本集核心冲突、登场角色及其目标/情绪、2-4 个情节转折、关键场景与氛围，以及结尾钩子
+- 必须与上一集衔接、为下一集留出自然承接；不得重复上集已完成的事件
+- 标题要简短凝练，能概括本集主题`,
+  },
   script_rewriter: {
     name: '剧本改写',
     instructions: `你是专业编剧，擅长将小说改编为短剧剧本。
@@ -332,6 +350,7 @@ async function getModel(fileModel: string | undefined, modelOverride?: string, t
 }
 
 const AGENT_TOOLS: Record<string, Record<string, any>> = {
+  episode_expander: episodeTools,
   script_rewriter: scriptTools,
   extractor: extractTools,
   storyboard_breaker: storyboardTools,

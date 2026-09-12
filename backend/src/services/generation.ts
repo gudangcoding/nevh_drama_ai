@@ -11,6 +11,7 @@ import { extractVideoPoster } from '../utils/video-poster.js'
 import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import type { AIConfig } from './adapters/types'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
+import { translateApiError } from '../utils/error-translate.js'
 
 type TaskType = 'image' | 'video'
 
@@ -325,9 +326,10 @@ async function markPolling(id: number, taskId: string | undefined) {
 }
 
 async function failTask(id: number, message: string) {
-  logTaskError('SysTask', 'failed', { id, error: message })
+  const translated = translateApiError(message)
+  logTaskError('SysTask', 'failed', { id, error: translated })
   await db.update(schema.sysTask)
-    .set({ status: 'failed', errorMsg: message, updatedAt: now() })
+    .set({ status: 'failed', errorMsg: translated, updatedAt: now() })
     .where(eq(schema.sysTask.id, id))
 }
 

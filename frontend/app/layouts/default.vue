@@ -5,12 +5,12 @@
       <div class="header-left">
         <button class="brand" @click="navigateTo('/')">
           <div class="brand-mark">
-            <img v-if="showBrandImage" :src="brandLogo" alt="Drama Pendek Huobao" class="brand-logo" @error="showBrandImage = false" />
-            <span v-else class="brand-fallback">火</span>
+            <img v-if="showBrandImage" :src="brandLogo" alt="Nevh Drama" class="brand-logo" @error="showBrandImage = false" />
+            <span v-else class="brand-fallback">N</span>
           </div>
           <div class="brand-text">
-            <span class="brand-name">Huobao Drama</span>
-            <span class="brand-sub">Drama Pendek Huobao</span>
+            <span class="brand-name">Nevh Drama</span>
+            <span class="brand-sub">Produser Drama AI</span>
           </div>
         </button>
       </div>
@@ -37,6 +37,16 @@
         >
           <Github :size="15" :stroke-width="1.8" />
         </a>
+        <div v-if="user" class="user-chip" :title="user.username">
+          <span class="user-avatar">{{ user.username.charAt(0).toUpperCase() }}</span>
+          <span class="user-meta">
+            <span class="user-name">{{ user.username }}</span>
+            <span class="user-role" :class="isAdmin ? 'is-admin' : ''">{{ isAdmin ? t('auth.roleAdmin') : t('auth.roleUser') }}</span>
+          </span>
+          <button class="user-logout" :title="t('auth.logout')" @click="onLogout">
+            <LogOut :size="14" :stroke-width="1.8" />
+          </button>
+        </div>
         <ThemeToggle />
         <LocaleSwitcher />
       </div>
@@ -56,14 +66,21 @@
 </template>
 
 <script setup>
-import { LayoutGrid, Settings, TriangleAlert, Github } from 'lucide-vue-next'
+import { LayoutGrid, Settings, TriangleAlert, Github, LogOut } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { aiConfigAPI } from '~/composables/useApi'
-import brandLogo from '~/assets/huobao-logo.png'
+import { useAuth } from '~/composables/useAuth'
+import brandLogo from '~/assets/nevh-logo.png'
 
 const { t, locale } = useI18n()
 const route = useRoute()
 const showBrandImage = ref(true)
+const { user, isAdmin, logout } = useAuth()
+
+async function onLogout() {
+  await logout()
+  await navigateTo('/login')
+}
 
 // Dievaluasi saat render, peralihan bahasa berlaku secara instan (tidak dapat dierasikan sebagai konstanta level modul)
 const SERVICE_TYPE_LABELS = computed(() => ({
@@ -124,14 +141,14 @@ watch(locale, checkAiConfigs)
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 .brand-mark {
-  width: 32px; height: 32px;
+  width: 40px; height: 40px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 9px;
   overflow: hidden;
 }
 .brand-logo {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
   display: block;
 }
@@ -184,6 +201,56 @@ watch(locale, checkAiConfigs)
 }
 .github-link:hover { color: var(--text-0); background: var(--bg-hover); }
 .github-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3.5px var(--button-focus);
+}
+
+/* Chip pengguna (username + role + logout) */
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px 3px 4px;
+  margin-right: 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+}
+.user-avatar {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  font-size: 12px; font-weight: 700;
+  color: var(--on-accent);
+  background: var(--accent-gradient);
+  user-select: none;
+}
+.user-meta {
+  display: flex; flex-direction: column; align-items: flex-start;
+  line-height: 1.15;
+}
+.user-name {
+  font-size: 12px; font-weight: 600; color: var(--text-0);
+  max-width: 110px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.user-role {
+  font-size: 9.5px; font-weight: 600;
+  letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--text-3);
+}
+.user-role.is-admin { color: var(--accent, #f04a24); }
+.user-logout {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  border: none; border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.18s var(--ease-out);
+}
+.user-logout:hover { color: var(--danger, #ef4444); background: var(--bg-hover); }
+.user-logout:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }

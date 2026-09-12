@@ -142,10 +142,10 @@ app.post('/', async (c) => {
 
   // Validasi field yang wajib diisi
   if (!body.service_type || !body.provider) {
-    return badRequest(c, '需要 service_type 与 provider')
+    return badRequest(c, 'service_type dan provider diperlukan')
   }
   if (!isOfficialProvider(body.service_type, body.provider)) {
-    return badRequest(c, '不支持的 service_type/provider')
+    return badRequest(c, 'service_type/provider tidak didukung')
   }
 
   let temperature: number | null = null
@@ -153,7 +153,7 @@ app.post('/', async (c) => {
     try {
       temperature = normalizeTemperature(body.temperature)
     } catch {
-      return badRequest(c, 'temperature 须为 0 到 2 之间的数字')
+      return badRequest(c, 'temperature harus angka antara 0 sampai 2')
     }
   }
 
@@ -181,10 +181,10 @@ app.post('/', async (c) => {
 app.post('/test', async (c) => {
   const body = await c.req.json()
   if (!body.service_type || !body.provider || !body.base_url) {
-    return badRequest(c, '需要 service_type、provider 与 base_url')
+    return badRequest(c, 'service_type, provider, dan base_url diperlukan')
   }
   if (!isOfficialProvider(body.service_type, body.provider)) {
-    return badRequest(c, '不支持的 service_type/provider')
+    return badRequest(c, 'service_type/provider tidak didukung')
   }
 
   const model = Array.isArray(body.model) ? body.model[0] : body.model
@@ -214,8 +214,8 @@ app.post('/test', async (c) => {
       method: probe.method,
       url: probeUrl,
       message: reachable
-        ? (resp.ok ? '端点可访问，认证与路径基本正常' : '端点已响应，请根据状态码判断认证或路径是否正确')
-        : '端点未按预期响应，请检查 Base URL 和代理前缀',
+        ? (resp.ok ? 'Endpoint dapat diakses, autentikasi dan path berfungsi normal' : 'Endpoint merespons, periksa kode status untuk memastikan autentikasi/path benar')
+        : 'Endpoint tidak merespons sesuai harapan, periksa Base URL dan prefiks proxy',
       response_preview: text.slice(0, 240),
     }
     if (reachable) {
@@ -243,7 +243,7 @@ app.post('/test', async (c) => {
       reachable: false,
       method: probe.method,
       url: probeUrl,
-      message: error.message || '请求失败',
+      message: error.message || 'Permintaan gagal',
       response_preview: '',
     })
   }
@@ -267,7 +267,7 @@ app.put('/:id', async (c) => {
   const serviceType = 'service_type' in body ? body.service_type : existing.serviceType
   const provider = 'provider' in body ? body.provider : existing.provider
   if (!isOfficialProvider(serviceType, provider)) {
-    return badRequest(c, '不支持的 service_type/provider')
+    return badRequest(c, 'service_type/provider tidak didukung')
   }
 
   const updates: Record<string, any> = { updatedAt: now() }
@@ -285,7 +285,7 @@ app.put('/:id', async (c) => {
     try {
       temperature = normalizeTemperature(body.temperature)
     } catch {
-      return badRequest(c, 'temperature 须为 0 到 2 之间的数字')
+      return badRequest(c, 'temperature harus angka antara 0 sampai 2')
     }
     // Digabungkan dengan settings yang sudah ada, temperature yang dikosongkan dihapus dari JSON
     let settings: Record<string, any> = {}

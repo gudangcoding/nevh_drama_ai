@@ -1,7 +1,16 @@
 const BASE = '/api/v1'
 
+import { getAuthToken, clearAuthToken } from './useAuthToken'
+
 async function req<T = any>(method: string, path: string, body?: any): Promise<T> {
-  const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json' } }
+  const token = getAuthToken()
+  const opts: RequestInit = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  }
   if (body) opts.body = JSON.stringify(body)
 
   const start = performance.now()
@@ -11,6 +20,15 @@ async function req<T = any>(method: string, path: string, body?: any): Promise<T
     const resp = await fetch(`${BASE}${path}`, opts)
     const json = await resp.json()
     const ms = Math.round(performance.now() - start)
+
+    // Sesi tidak valid/kedaluwarsa: bersihkan token lalu arahkan ke halaman masuk
+    if (resp.status === 401 && !path.startsWith('/auth/login') && !path.startsWith('/auth/register')) {
+      clearAuthToken()
+      if (typeof window !== 'undefined') {
+        const loc = window.location.pathname
+        if (!loc.startsWith('/login') && !loc.startsWith('/register')) window.location.assign('/login')
+      }
+    }
 
     if (!resp.ok || (json.code && json.code >= 400)) {
       console.log(`%c[API] %c${method} ${path} %c${resp.status} %c${ms}ms`, 'color:#888', 'color:#ef5350', 'color:#ef5350;font-weight:bold', 'color:#888', json.message || '')
@@ -41,6 +59,15 @@ export const dramaAPI = {
   create: (data: any) => api.post('/dramas', data),
   update: (id: number, data: any) => api.put(`/dramas/${id}`, data),
   del: (id: number) => api.del(`/dramas/${id}`),
+}
+
+// Produksi otomatis lintas-episode (sinopsis → skrip → aset → gambar → persetujuan → video → merge)
+export const productionAPI = {
+  status: (dramaId: number) => api.get(`/dramas/${dramaId}/production`),
+  start: (dramaId: number, opts?: any) => api.post(`/dramas/${dramaId}/production/start`, opts || {}),
+  approve: (dramaId: number) => api.post(`/dramas/${dramaId}/production/approve`),
+  cancel: (dramaId: number) => api.post(`/dramas/${dramaId}/production/cancel`),
+  resume: (dramaId: number) => api.post(`/dramas/${dramaId}/production/resume`),
 }
 
 export const episodeAPI = {

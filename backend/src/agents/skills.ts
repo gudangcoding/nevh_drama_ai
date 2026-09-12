@@ -28,6 +28,7 @@ const SKILLS_DIR = path.join(WORKSPACE_DIR, 'skills')
 
 /** Direktori skill yang didaftarkan setiap Agent (relatif terhadap workspace/skills/, termasuk direktori sub-spesifikasi; nama direktori harus sesuai Spesifikasi Agent Skills: huruf kecil + tanda hubung) */
 const AGENT_SKILL_MAP: Record<string, string[]> = {
+  episode_expander: [],
   script_rewriter: ['script-rewriter'],
   extractor: ['extractor'],
   storyboard_breaker: ['storyboard-breaker'],
