@@ -1,0 +1,16 @@
+/**
+ * Mengonversi objek camelCase dari Drizzle menjadi snake_case
+ * Menjaga kompatibilitas API frontend (konsisten dengan backend Go lama)
+ */
+export function toSnakeCase(obj: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {}
+  for (const [key, value] of Object.entries(obj)) {
+    const snakeKey = key.replace(/[A-Z]/g, m => '_' + m.toLowerCase())
+    result[snakeKey] = value
+  }
+  return result
+}
+
+export function toSnakeCaseArray(arr: Record<string, any>[]): Record<string, any>[] {
+  return arr.map(toSnakeCase)
+}
