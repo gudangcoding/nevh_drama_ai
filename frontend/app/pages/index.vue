@@ -183,6 +183,14 @@
               <input v-model.number="form.total_episodes" type="number" class="input" min="1" max="200" :placeholder="t('index.createDialog.autoProduce')" />
               <span class="field-hint">{{ t('index.createDialog.totalEpisodesHint') }}</span>
             </label>
+            <div class="field">
+              <span class="field-label">{{ t('index.createDialog.autoVideo') }}</span>
+              <label class="switch-row">
+                <input v-model="form.auto_video" type="checkbox" class="sr-only" />
+                <span class="switch" :class="{ on: form.auto_video }"></span>
+                <span class="field-hint switch-hint">{{ t('index.createDialog.autoVideoHint') }}</span>
+              </label>
+            </div>
           </div>
           <div class="dialog-foot">
             <button type="button" class="btn" @click="showCreate = false">{{ t('common.cancel') }}</button>
@@ -233,7 +241,7 @@ const sortOptions = computed(() => ([
 const activeMenuId = ref(null)
 const dramaToDelete = ref(null)
 const deletingDrama = ref(false)
-const form = ref({ title: '', style: '', aspect_ratio: '16:9', synopsis: '', total_episodes: 1 })
+const form = ref({ title: '', style: '', aspect_ratio: '16:9', synopsis: '', total_episodes: 1, auto_video: false })
 const stylePresets = ref([])
 const styleSelectOptions = computed(() => stylePresets.value.map(p => ({ label: presetName(p), value: p.value })))
 const selectedStyleDesc = computed(() => {
@@ -660,6 +668,8 @@ onMounted(() => setTimeout(() => autoTour('index', INDEX_TOUR, t), 600))
 .field-label { font-size: 12px; font-weight: 600; color: var(--text-1); }
 .required { color: var(--error); }
 .field-hint { font-size: 11px; color: var(--text-3); line-height: 1.5; }
+.switch-row { display: flex; align-items: center; gap: 10px; cursor: pointer; min-height: 27px; }
+.switch-hint { margin: 0; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
 @media (max-width: 900px) {

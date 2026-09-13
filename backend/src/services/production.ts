@@ -22,7 +22,7 @@ import { mergeEpisodeVideos } from './ffmpeg-merge.js'
 import { getActiveConfig, getActiveConfigId } from './ai.js'
 import { getContentLanguage } from './app-settings.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
-import { translateApiError } from '../utils/error-translate.js'
+import { translateApiError, describeApiError } from '../utils/error-translate.js'
 
 export type ProductionPhase =
   | 'scripts'
@@ -42,6 +42,8 @@ export interface ProductionJobConfig {
   image_config_id?: number | null
   video_config_id?: number | null
   episode_resolution?: string | null
+  /** Buat video otomatis tanpa menunggu persetujuan manual setelah gambar komposisi selesai */
+  auto_video?: boolean
 }
 
 type ProductionJobRow = typeof schema.productionJobs.$inferSelect
@@ -531,6 +533,12 @@ async function runJob(jobId: number): Promise<void> {
           case 'composed_images':
             await doComposedImages(jobId, job, config)
             await ensureActive(jobId)
+            if (config.auto_video) {
+              // Mode "buat video langsung": tanpa gerbang persetujuan manual, lanjut ke pembuatan video
+              setStage(jobId, 'Pembuatan video otomatis dimulai')
+              await advance(jobId, 'videos')
+              break
+            }
             // Gerbang persetujuan manual: berhenti, menunggu pengguna memeriksa alur cerita & adegan
             await db.update(schema.productionJobs)
               .set({ phase: 'waiting_approval', status: 'waiting_approval', stageDetail: 'Menunggu persetujuan alur cerita & adegan', approvedAt: null, updatedAt: now() })
@@ -556,7 +564,7 @@ async function runJob(jobId: number): Promise<void> {
       } catch (err: any) {
         if (err instanceof JobStopped) return
         // Boleh dilanjutkan kembali dari fase saat ini (pekerjaan yang sudah selesai akan dilewati)
-        const message = translateApiError(err?.message || 'Produksi gagal')
+        const message = describeApiError(err)
         logTaskError('Production', 'phase', { jobId, phase: job.phase, error: message })
         console.error(`[ProductionJob ${jobId}] ${job.phase} failed:`, err)
         await db.update(schema.productionJobs)

@@ -4,7 +4,7 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { success, notFound, created, badRequest, now } from '../utils/response.js'
 import { toSnakeCase } from '../utils/transform.js'
 import { joinProviderUrl } from '../services/adapters/url.js'
-import { isOfficialProvider, parseConfigTemperature } from '../services/ai.js'
+import { isOfficialProvider, isSupportedProvider, parseConfigTemperature } from '../services/ai.js'
 import { redactUrl, logTaskError, logTaskProgress, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
@@ -80,6 +80,17 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
     }
   }
 
+  // Penyedia teks kustom (kompatibel OpenAI) diterima: provider lain selain gemini/openai/volcengine
+  // diperlakukan sebagai endpoint /v1/chat/completions (pola ala Trae / new-api)
+  if (serviceType === 'text' && !['gemini', 'openai', 'volcengine'].includes(p)) {
+    return {
+      method: 'GET',
+      url: joinProviderUrl(baseUrl, '', '/models'),
+      headers: bearerHeaders(apiKey),
+      body: undefined,
+    }
+  }
+
   if (p === 'volcengine') {
     const path = serviceType === 'video'
       ? '/contents/generations/tasks'
@@ -144,7 +155,7 @@ app.post('/', async (c) => {
   if (!body.service_type || !body.provider) {
     return badRequest(c, 'service_type dan provider diperlukan')
   }
-  if (!isOfficialProvider(body.service_type, body.provider)) {
+  if (!isSupportedProvider(body.service_type, body.provider)) {
     return badRequest(c, 'service_type/provider tidak didukung')
   }
 
@@ -183,7 +194,7 @@ app.post('/test', async (c) => {
   if (!body.service_type || !body.provider || !body.base_url) {
     return badRequest(c, 'service_type, provider, dan base_url diperlukan')
   }
-  if (!isOfficialProvider(body.service_type, body.provider)) {
+  if (!isSupportedProvider(body.service_type, body.provider)) {
     return badRequest(c, 'service_type/provider tidak didukung')
   }
 
@@ -266,7 +277,7 @@ app.put('/:id', async (c) => {
 
   const serviceType = 'service_type' in body ? body.service_type : existing.serviceType
   const provider = 'provider' in body ? body.provider : existing.provider
-  if (!isOfficialProvider(serviceType, provider)) {
+  if (!isSupportedProvider(serviceType, provider)) {
     return badRequest(c, 'service_type/provider tidak didukung')
   }
 

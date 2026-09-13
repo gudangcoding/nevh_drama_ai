@@ -54,12 +54,14 @@ test('ownership service enforces admin default + per-user drama access', () => {
   assert.match(ow, /drama\.userId !== user\.id/)
 })
 
-test('auth routes expose register/login/logout/me', () => {
+test('auth routes expose register/login/logout/me + profile/password update', () => {
   const route = read('src/routes/auth.ts')
   assert.match(route, /app\.post\('\/register'/)
   assert.match(route, /app\.post\('\/login'/)
   assert.match(route, /app\.post\('\/logout'/)
   assert.match(route, /app\.get\('\/me'/)
+  assert.match(route, /app\.put\('\/me'/)
+  assert.match(route, /app\.put\('\/password'/)
   assert.match(route, /requireAuth/)
 })
 

@@ -328,6 +328,82 @@ export const sqliteSchemaStatements = [
     updated_at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_production_jobs_drama_id ON production_jobs (drama_id)`,
+
+  `CREATE TABLE IF NOT EXISTS synopsis_drafts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    idea TEXT NOT NULL,
+    title TEXT,
+    genre TEXT,
+    style TEXT,
+    aspect_ratio TEXT DEFAULT '16:9',
+    synopsis TEXT,
+    description TEXT,
+    tags TEXT,
+    cover_prompt TEXT,
+    status TEXT DEFAULT 'draft',
+    error_msg TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_synopsis_drafts_user_id ON synopsis_drafts (user_id)`,
+
+  `CREATE TABLE IF NOT EXISTS publish_providers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    client_id TEXT,
+    client_secret TEXT,
+    scopes TEXT,
+    auth_url TEXT,
+    token_url TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (provider)
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS publish_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    provider_id INTEGER NOT NULL,
+    provider TEXT NOT NULL,
+    account_label TEXT,
+    channel_name TEXT,
+    channel_id TEXT,
+    access_token TEXT,
+    refresh_token TEXT,
+    token_expires_at TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_publish_accounts_user_id ON publish_accounts (user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_publish_accounts_provider_id ON publish_accounts (provider_id)`,
+
+  `CREATE TABLE IF NOT EXISTS publish_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    drama_id INTEGER,
+    episode_id INTEGER,
+    provider TEXT NOT NULL,
+    account_id INTEGER NOT NULL,
+    title TEXT,
+    description TEXT,
+    tags TEXT,
+    video_path TEXT,
+    thumbnail_path TEXT,
+    status TEXT DEFAULT 'pending',
+    platform_video_id TEXT,
+    platform_url TEXT,
+    error_msg TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_publish_jobs_user_id ON publish_jobs (user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_publish_jobs_episode_id ON publish_jobs (episode_id)`,
 ]
 
 /**
@@ -463,6 +539,15 @@ export function initSqliteSchema(sqlite: Database.Database) {
   sqlite.prepare(
     'INSERT INTO app_settings ("key", "value", "updated_at") SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM app_settings WHERE "key" = ?)'
   ).run('content_language', 'id', new Date().toISOString(), 'content_language')
+
+  // Seed penyedia publikasi sosial (kredensial diisi pengguna lalu; idempoten)
+  const seedPublishProvider = sqlite.prepare(
+    'INSERT INTO publish_providers ("provider", "display_name", "scopes", "is_active", "created_at", "updated_at") SELECT ?, ?, ?, 1, ?, ? WHERE NOT EXISTS (SELECT 1 FROM publish_providers WHERE "provider" = ?)'
+  )
+  const ts = new Date().toISOString()
+  seedPublishProvider.run('youtube', 'YouTube', 'https://www.googleapis.com/auth/youtube.upload,https://www.googleapis.com/auth/youtube', ts, ts, 'youtube')
+  seedPublishProvider.run('tiktok', 'TikTok', 'user.info.basic,video.publish,video.upload', ts, ts, 'tiktok')
+  seedPublishProvider.run('meta', 'Facebook / Instagram', 'pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish', ts, ts, 'meta')
 
   // Migrasi DB lama: tambah kolom synopsis pada dramas jika belum ada (SQLite tidak mendukung ADD COLUMN IF NOT EXISTS)
   const dramaCols = sqlite.prepare('PRAGMA table_info(dramas)').all() as { name: string }[]

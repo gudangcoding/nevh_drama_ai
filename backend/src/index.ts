@@ -18,6 +18,8 @@ import stylePresets from './routes/stylePresets.js'
 import prompts from './routes/prompts.js'
 import agent from './routes/agent.js'
 import merge from './routes/merge.js'
+import synopsis from './routes/synopsis.js'
+import publish from './routes/publish.js'
 import skills from './routes/skills.js'
 import props from './routes/props.js'
 import settings from './routes/settings.js'
@@ -75,6 +77,8 @@ protectedApi.route('/ai-providers', aiProviders)
 protectedApi.route('/style-presets', stylePresets)
 protectedApi.route('/prompts', prompts)
 protectedApi.route('/agent', agent)
+protectedApi.route('/synopsis', synopsis)
+protectedApi.route('/publish', publish)
 protectedApi.route('/merge', merge)
 protectedApi.route('/skills', skills)
 protectedApi.route('/props', props)

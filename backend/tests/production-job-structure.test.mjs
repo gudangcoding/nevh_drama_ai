@@ -50,7 +50,8 @@ test('dramas route exposes production endpoints and accepts synopsis/total_episo
 
   assert.match(route, /synopsis: body\.synopsis/)
   assert.match(route, /totalEpisodes: body\.total_episodes \|\| 1/)
-  assert.match(route, /startProduction\(dramaId\)/)
+  assert.match(route, /startProduction\(dramaId, \{ auto_video: !!body\.auto_video \}\)/)
+  assert.match(route, /auto_video: !!body\.auto_video/)
   assert.match(route, /auto_generate \|\| body\.autoGenerate/)
 
   assert.match(route, /app\.get\('\/:id\/production'/)

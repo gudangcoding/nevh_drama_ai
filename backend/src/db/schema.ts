@@ -309,6 +309,83 @@ export const appSettings = sqliteTable('app_settings', {
   updatedAt: text('updated_at').notNull(),
 })
 
+// Draft sinopsis hasil Agent (ide → sinopsis) sebelum dikonversi menjadi proyek drama
+export const synopsisDrafts = sqliteTable('synopsis_drafts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id'),
+  idea: text('idea').notNull(),
+  title: text('title'),
+  genre: text('genre'),
+  style: text('style'),
+  aspectRatio: text('aspect_ratio').default('16:9'),
+  synopsis: text('synopsis'),
+  description: text('description'),
+  tags: text('tags'), // JSON array
+  coverPrompt: text('cover_prompt'),
+  // draft | generating | completed | failed
+  status: text('status').default('draft'),
+  errorMsg: text('error_msg'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+// Penyedia platform publikasi sosial (YouTube / TikTok / Meta) — kredensial OAuth disimpan per penyedia
+export const publishProviders = sqliteTable('publish_providers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  provider: text('provider').notNull(),
+  displayName: text('display_name').notNull(),
+  clientId: text('client_id'),
+  clientSecret: text('client_secret'),
+  scopes: text('scopes'), // JSON array atau string spasi
+  authUrl: text('auth_url'),
+  tokenUrl: text('token_url'),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+// Akun platform sosial yang sudah diautentikasi (token hasil OAuth)
+export const publishAccounts = sqliteTable('publish_accounts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id'),
+  providerId: integer('provider_id').notNull(),
+  provider: text('provider').notNull(),
+  accountLabel: text('account_label'),
+  channelName: text('channel_name'),
+  channelId: text('channel_id'),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  // ISO timestamp kedaluwarsa access token
+  tokenExpiresAt: text('token_expires_at'),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  deletedAt: text('deleted_at'),
+})
+
+// Job publikasi sosmed: satu baris per kirim (episode yang sudah di-merge → platform)
+export const publishJobs = sqliteTable('publish_jobs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id'),
+  dramaId: integer('drama_id'),
+  episodeId: integer('episode_id'),
+  provider: text('provider').notNull(),
+  accountId: integer('account_id').notNull(),
+  title: text('title'),
+  description: text('description'),
+  tags: text('tags'), // JSON array
+  videoPath: text('video_path'),
+  thumbnailPath: text('thumbnail_path'),
+  // pending | uploading | published | failed
+  status: text('status').default('pending'),
+  platformVideoId: text('platform_video_id'),
+  platformUrl: text('platform_url'),
+  errorMsg: text('error_msg'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  completedAt: text('completed_at'),
+})
+
 // Job produksi otomatis lintas-episode: sinopsis → skrip → aset+gambar → persetujuan → video → merge
 export const productionJobs = sqliteTable('production_jobs', {
   id: integer('id').primaryKey({ autoIncrement: true }),

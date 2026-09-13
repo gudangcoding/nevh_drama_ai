@@ -103,7 +103,20 @@ app.post('/:id/generate-prompt', async (c) => {
     return badRequest(c, 'Gagal membuat prompt akhir, silakan coba lagi')
   }
   logTaskSuccess('FinalPrompt', 'prop-generate', { propId: id })
-  return success(c, { final_prompt: finalPrompt })
+  const response: Record<string, any> = { final_prompt: finalPrompt }
+  if (body.auto_image) {
+    const stylePrompt = await getDramaStylePrompt(prop.dramaId)
+    const prompt = finalPrompt || propImagePrompt(prop, stylePrompt)
+    try {
+      logTaskStart('PropImage', 'generate', { propId: id, episodeId: ep.id, dramaId: prop.dramaId })
+      const genId = await generateImage({ propId: id, dramaId: prop.dramaId, prompt, model: body.model, size: PROP_IMAGE_SIZE, configId: body.config_id ?? ep.imageConfigId ?? undefined })
+      logTaskSuccess('PropImage', 'generate', { propId: id, generationId: genId })
+      response.image_generation_id = genId
+    } catch (err: any) {
+      logTaskError('PropImage', 'generate', { propId: id, error: err.message })
+    }
+  }
+  return success(c, response)
 })
 
 // POST /props/:id/generate-image — Generate gambar prop putih background

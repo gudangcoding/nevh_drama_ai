@@ -128,7 +128,20 @@ app.post('/:id/generate-prompt', async (c) => {
     return badRequest(c, 'Gagal membuat prompt akhir, silakan coba lagi')
   }
   logTaskSuccess('FinalPrompt', 'character-generate', { characterId: id })
-  return success(c, { final_prompt: finalPrompt })
+  const response: Record<string, any> = { final_prompt: finalPrompt }
+  if (body.auto_image) {
+    const stylePrompt = await getDramaStylePrompt(char.dramaId)
+    const prompt = finalPrompt || characterImagePrompt(char, stylePrompt)
+    try {
+      logTaskStart('CharacterImage', 'generate', { characterId: id, episodeId: ep.id, dramaId: char.dramaId })
+      const genId = await generateImage({ characterId: id, dramaId: char.dramaId, prompt, model: body.model, size: CHARACTER_IMAGE_SIZE, configId: body.config_id ?? ep.imageConfigId ?? undefined })
+      logTaskSuccess('CharacterImage', 'generate', { characterId: id, generationId: genId })
+      response.image_generation_id = genId
+    } catch (err: any) {
+      logTaskError('CharacterImage', 'generate', { characterId: id, error: err.message })
+    }
+  }
+  return success(c, response)
 })
 
 // POST /characters/batch-generate-images

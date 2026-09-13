@@ -68,6 +68,23 @@ app.get('/me', requireAuth, async (c) => {
   return success(c, user)
 })
 
+// PUT /auth/me — perbarui profil (username) akun yang sedang masuk (dilindungi)
+app.put('/me', requireAuth, async (c) => {
+  const user = getUser(c)
+  const body = await c.req.json().catch(() => ({}))
+  const username = String(body.username || '').trim()
+
+  if (!isUsernameValid(username)) {
+    return badRequest(c, `Username harus ${USERNAME_MIN}-32 karakter dan hanya boleh berisi huruf/angka/_.-`)
+  }
+  if (username !== user.username) {
+    const existing = await db.select().from(schema.users).where(eq(schema.users.username, username))
+    if (existing.length) return badRequest(c, 'Username sudah digunakan, silakan pilih username lain')
+  }
+  await db.update(schema.users).set({ username, updatedAt: now() }).where(eq(schema.users.id, user.id))
+  return success(c, { id: user.id, username, role: user.role })
+})
+
 // PUT /auth/password — ganti kata sandi akun yang sedang masuk (dilindungi)
 app.put('/password', requireAuth, async (c) => {
   const user = getUser(c)

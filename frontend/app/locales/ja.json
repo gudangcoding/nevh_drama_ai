@@ -140,6 +140,8 @@
       "aspectRatio": "アスペクト比",
       "aspectRatioPlaceholder": "アスペクト比を選択",
       "aspectRatioHint": "作成後に固定され、動画生成はこの比率で統一されます",
+      "autoVideo": "動画を直接作成",
+      "autoVideoHint": "有効：脚本・アセット・シーン完了後、手動承認なしで自動的に動画を生成します",
       "submit": "プロジェクトを作成"
     },
     "deleteDialog": {
@@ -595,6 +597,8 @@
       "promptHintChar": "プロンプトは直接編集でき、保存後に反映されます。外見やスタイリングを変更して保存すると最終プロンプトがクリアされ、次回のイメージ生成時にプロンプト Agent が再生成します。",
       "promptHintScene": "プロンプトは直接編集でき、保存後に反映されます。シーン説明や光影を変更して保存すると最終プロンプトがクリアされ、次回のシーン図生成時にプロンプト Agent が再生成します。",
       "promptHintProp": "プロンプトは直接編集でき、保存後に反映されます。物品の外見を変更して保存すると最終プロンプトがクリアされ、次回の小道具図生成時にプロンプト Agent が再生成します。",
+      "autoImageLabel": "画像も自動生成",
+      "autoImageHint": "プロンプト生成後に、そのアセットの画像を自動で生成します",
       "generatingPrompt": "最終プロンプトを生成中…",
       "promptGenerated": "最終プロンプトを生成しました",
       "promptRegenerated": "最終プロンプトを再生成しました",
@@ -950,5 +954,19 @@
     "roleAdmin": "管理者",
     "roleUser": "ユーザー",
     "logout": "ログアウト"
+  },
+  "profile": {
+    "title": "プロフィール",
+    "editProfile": "プロフィール編集",
+    "changePassword": "パスワード変更",
+    "currentPassword": "現在のパスワード",
+    "newPassword": "新しいパスワード",
+    "confirmNewPassword": "新しいパスワード（確認）",
+    "save": "保存",
+    "saving": "保存中...",
+    "profileSaved": "プロフィールを更新しました",
+    "profileSaveFailed": "プロフィールの更新に失敗しました",
+    "passwordChanged": "パスワードを変更しました",
+    "passwordChangeFailed": "パスワードの変更に失敗しました"
   }
 }

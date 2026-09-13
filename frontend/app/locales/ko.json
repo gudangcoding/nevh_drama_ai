@@ -140,6 +140,8 @@
       "aspectRatio": "화면 비율",
       "aspectRatioPlaceholder": "화면 비율 선택",
       "aspectRatioHint": "생성 후 고정되며, 영상 생성은 이 비율로 통일됩니다",
+      "autoVideo": "영상 바로 생성",
+      "autoVideoHint": "켜짐: 대본, 에셋, 씬 완료 후 수동 승인 없이 영상을 자동 생성합니다",
       "submit": "프로젝트 생성"
     },
     "deleteDialog": {
@@ -595,6 +597,8 @@
       "promptHintChar": "프롬프트는 직접 편집할 수 있으며 저장 후 적용됩니다. 외모나 스타일링을 변경하고 저장하면 최종 프롬프트가 지워지며, 다음 이미지 생성 시 프롬프트 Agent가 다시 생성합니다.",
       "promptHintScene": "프롬프트는 직접 편집할 수 있으며 저장 후 적용됩니다. 장면 설명이나 조명을 변경하고 저장하면 최종 프롬프트가 지워지며, 다음 장면 이미지 생성 시 프롬프트 Agent가 다시 생성합니다.",
       "promptHintProp": "프롬프트는 직접 편집할 수 있으며 저장 후 적용됩니다. 물품 외형을 변경하고 저장하면 최종 프롬프트가 지워지며, 다음 소품 이미지 생성 시 프롬프트 Agent가 다시 생성합니다.",
+      "autoImageLabel": "이미지도 자동 생성",
+      "autoImageHint": "프롬프트 생성이 완료되면 해당 자산의 이미지도 자동으로 생성합니다",
       "generatingPrompt": "최종 프롬프트 생성 중…",
       "promptGenerated": "최종 프롬프트가 생성되었습니다",
       "promptRegenerated": "최종 프롬프트가 다시 생성되었습니다",
@@ -950,5 +954,19 @@
     "roleAdmin": "관리자",
     "roleUser": "사용자",
     "logout": "로그아웃"
+  },
+  "profile": {
+    "title": "프로필",
+    "editProfile": "프로필 편집",
+    "changePassword": "비밀번호 변경",
+    "currentPassword": "현재 비밀번호",
+    "newPassword": "새 비밀번호",
+    "confirmNewPassword": "새 비밀번호 확인",
+    "save": "저장",
+    "saving": "저장 중...",
+    "profileSaved": "프로필이 업데이트되었습니다",
+    "profileSaveFailed": "프로필 업데이트에 실패했습니다",
+    "passwordChanged": "비밀번호가 변경되었습니다",
+    "passwordChangeFailed": "비밀번호 변경에 실패했습니다"
   }
 }

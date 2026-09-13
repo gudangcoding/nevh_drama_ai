@@ -39,6 +39,19 @@ export function isOfficialProvider(serviceType?: string | null, provider?: strin
   return !!providers && providers.includes((provider || '').toLowerCase())
 }
 
+/**
+ * Apakah kombinasi layanan/penyedia dapat digunakan.
+ * - text: semua penyedia diterima — penyedia bawaan (openai/gemini/volcengine) pakai jalur resmi,
+ *   penyedia lain dianggap kompatibel OpenAI (/v1/chat/completions), jadi provider kustom ala Trae bisa dipakai.
+ * - image/video: hanya penyedia resmi yang didukung adapter bawaan.
+ */
+export function isSupportedProvider(serviceType?: string | null, provider?: string | null): boolean {
+  const p = (provider || '').toLowerCase()
+  if (!p) return false
+  if (serviceType === 'text') return true
+  return isOfficialProvider(serviceType, provider)
+}
+
 export function getTextProviderBaseUrl(config: AIConfig) {
   const provider = config.provider.toLowerCase()
 
@@ -65,7 +78,7 @@ export async function getActiveConfig(serviceType: ServiceType): Promise<AIConfi
   const rows = (await db.select().from(schema.aiServiceConfigs)
     .where(eq(schema.aiServiceConfigs.serviceType, serviceType))
   )
-    .filter(r => r.isActive && isOfficialProvider(serviceType, r.provider))
+    .filter(r => r.isActive && isSupportedProvider(serviceType, r.provider))
     .sort((a, b) => (b.priority || 0) - (a.priority || 0)) // Prioritas tinggi lebih dulu
 
   const active = rows[0]
@@ -108,7 +121,7 @@ export async function getActiveConfigId(serviceType: ServiceType): Promise<numbe
   const rows = (await db.select().from(schema.aiServiceConfigs)
     .where(eq(schema.aiServiceConfigs.serviceType, serviceType))
   )
-    .filter(r => r.isActive && isOfficialProvider(serviceType, r.provider))
+    .filter(r => r.isActive && isSupportedProvider(serviceType, r.provider))
     .sort((a, b) => (b.priority || 0) - (a.priority || 0))
   return rows[0]?.id ?? null
 }
@@ -120,7 +133,7 @@ export async function getConfigById(id: number): Promise<AIConfig | null> {
     logTaskWarn('AIConfig', 'config-by-id-missing', { configId: id })
     return null
   }
-  if (!isOfficialProvider(row.serviceType as ServiceType, row.provider)) {
+  if (!isSupportedProvider(row.serviceType as ServiceType, row.provider)) {
     logTaskWarn('AIConfig', 'config-by-id-unsupported-provider', {
       configId: id,
       serviceType: row.serviceType,

@@ -45,5 +45,17 @@ export function useAuth() {
     }
   }
 
-  return { user, isAdmin, isLoggedIn, login, register, logout, restoreSession }
+  /** Perbarui profil (username) akun yang sedang masuk */
+  async function updateProfile(username: string): Promise<AuthUser> {
+    const updated = await api.put<AuthUser>('/auth/me', { username })
+    user.value = updated
+    return updated
+  }
+
+  /** Ganti kata sandi akun yang sedang masuk */
+  async function changePassword(oldPassword: string, newPassword: string) {
+    await api.put('/auth/password', { old_password: oldPassword, new_password: newPassword })
+  }
+
+  return { user, isAdmin, isLoggedIn, login, register, logout, restoreSession, updateProfile, changePassword }
 }

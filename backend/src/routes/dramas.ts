@@ -4,6 +4,7 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { success, badRequest, notFound, created, now } from '../utils/response.js'
 import { toSnakeCase, toSnakeCaseArray } from '../utils/transform.js'
 import { startProduction, approveProduction, cancelProduction, resumeProduction, getProductionStatus } from '../services/production.js'
+import { generateDramaCover } from '../services/covers.js'
 import { getUser, isAdmin, assertDramaAccess } from '../services/ownership.js'
 
 const app = new Hono()
@@ -57,6 +58,14 @@ app.get('/', async (c) => {
 app.post('/', async (c) => {
   const body = await c.req.json()
   const ts = now()
+  // Metadata adalah JSON bebas; cover_prompt dari draft sinopsis disimpan di dalamnya agar bisa dipakai untuk generate sampul
+  let metadata: any = null
+  if (body.metadata || body.cover_prompt) {
+    let parsed: any = {}
+    try { parsed = typeof body.metadata === 'string' ? JSON.parse(body.metadata) : (body.metadata || {}) } catch { parsed = body.metadata || {} }
+    if (body.cover_prompt !== undefined && typeof parsed === 'object') parsed.cover_prompt = String(body.cover_prompt)
+    metadata = typeof parsed === 'object' ? JSON.stringify(parsed) : String(parsed)
+  }
   const res = await db.insert(schema.dramas).values({
     title: body.title,
     description: body.description,
@@ -66,7 +75,8 @@ app.post('/', async (c) => {
     aspectRatio: body.aspect_ratio || '16:9',
     totalEpisodes: body.total_episodes || 1,
     tags: body.tags ? JSON.stringify(body.tags) : null,
-    metadata: body.metadata,
+    thumbnail: body.thumbnail || null,
+    metadata,
     status: 'draft',
     userId: getUser(c).id,
     createdAt: ts,
@@ -81,7 +91,7 @@ app.post('/', async (c) => {
   const autoGenerate = body.auto_generate || body.autoGenerate
   if (autoGenerate && (body.synopsis || '').trim()) {
     try {
-      production = toSnakeCase(await startProduction(dramaId))
+      production = toSnakeCase(await startProduction(dramaId, { auto_video: !!body.auto_video }))
     } catch (err: any) {
       console.error('[POST /dramas] auto production failed:', err)
       return badRequest(c, err?.message || 'Gagal memulai produksi otomatis')
@@ -90,7 +100,18 @@ app.post('/', async (c) => {
     return badRequest(c, 'Tambahkan sinopsis terlebih dahulu untuk produksi otomatis')
   }
 
-  return created(c, { ...toSnakeCase(result), production })
+  // Sampul otomatis: membuat proyek dari draft sinopsis → generate cover via prompt (async, task di latar belakang)
+  let coverTaskId: number | null = null
+  const generateCover = body.generate_cover || body.generateCover
+  if (generateCover && body.cover_prompt !== undefined) {
+    try {
+      coverTaskId = await generateDramaCover(dramaId, { prompt: body.cover_prompt })
+    } catch (err: any) {
+      console.error('[POST /dramas] cover generation failed:', err)
+    }
+  }
+
+  return created(c, { ...toSnakeCase(result), production, cover_task_id: coverTaskId })
 })
 
 
@@ -149,6 +170,7 @@ app.put('/:id', async (c) => {
   if (body.aspect_ratio !== undefined) updates.aspectRatio = body.aspect_ratio
   if (body.status !== undefined) updates.status = body.status
   if (body.tags !== undefined) updates.tags = JSON.stringify(body.tags)
+  if (body.thumbnail !== undefined) updates.thumbnail = body.thumbnail
   if (body.metadata !== undefined) updates.metadata = body.metadata
   await db.update(schema.dramas).set(updates).where(eq(schema.dramas.id, id))
   return success(c)
@@ -160,6 +182,23 @@ app.delete('/:id', async (c) => {
   await assertDramaAccess(c, id)
   await db.update(schema.dramas).set({ deletedAt: now() }).where(eq(schema.dramas.id, id))
   return success(c)
+})
+
+// POST /dramas/:id/cover - Generate/regenerate sampul proyek dari prompt (async, tulis ke dramas.thumbnail)
+app.post('/:id/cover', async (c) => {
+  const id = Number(c.req.param('id'))
+  await assertDramaAccess(c, id)
+  const body = await c.req.json().catch(() => ({}))
+  try {
+    const taskId = await generateDramaCover(id, {
+      prompt: body.prompt,
+      configId: body.config_id ? Number(body.config_id) : undefined,
+      size: body.size,
+    })
+    return success(c, { taskId })
+  } catch (err: any) {
+    return badRequest(c, err?.message || 'Gagal membuat sampul proyek')
+  }
 })
 
 // ─── Produksi otomatis lintas-episode ─────────────────────────────────────────
@@ -188,6 +227,7 @@ app.post('/:id/production/start', async (c) => {
       image_config_id: body.image_config_id,
       video_config_id: body.video_config_id,
       episode_resolution: body.episode_resolution,
+      auto_video: !!body.auto_video,
     })
     return success(c, { production: toSnakeCase(job) })
   } catch (err: any) {

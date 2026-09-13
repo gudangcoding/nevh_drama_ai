@@ -37,13 +37,13 @@
         >
           <Github :size="15" :stroke-width="1.8" />
         </a>
-        <div v-if="user" class="user-chip" :title="user.username">
+        <div v-if="user" class="user-chip" :title="t('profile.title')" @click="profileOpen = true">
           <span class="user-avatar">{{ user.username.charAt(0).toUpperCase() }}</span>
           <span class="user-meta">
             <span class="user-name">{{ user.username }}</span>
             <span class="user-role" :class="isAdmin ? 'is-admin' : ''">{{ isAdmin ? t('auth.roleAdmin') : t('auth.roleUser') }}</span>
           </span>
-          <button class="user-logout" :title="t('auth.logout')" @click="onLogout">
+          <button class="user-logout" :title="t('auth.logout')" @click.stop="onLogout">
             <LogOut :size="14" :stroke-width="1.8" />
           </button>
         </div>
@@ -62,6 +62,8 @@
     <main class="content">
       <slot />
     </main>
+
+    <ProfileModal :open="profileOpen" @close="profileOpen = false" />
   </div>
 </template>
 
@@ -76,6 +78,7 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const showBrandImage = ref(true)
 const { user, isAdmin, logout } = useAuth()
+const profileOpen = ref(false)
 
 async function onLogout() {
   await logout()
@@ -215,7 +218,10 @@ watch(locale, checkAiConfigs)
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--bg-hover);
+  cursor: pointer;
+  transition: all 0.18s var(--ease-out);
 }
+.user-chip:hover { border-color: var(--accent, #f04a24); }
 .user-avatar {
   width: 26px; height: 26px;
   display: flex; align-items: center; justify-content: center;

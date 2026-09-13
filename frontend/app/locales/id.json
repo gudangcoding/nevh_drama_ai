@@ -145,6 +145,8 @@
       "synopsisHint": "Jika diisi, sinopsis otomatis dikembangkan menjadi N skrip episode di latar belakang",
       "totalEpisodes": "Jumlah episode",
       "totalEpisodesHint": "Produksi otomatis mengembangkan sinopsis menjadi sejumlah episode ini",
+      "autoVideo": "Buat video langsung",
+      "autoVideoHint": "Aktif: setelah naskah, aset, dan adegan selesai, video dibuat otomatis tanpa persetujuan manual",
       "submit": "Buat proyek"
     },
     "productionStarted": "Produksi otomatis untuk \"{title}\" dimulai di latar belakang",
@@ -643,6 +645,8 @@
       "promptHintChar": "Prompt dapat diedit dan berlaku saat disimpan. Setelah mengubah penampilan atau gaya dan menyimpan, prompt akhir dihapus dan akan dibuat ulang oleh agen prompt saat pembuatan potret berikutnya.",
       "promptHintScene": "Prompt dapat diedit dan berlaku saat disimpan. Setelah mengubah deskripsi atau pencahayaan dan menyimpan, prompt akhir dihapus dan akan dibuat ulang oleh agen prompt saat pembuatan gambar adegan berikutnya.",
       "promptHintProp": "Prompt dapat diedit dan berlaku saat disimpan. Setelah mengubah penampilan objek dan menyimpan, prompt akhir dihapus dan akan dibuat ulang oleh agen prompt saat pembuatan gambar properti berikutnya.",
+      "autoImageLabel": "Gambar ikut dibuat",
+      "autoImageHint": "Setelah prompt selesai dibuat, gambar aset langsung dibuat otomatis",
       "generatingPrompt": "Membuat prompt akhir…",
       "promptGenerated": "Prompt akhir dibuat",
       "promptRegenerated": "Prompt akhir dibuat ulang",
@@ -998,5 +1002,19 @@
     "roleAdmin": "Admin",
     "roleUser": "Pengguna",
     "logout": "Keluar"
+  },
+  "profile": {
+    "title": "Profil",
+    "editProfile": "Edit Profil",
+    "changePassword": "Ganti Kata Sandi",
+    "currentPassword": "Kata Sandi Saat Ini",
+    "newPassword": "Kata Sandi Baru",
+    "confirmNewPassword": "Konfirmasi Kata Sandi Baru",
+    "save": "Simpan",
+    "saving": "Menyimpan...",
+    "profileSaved": "Profil diperbarui",
+    "profileSaveFailed": "Gagal memperbarui profil",
+    "passwordChanged": "Kata sandi berhasil diubah",
+    "passwordChangeFailed": "Gagal mengubah kata sandi"
   }
 }

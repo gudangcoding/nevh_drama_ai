@@ -140,6 +140,8 @@
       "aspectRatio": "画面比例",
       "aspectRatioPlaceholder": "选择画面比例",
       "aspectRatioHint": "创建后固定，视频生成将统一使用该比例",
+      "autoVideo": "直接生成视频",
+      "autoVideoHint": "开启：剧本、资产、场景完成后自动生成视频，无需手动审批",
       "submit": "创建项目"
     },
     "deleteDialog": {
@@ -595,6 +597,8 @@
       "promptHintChar": "提示词可直接编辑，保存后生效；修改样貌或妆造并保存后，最终提示词将被清空，下次生成形象时由提示词 Agent 重新生成。",
       "promptHintScene": "提示词可直接编辑，保存后生效；修改场景描述或光影并保存后，最终提示词将被清空，下次生成场景图时由提示词 Agent 重新生成。",
       "promptHintProp": "提示词可直接编辑，保存后生效；修改物品外貌并保存后，最终提示词将被清空，下次生成道具图时由提示词 Agent 重新生成。",
+      "autoImageLabel": "同步生成图片",
+      "autoImageHint": "提示词生成完成后，自动接着生成该资产的图片",
       "generatingPrompt": "正在生成最终提示词…",
       "promptGenerated": "最终提示词已生成",
       "promptRegenerated": "最终提示词已重新生成",
@@ -950,5 +954,19 @@
     "roleAdmin": "管理员",
     "roleUser": "用户",
     "logout": "退出登录"
+  },
+  "profile": {
+    "title": "个人资料",
+    "editProfile": "编辑资料",
+    "changePassword": "修改密码",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码",
+    "confirmNewPassword": "确认新密码",
+    "save": "保存",
+    "saving": "保存中...",
+    "profileSaved": "资料已更新",
+    "profileSaveFailed": "更新资料失败",
+    "passwordChanged": "密码修改成功",
+    "passwordChangeFailed": "密码修改失败"
   }
 }

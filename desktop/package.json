@@ -1,9 +1,9 @@
 {
   "name": "nevh-drama-desktop",
   "productName": "Nevh Drama",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "private": true,
-  "description": "Nevh Drama 桌面版（Electron 壳）",
+  "description": "Nevh Drama STudio（Electron JS）",
   "author": "Nevh",
   "main": "dist/main.js",
   "scripts": {

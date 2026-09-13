@@ -122,7 +122,29 @@ app.post('/:id/generate-prompt', async (c) => {
     return badRequest(c, 'Gagal membuat prompt akhir, silakan coba lagi')
   }
   logTaskSuccess('FinalPrompt', 'scene-generate', { sceneId: id })
-  return success(c, { final_prompt: finalPrompt })
+  const response: Record<string, any> = { final_prompt: finalPrompt }
+  if (body.auto_image) {
+    const stylePrompt = await getDramaStylePrompt(scene.dramaId)
+    const prompt = finalPrompt || [
+      stylePrompt || '',
+      scene.location,
+      scene.time || '',
+      scene.prompt || 'high quality scene',
+      scene.lighting || 'cinematic lighting',
+      'no characters in the frame, empty scene, only the location itself',
+    ].filter(Boolean).join(', ')
+    try {
+      logTaskStart('SceneImage', 'generate', { sceneId: id, episodeId: ep.id, dramaId: scene.dramaId, location: scene.location })
+      await db.update(schema.scenes).set({ status: 'processing', updatedAt: now() }).where(eq(schema.scenes.id, id))
+      const genId = await generateImage({ sceneId: id, dramaId: scene.dramaId, prompt, model: body.model, configId: body.config_id ?? ep.imageConfigId ?? undefined })
+      logTaskSuccess('SceneImage', 'generate', { sceneId: id, generationId: genId })
+      response.image_generation_id = genId
+    } catch (err: any) {
+      logTaskError('SceneImage', 'generate', { sceneId: id, error: err.message })
+      await db.update(schema.scenes).set({ status: 'failed', updatedAt: now() }).where(eq(schema.scenes.id, id))
+    }
+  }
+  return success(c, response)
 })
 
 // DELETE /scenes/:id — soft delete (mempertahankan catatan pembuatan riwayat)

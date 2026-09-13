@@ -597,6 +597,17 @@
                 rows="5"
                 :placeholder="t('detail.mat.promptPlaceholder')"
               ></textarea>
+              <label class="switch-row mat-detail-autoimg">
+                <input
+                  type="checkbox"
+                  class="sr-only"
+                  :checked="autoImageAfterPrompt"
+                  @change="toggleAutoImageAfterPrompt"
+                />
+                <span class="switch" :class="{ on: autoImageAfterPrompt }"></span>
+                <span class="field-hint switch-hint">{{ t('episode.asset.autoImageLabel') }}</span>
+                <span class="field-hint switch-hint">{{ t('episode.asset.autoImageHint') }}</span>
+              </label>
             </section>
           </div>
 
@@ -1099,6 +1110,15 @@ const editSaving = ref(false)
 const editTarget = ref(null)
 const editDraft = reactive({})
 
+// Opsi: setelah prompt aset berhasil dibuat, langsung buat gambarnya juga (persisted per perangkat)
+const autoImageAfterPrompt = ref((() => {
+  try { return localStorage.getItem('hbao_auto_image_after_prompt') === '1' } catch { return false }
+})())
+function toggleAutoImageAfterPrompt() {
+  autoImageAfterPrompt.value = !autoImageAfterPrompt.value
+  try { localStorage.setItem('hbao_auto_image_after_prompt', autoImageAfterPrompt.value ? '1' : '0') } catch {}
+}
+
 function openEdit(m) {
   editTarget.value = m
   // Inisialisasi draft berdasarkan tipe
@@ -1123,14 +1143,19 @@ async function generateFinalPrompt(m) {
   finalPromptGen.value = true
   try {
     let res
-    if (m.kindKey === 'character') res = await characterAPI.generatePrompt(m.id, epId, true)
-    else if (m.kindKey === 'scene') res = await sceneAPI.generatePrompt(m.id, epId, true)
-    else res = await propAPI.generatePrompt(m.id, epId, true)
+    if (m.kindKey === 'character') res = await characterAPI.generatePrompt(m.id, epId, true, undefined, undefined, autoImageAfterPrompt.value)
+    else if (m.kindKey === 'scene') res = await sceneAPI.generatePrompt(m.id, epId, true, undefined, undefined, autoImageAfterPrompt.value)
+    else res = await propAPI.generatePrompt(m.id, epId, true, undefined, undefined, autoImageAfterPrompt.value)
     const fp = res?.final_prompt || res?.finalPrompt
     if (!fp) throw new Error(t('episode.asset.promptGenFailedRetry'))
     editTarget.value = { ...m, finalPrompt: fp }
     editDraft.finalPrompt = fp
     toast.success(t('episode.asset.promptGenerated'))
+    if (autoImageAfterPrompt.value) {
+      toast.success(t('detail.mat.generating', { kind: m.kind, name: m.name }))
+      pendingMaterials.value = new Set(pendingMaterials.value).add(pendingKey(m))
+      pollMaterial(m)
+    }
   } catch (e) {
     toastError(e)
   } finally {
@@ -1848,6 +1873,9 @@ onMounted(async () => {
 }
 .mat-detail-prompt-text:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
 .mat-detail-prompt-text::placeholder { color: var(--text-3); }
+.mat-detail-autoimg { margin-top: 2px; }
+.switch-row { display: flex; align-items: center; gap: 10px; cursor: pointer; min-height: 27px; }
+.switch-hint { margin: 0; }
 
 /* 状态标签 */
 .mat-detail-state {

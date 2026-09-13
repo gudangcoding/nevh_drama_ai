@@ -10,7 +10,7 @@ test('drama creation stores total_episodes and pre-creates episodes only via aut
 
   // total_episodes disimpan; episode pra-buat hanya lewat startProduction saat auto_generate + sinopsis
   assert.match(dramas, /totalEpisodes: body\.total_episodes \|\| 1/)
-  assert.match(dramas, /startProduction\(dramaId\)/)
+  assert.match(dramas, /startProduction\(dramaId, \{ auto_video: !!body\.auto_video \}\)/)
   assert.match(dramas, /body\.auto_generate \|\| body\.autoGenerate/)
   // tanpa auto_generate handler tidak langsung memanggil jalur pembuatan episode
   assert.doesNotMatch(dramas, /第\$\{i\}集/)

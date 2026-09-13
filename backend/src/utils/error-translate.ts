@@ -90,3 +90,79 @@ export function translateApiError(raw: string): string {
   // Pesan non-Cina lainnya: kembalikan apa adanya (sudah Indonesia/Inggris)
   return msg
 }
+
+/** Petunjuk singkat per status HTTP untuk pesan error API layanan AI */
+const STATUS_HINTS: Record<string, string> = {
+  '400': 'Periksa nama model dan parameter yang dipilih.',
+  '401': 'Kunci API tidak valid atau belum diisi.',
+  '403': 'Kunci API tidak memiliki izin akses ke model ini.',
+  '404': 'Base URL atau nama model salah (endpoint tidak ditemukan).',
+  '408': 'Penyedia tidak merespons dalam waktu yang wajar.',
+  '413': 'Permintaan terlalu besar untuk model AI ini.',
+  '429': 'Kuota atau pembatasan kecepatan API tercapai, coba lagi nanti.',
+  '500': 'Server penyedia sedang bermasalah.',
+  '502': 'Gateway penyedia tidak dapat dihubungi.',
+  '503': 'Layanan penyedia sedang tidak tersedia.',
+  '504': 'Waktu respons penyedia habis.',
+}
+
+/** Pesan yang tidak bisa diterjemahkan apa pun (dihindari ditampilkan mentah) */
+const OPAQUE_PROVIDER_ERROR =
+  /failed to process error response|failed to process successful response|unexpected token|not valid json|parse error/i
+
+/** Ungkap error rantai cause (AI SDK membungkus error dalam beberapa lapis) sampai menemukan statusCode/message */
+function unwrapError(err: unknown): { statusCode?: number; message?: string; url?: string } {
+  let cur: any = err
+  for (let i = 0; i < 6 && cur; i++) {
+    if (typeof cur === 'object' || typeof cur === 'function') {
+      const code = typeof cur.statusCode === 'number' ? cur.statusCode : undefined
+      if (code !== undefined || typeof cur.message === 'string') {
+        return { statusCode: code, message: String(cur.message ?? ''), url: typeof cur.url === 'string' ? cur.url : undefined }
+      }
+    }
+    cur = cur?.cause
+  }
+  const msg = String((err as { message?: unknown })?.message ?? err ?? '')
+  return { message: msg }
+}
+
+function statusHint(status?: number): string {
+  if (status == null) return 'Silakan periksa kembali konfigurasi layanan AI di halaman Pengaturan.'
+  return STATUS_HINTS[String(status)] || 'Silakan periksa kembali konfigurasi layanan AI di halaman Pengaturan.'
+}
+
+function toHost(url?: string): string {
+  if (!url) return ''
+  try {
+    const u = new URL(url)
+    return u.host || ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Terjemahkan error (objek) dari pemanggilan Agent / layanan AI menjadi pesan yang dapat ditindaklanjuti.
+ * Lebih teliti daripada translateApiError(string): membaca statusCode/url dari objek error AI SDK dan
+ * mengubah pesan mentah seperti "Failed to process error response" (respons tidak terbaca) menjadi
+ * pesan Bahasa Indonesia + petunjuk sesuai status, supaya pengguna tahu harus memperbaiki apa.
+ */
+export function describeApiError(err: unknown): string {
+  const { statusCode, message, url } = unwrapError(err)
+  const raw = (message || String(err ?? '')).trim()
+
+  if (OPAQUE_PROVIDER_ERROR.test(raw) || statusCode != null) {
+    const translated = translateApiError(raw.replace(/^API error \d+:\s*/i, '')).trim()
+    const statusPart = statusCode != null ? ` (status ${statusCode})` : ''
+    const hostPart = toHost(url)
+
+    // Jika pesan terjemahan terasa membantu dan bukan pesan mentah — pakai sebagai inti
+    const usable = translated && !OPAQUE_PROVIDER_ERROR.test(translated) && !/Layanan AI eksternal mengembalikan kesalahan/.test(translated)
+    const core = usable ? translated : 'Penyedia AI mengembalikan respons error yang tidak dapat dibaca'
+    const hint = ` ${statusHint(statusCode)}`
+    const tail = hostPart ? ` Host: ${hostPart}.` : ''
+    return `${core}${statusPart}.${hint}${tail}`
+  }
+
+  return translateApiError(raw)
+}

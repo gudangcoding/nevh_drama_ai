@@ -21,15 +21,23 @@ test('error-translate utility exists and is applied at every user-facing error s
   assert.match(util, /'Saldo layanan AI tidak mencukupi/)
   assert.match(util, /GENERIC_CN/)
 
+  // describeApiError: menerjemahkan objek error Agent/AI SDK — membaca statusCode/url dan
+  // mengubah pesan mentah "Failed to process error response" menjadi pesan + petunjuk yang bisa ditindaklanjuti
+  assert.match(util, /export function describeApiError/)
+  assert.match(util, /STATUS_HINTS/)
+  assert.match(util, /statusCode/)
+  assert.match(util, /unwraps?|unwrapError/i)
+
   // Diterapkan di tempat pesan API eksternal disimpan/ditampilkan
-  assert.match(prod, /translateApiError\(err\?\.message/)
+  assert.match(prod, /const message = describeApiError\(err\)/)
   assert.match(prod, /translateApiError\(task\.errorMsg/)
   assert.match(prod, /translateApiError\(st\.error/)
   assert.match(prod, /translateApiError\(batch\.error/)
   assert.match(prod, /error_msg: job\.errorMsg \? translateApiError/)
   assert.match(gen, /failTask\(id: number, message: string\)[\s\S]*?const translated = translateApiError\(message\)/)
-  assert.match(extract, /task\.error = translateApiError/)
-  assert.match(vp, /task\.error = translateApiError/)
+  assert.match(extract, /task\.error = describeApiError\(err\)/)
+  assert.match(extract, /describeApiError/)
+  assert.match(vp, /task\.error = describeApiError\(err\)/)
   assert.match(merge, /errorMsg: translateApiError\(err\.message\)/)
   assert.match(epsRoute, /translateApiError\(t\.errorMsg\)/)
   assert.match(tasksRoute, /translateApiError\(err\.message\)/)

@@ -12,10 +12,41 @@ import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import type { AIConfig } from './adapters/types'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
 import { translateApiError } from '../utils/error-translate.js'
+import { robustFetch } from '../utils/http.js'
 
 type TaskType = 'image' | 'video'
 
 const taskLabel = (type: TaskType) => (type === 'image' ? 'ImageTask' : 'VideoTask')
+
+// Pembatas konkurensi global untuk pemrosesan task: mencegah semua tugas generasi
+// dijalankan serentak (penyebab sering timeoute/gagal saat produksi otomatis besar).
+// Default 2; dapat diubah dengan env AI_TASK_CONCURRENCY.
+const MAX_CONCURRENT_TASKS = clampTaskConcurrency(process.env.AI_TASK_CONCURRENCY)
+let activeTaskCount = 0
+const taskWaiters: Array<() => void> = []
+
+function clampTaskConcurrency(raw: string | undefined): number {
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 1) return 2
+  return Math.min(8, Math.round(n))
+}
+
+function acquireTaskSlot(): Promise<void> {
+  if (activeTaskCount < MAX_CONCURRENT_TASKS) {
+    activeTaskCount++
+    return Promise.resolve()
+  }
+  return new Promise(resolve => taskWaiters.push(resolve))
+}
+
+function releaseTaskSlot(): void {
+  const next = taskWaiters.shift()
+  if (next) {
+    next()
+  } else {
+    activeTaskCount = Math.max(0, activeTaskCount - 1)
+  }
+}
 
 // Ritme polling: gambar 5s×120 (batas 10 menit); video 10s×300
 const POLL_PROFILES: Record<TaskType, { attempts: number; intervalMs: number; maxDurationMs: number | null }> = {
@@ -29,6 +60,8 @@ interface GenerateImageParams {
   sceneId?: number
   characterId?: number
   propId?: number
+  /** Saat diisi, hasil gambar ditulis balik ke dramas.thumbnail (sampul proyek) */
+  coverDramaId?: number
   prompt: string
   model?: string
   size?: string
@@ -70,7 +103,7 @@ export async function generateImage(params: GenerateImageParams): Promise<number
 
   const id = await createTask('image', config, {
     storyboardId: params.storyboardId,
-    dramaId: params.dramaId,
+    dramaId: params.coverDramaId || params.dramaId,
     sceneId: params.sceneId,
     characterId: params.characterId,
     propId: params.propId,
@@ -80,6 +113,7 @@ export async function generateImage(params: GenerateImageParams): Promise<number
     size: params.size || '1920x1080',
     frameType: params.frameType,
     referenceImages: params.referenceImages,
+    coverDramaId: params.coverDramaId,
   })
 
   logTaskStart('ImageTask', 'enqueue', {
@@ -173,7 +207,9 @@ async function createTask(
   })
 
   const id = getInsertId(res)
-  processTask(id, config).catch(err => {
+  void acquireTaskSlot().then(() =>
+    processTask(id, config).finally(releaseTaskSlot)
+  ).catch(err => {
     logTaskError(taskLabel(type), 'process', { id, error: err.message })
     console.error(`${taskLabel(type)} ${id} failed:`, err)
   })
@@ -265,7 +301,7 @@ async function processTask(id: number, config: AIConfig) {
       body: isMultipart ? `[multipart/form-data: ${[...(body as FormData).keys()].join(', ')}]` : body,
     })
 
-    const resp = await fetch(url, {
+    const resp = await robustFetch(url, {
       method,
       headers,
       body: isMultipart ? (body as FormData) : JSON.stringify(body),
@@ -361,7 +397,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
       const remainingMs = profile.maxDurationMs
         ? Math.max(1_000, profile.maxDurationMs - (Date.now() - startedAt))
         : 600_000
-      const resp = await fetch(url, {
+      const resp = await robustFetch(url, {
         method,
         headers,
         signal: AbortSignal.timeout(remainingMs),
@@ -439,7 +475,7 @@ async function handleImageCompleteBase64(record: SysTaskRecord, base64Data: stri
   await writeBackImageAssets(record, localPath)
 }
 
-// Setelah gambar selesai, tulis kembali ke tabel bisnis: storyboard (berdasarkan frameType), karakter, adegan, properti
+// Setelah gambar selesai, tulis kembali ke tabel bisnis: storyboard (berdasarkan frameType), karakter, adegan, properti, sampul proyek
 async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
   const params = parseTaskParams(record.params)
   if (record.storyboardId) {
@@ -448,6 +484,14 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
     else if (params.frameType === 'last_frame') sbUpdate.lastFrameImage = localPath
     else sbUpdate.composedImage = localPath
     await db.update(schema.storyboards).set(sbUpdate).where(eq(schema.storyboards.id, record.storyboardId))
+  }
+  if (params.coverDramaId || (record.dramaId && !record.storyboardId && !record.characterId && !record.sceneId && !record.propId)) {
+    const coverDramaId = params.coverDramaId || record.dramaId
+    if (coverDramaId) {
+      await db.update(schema.dramas)
+        .set({ thumbnail: localPath, updatedAt: now() })
+        .where(eq(schema.dramas.id, coverDramaId))
+    }
   }
   if (record.characterId) {
     await db.update(schema.characters).set({ imageUrl: localPath, updatedAt: now() }).where(eq(schema.characters.id, record.characterId))

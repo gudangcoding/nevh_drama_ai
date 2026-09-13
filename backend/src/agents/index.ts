@@ -10,11 +10,13 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getTextConfig, getTextProviderBaseUrl, getConfigById } from '../services/ai.js'
 import { logTaskProgress } from '../utils/task-logger.js'
+import { robustFetch } from '../utils/http.js'
 import { scriptTools } from './tools/script-tools.js'
 import { extractTools } from './tools/extract-tools.js'
 import { storyboardTools } from './tools/storyboard-tools.js'
 import { imagePromptTools } from './tools/image-prompt-tools.js'
 import { episodeTools } from './tools/episode-tools.js'
+import { synopsisTools } from './tools/synopsis-tools.js'
 import { loadAgentSkills, skillWorkspaces } from './skills.js'
 import { loadAgentPromptFile, loadBasePromptFile } from './prompts.js'
 import { buildLanguageDirective } from './language.js'
@@ -167,6 +169,42 @@ video_prompt 规则（硬约束）：
 - 项目设定的视觉风格描述会由工具在保存图片提示词时自动注入到最终提示词的最前方，不要自行添加风格词
 - 必须实际调用保存工具，不要只在回复中给出提示词`,
   },
+  synopsis_generator: {
+    name: 'Sinopsis Generator',
+    instructions: `Anda adalah penulis naskah dan produser kreatif yang mengubah ide cerita mentah menjadi sinopsis lengkap sebuah proyek film pendek / drama berseri.
+
+Tugas:
+1. Baca ide mentah (Panggil read_synopsis_draft bila perlu; ide juga tersedia di pesan pengguna).
+2. Ciptakan cerita pendek drama yang utuh bersumber dari ide tersebut.
+3. Tentukan judul, genre, gaya visual (value preset gaya: 3d, anime, ghibli, watercolor, comic, guofeng, webtoon, noir, indo_modern, indo_classic, indo_epic, indo_sinetron, indo_horor, indo_perjuangan; gunakan 3d bila ragu), rasio aspek (16:9 atau 9:16), sinopsis lengkap, deskripsi singkat (teaser), 3-6 tag/serial, dan cover_prompt berbahasa Inggris untuk poster sampul proyek.
+4. Panggil save_synopsis_draft untuk menyimpan hasil; jangan berhenti sebelum tool tersebut berhasil dipanggil.
+
+Persyaratan sinopsis:
+- Tulis sinopsis dalam bahasa yang diminta, lengkap dan berkesinambungan, mencakup: premis/logline, karakter utama dan konflik utamanya, alur beberapa episode menuju klimaks dan resolusi, serta pesan emosional cerita.
+- Konkret dan sinematis, bukan ringkasan abstrak: sebut nama tokoh, lokasi, serta momen-momen kunci.
+- Durasi perkiraan total 1-20 episode, sesuai kebutuhan cerita (wajib naratif utuh).
+
+Persyaratan deskripsi:
+- 2-4 kalimat kalimat teaser yang menarik untuk cover/sinopsis iklan, dalam bahasa yang diminta.
+
+Persyaratan cover_prompt:
+- Tulis dalam Bahasa Inggris, deskriptif untuk gambar AI: karakter utama + ekspresi + pose, latar/suasana, pencahayaan, dan gaya film.
+- Sertakan 'portrait movie poster, cinematic lighting, high detail'.
+- JANGAN menyertakan teks/huruf dalam hasil gambar.`,
+  },
+  publish_copier: {
+    name: 'Konten Publikasi',
+    instructions: `Anda adalah kreator konten sosial media yang menyiapkan materi publikasi video drama pendek ke YouTube / TikTok / Facebook / Instagram.
+
+Anda menerima informasi episode (judul, sinopsis, deskripsi). Balas HANYA satu objek JSON tanpa pembungkus apapun, dengan format:
+{ "title": "...", "description": "...", "tags": ["...", "..."] }
+
+Persyaratan:
+- title: judul video yang menarik dalam bahasa konten target, singkat dan mengundang klik (max 100 karakter).
+- description: 2-4 paragraf pendek dalam bahasa konten target: ringkasan menarik, termasuk sinyal dari sinopsis, ajakan tonton, dan 3-5 hashtag relevan di baris terakhir (tanpa spasi, huruf pertama kapital).
+- tags: 5-8 kata kunci pencarian (tanpa #), gabungan tema cerita + genre + karakter utama.
+- JANGAN keluar dari format JSON. Jangan tambahkan teks lain di luar objek JSON.`,
+  },
 }
 
 export const validAgentTypes = Object.keys(DEFAULT_PROMPTS)
@@ -209,7 +247,7 @@ function openaiThinkingOffPatch(): Record<string, any> {
   }
 }
 
-function createThinkingOffFetch(providerName: string, baseURL: string): typeof fetch | undefined {
+function createThinkingOffFetch(providerName: string, baseURL: string, inner: typeof fetch = robustFetch): typeof fetch | undefined {
   if (!thinkingOffEnabled || isOfficialTextHost(baseURL)) return undefined
   const openaiPatch = openaiThinkingOffPatch()
 
@@ -231,7 +269,7 @@ function createThinkingOffFetch(providerName: string, baseURL: string): typeof f
         }
       }
     } catch { /* Jika parsing gagal, teruskan apa adanya */ }
-    return fetch(input, init)
+    return inner(input, init)
   }
 }
 
@@ -244,7 +282,7 @@ function createThinkingOffFetch(providerName: string, baseURL: string): typeof f
  * Ketika thinking-off fetch diberikan sebagai inner, kedua patch dapat di-stack secara berurutan.
  */
 function createTemperatureFetch(providerName: string, temperature: number, inner?: typeof fetch): typeof fetch {
-  const base = inner || fetch
+  const base = inner || robustFetch
   return async (input: any, init?: any) => {
     try {
       if (init?.body && typeof init.body === 'string') {
@@ -285,7 +323,7 @@ function isOfficialOpenAIHost(baseURL: string) {
 }
 
 function createMaxTokensFetch(providerName: string, inner?: typeof fetch): typeof fetch {
-  const base = inner || fetch
+  const base = inner || robustFetch
   return async (input: any, init?: any) => {
     try {
       if (init?.body && typeof init.body === 'string') {
@@ -359,6 +397,7 @@ const AGENT_TOOLS: Record<string, Record<string, any>> = {
     readStoryboardContext: storyboardTools.readStoryboardContext,
     updateStoryboard: storyboardTools.updateStoryboard,
   },
+  synopsis_generator: synopsisTools,
 }
 
 /** instructions diurai berdasarkan permintaan: file prompt (atau default) + gabungan seluruh skill + blok instruksi bahasa target

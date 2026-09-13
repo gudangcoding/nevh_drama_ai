@@ -1245,6 +1245,17 @@
                     ? t('episode.asset.promptHintScene')
                     : t('episode.asset.promptHintProp') }}
               </p>
+              <label class="switch-row asset-detail-autoimg">
+                <input
+                  type="checkbox"
+                  class="sr-only"
+                  :checked="autoImageAfterPrompt"
+                  @change="toggleAutoImageAfterPrompt"
+                />
+                <span class="switch" :class="{ on: autoImageAfterPrompt }"></span>
+                <span class="field-hint switch-hint">{{ t('episode.asset.autoImageLabel') }}</span>
+                <span class="field-hint switch-hint">{{ t('episode.asset.autoImageHint') }}</span>
+              </label>
             </section>
           </div>
 
@@ -1647,6 +1658,16 @@ const assetPromptDraft = ref('')
 const assetPromptDirty = ref(false)
 const savingAssetDetail = ref(false)
 
+// Opsi: setelah prompt aset berhasil dibuat, langsung buat gambarnya juga (persisted per perangkat)
+const AUTO_IMAGE_AFTER_PROMPT_KEY = 'hbao_auto_image_after_prompt'
+const autoImageAfterPrompt = ref((() => {
+  try { return localStorage.getItem(AUTO_IMAGE_AFTER_PROMPT_KEY) === '1' } catch { return false }
+})())
+function toggleAutoImageAfterPrompt() {
+  autoImageAfterPrompt.value = !autoImageAfterPrompt.value
+  try { localStorage.setItem(AUTO_IMAGE_AFTER_PROMPT_KEY, autoImageAfterPrompt.value ? '1' : '0') } catch {}
+}
+
 function isPendingCharImage(id) {
   return pendingCharImageIds.value.includes(id)
 }
@@ -1789,16 +1810,16 @@ function isAssetImagePending(type, id) {
  * force=true 时忽略已有提示词强制重新生成
  * 返回最终提示词；生成失败由接口抛错，Agent 返回空时返回 ''
  */
-async function ensureAssetPrompt(type, id, force = false) {
+async function ensureAssetPrompt(type, id, force = false, autoImage = false) {
   const key = `${type}:${id}`
   if (generatingPromptKeys.value.includes(key)) return ''
   generatingPromptKeys.value.push(key)
   try {
     const res = type === 'character'
-      ? await characterAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId())
+      ? await characterAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId(), autoImage)
       : type === 'scene'
-        ? await sceneAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId())
-        : await propAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId())
+        ? await sceneAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId(), autoImage)
+        : await propAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId(), autoImage)
     const fp = res?.final_prompt || res?.finalPrompt || ''
     if (fp) applyFinalPrompt(type, id, fp)
     return fp
@@ -1813,11 +1834,28 @@ async function genAssetFinalPrompt() {
   if (!detail.open || !detail.item?.id) return
   const force = !!assetFinalPrompt.value
   try {
-    const fp = await ensureAssetPrompt(detail.type, detail.item.id, force)
+    const fp = await ensureAssetPrompt(detail.type, detail.item.id, force, autoImageAfterPrompt.value)
     if (!fp) throw new Error(t('episode.asset.promptGenFailedRetry'))
     assetPromptDraft.value = fp
     assetPromptDirty.value = false
     toast.success(force ? t('episode.asset.promptRegenerated') : t('episode.asset.promptGenerated'))
+    if (autoImageAfterPrompt.value) {
+      toast.success(detail.type === 'character'
+        ? t('episode.image.generatingChar')
+        : detail.type === 'scene' ? t('episode.image.generatingScene') : t('episode.image.generatingProp'))
+      await refresh()
+      watchAsyncResult(() => {
+        const item = detail.type === 'character'
+          ? chars.value.find(c => c.id === detail.item.id)
+          : detail.type === 'scene' ? scenes.value.find(s => s.id === detail.item.id) : propItems.value.find(p => p.id === detail.item.id)
+        const done = !!(item?.image_url || item?.imageUrl)
+        if (done) {
+          const pending = detail.type === 'character' ? pendingCharImageIds : detail.type === 'scene' ? pendingSceneImageIds : pendingPropImageIds
+          pending.value = pending.value.filter(x => x !== detail.item.id)
+        }
+        return done
+      })
+    }
   } catch (e) {
     toastError(e, { fallback: 'episode.asset.promptGenFailed' })
   }
@@ -5563,6 +5601,19 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   color: var(--text-3);
   font-size: 11px;
   line-height: 1.5;
+}
+.asset-detail-autoimg {
+  margin-top: 2px;
+}
+.switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  min-height: 27px;
+}
+.switch-hint {
+  margin: 0;
 }
 .asset-detail-readonly-grid {
   display: flex;

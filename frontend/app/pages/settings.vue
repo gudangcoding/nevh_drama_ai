@@ -1259,7 +1259,8 @@ async function startMigrate() {
   migrating.value = true
   beginMigrate()
   try {
-    await desktopBridge.startMigration({ targetDir: migrateTarget.value, migrateFiles: migrateFiles.value })
+    const res = await desktopBridge.startMigration({ targetDir: migrateTarget.value, migrateFiles: migrateFiles.value })
+    if (!res.ok) throw new Error(res.error || 'Migrasi gagal')
     // 成功的完成提示与页面刷新由全局进度订阅（app.vue）处理
   } catch (e) {
     endMigrate()

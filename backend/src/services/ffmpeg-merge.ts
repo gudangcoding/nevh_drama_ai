@@ -13,7 +13,9 @@ import { eq } from 'drizzle-orm'
 import { now } from '../utils/response.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 import { translateApiError } from '../utils/error-translate.js'
-import { extractVideoPoster } from '../utils/video-poster.js'
+import { extractVideoPoster, posterPathFor } from '../utils/video-poster.js'
+import { getAbsolutePath } from '../utils/storage.js'
+import sharp from 'sharp'
 import { ffmpeg, checkFfmpegSuite } from '../utils/ffmpeg.js'
 import { DATA_ROOT, STORAGE_ROOT } from '../utils/paths.js'
 import { getContentLanguage, type ContentLanguage } from './app-settings.js'
@@ -176,6 +178,11 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[], sub
 
   // Frame poster hasil akhir (untuk sampul halaman ekspor)
   await extractVideoPoster(mergedRelative)
+  // Sampul hasil akhir = sampul proyek (jika ada); timpa poster frame agar cover proyek muncul di hasil export
+  const [episode] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
+  const posterRel = posterPathFor(mergedRelative)
+  let coverPoster: string | null = null
+  if (episode) coverPoster = await applyDramaCoverAsPoster(episode.dramaId, mergedRelative)
 
   // Memperbarui catatan merge
   await db.update(schema.videoMerges)
@@ -184,7 +191,7 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[], sub
 
   // Memperbarui episode
   await db.update(schema.episodes)
-    .set({ videoUrl: mergedRelative, updatedAt: now() })
+    .set({ videoUrl: mergedRelative, thumbnail: coverPoster || posterRel, updatedAt: now() })
     .where(eq(schema.episodes.id, episodeId))
 
   logTaskSuccess('MergeTask', 'episode-merge', { mergeId, episodeId, output: mergedRelative, duration, clips: videos.length, subtitles: !!srtPath })
@@ -197,4 +204,28 @@ function getVideoDuration(filePath: string): Promise<number> {
       resolve(Math.round(metadata.format.duration || 0))
     })
   })
+}
+
+/**
+ * Menjadikan sampul proyek (dramas.thumbnail) sebagai poster hasil akhir episode.
+ * Menimpa poster frame hasil ekstraksi ffmpeg sehingga halaman ekspor menampilkan cover proyek.
+ * Mengembalikan path relatif poster yang dipakai, atau null jika gagal/tidak ada thumbnail.
+ */
+async function applyDramaCoverAsPoster(dramaId: number, mergedRelative: string): Promise<string | null> {
+  try {
+    const [drama] = await db.select().from(schema.dramas).where(eq(schema.dramas.id, dramaId))
+    const cover = drama?.thumbnail
+    if (!cover) return null
+    const posterRel = posterPathFor(mergedRelative)
+    await sharp(getAbsolutePath(cover))
+      .rotate()
+      .resize({ width: 640, withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toFile(getAbsolutePath(posterRel))
+    logTaskSuccess('MergeTask', 'cover-poster', { dramaId, poster: posterRel })
+    return posterRel
+  } catch (err) {
+    console.warn(`[ffmpeg-merge] Gagal memasang sampul proyek sebagai poster hasil akhir:`, (err as Error).message)
+    return null
+  }
 }
