@@ -208,6 +208,75 @@
         </form>
       </div>
     </div>
+
+    <!-- ===== Dialog '+ Buat Sinopsis' — ide cerita → sinopsis lengkap via AI ===== -->
+    <div v-if="showSynopsis" class="overlay" @click.self="closeSynopsis">
+      <div class="dialog create-dialog">
+        <div class="dialog-head">
+          <div class="dialog-head-main">
+            <h2 class="dialog-title">{{ t('index.synopsis.title') }}</h2>
+            <p class="dialog-desc">{{ t('index.synopsis.desc') }}</p>
+          </div>
+        </div>
+
+        <form v-if="!synLoading && !synResult" @submit.prevent="generateSynopsis" class="dialog-form">
+          <div class="dialog-body">
+            <label class="field">
+              <span class="field-label">{{ t('index.synopsis.idea') }} <span class="required">*</span></span>
+              <textarea v-model="synForm.idea" class="input textarea" rows="6" :placeholder="t('index.synopsis.ideaPlaceholder')" autofocus></textarea>
+              <span class="field-hint">{{ t('index.synopsis.ideaHint') }}</span>
+            </label>
+            <label class="field">
+              <span class="field-label">{{ t('index.synopsis.style') }}</span>
+              <BaseSelect v-model="synForm.style" :options="styleSelectOptions" :placeholder="t('index.createDialog.stylePlaceholder')" searchable />
+              <span v-if="synStyleDesc" class="field-hint">{{ synStyleDesc }}</span>
+            </label>
+            <label class="field">
+              <span class="field-label">{{ t('index.synopsis.aspectRatio') }}</span>
+              <BaseSelect v-model="synForm.aspect_ratio" :options="aspectRatioOptions" :placeholder="t('index.createDialog.aspectRatioPlaceholder')" />
+            </label>
+          </div>
+          <div class="dialog-foot">
+            <button type="button" class="btn" @click="closeSynopsis">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn btn-primary" :disabled="synLoading || !synForm.idea?.trim()">
+              <Loader2 v-if="synLoading" :size="13" class="animate-spin" />
+              <Sparkles v-else :size="13" />
+              {{ t('index.synopsis.generate') }}
+            </button>
+          </div>
+        </form>
+
+        <div v-else-if="synLoading" class="dialog-body syn-loading">
+          <Loader2 :size="26" class="animate-spin" />
+          <p class="syn-loading-text">{{ t('index.synopsis.generating') }}</p>
+          <p class="field-hint">{{ t('index.synopsis.generatingHint') }}</p>
+        </div>
+
+        <div v-else-if="synResult" class="dialog-body">
+          <div class="syn-result">
+            <h3 class="syn-result-title">{{ synResult.title || t('index.synopsis.untitled') }}</h3>
+            <p v-if="synResult.genre" class="syn-result-tags">
+              <span class="tag tag-accent">{{ synResult.genre }}</span>
+              <span class="tag">{{ styleLabel(synResult.style || form.style) }}</span>
+            </p>
+            <p class="syn-result-text">{{ synResult.synopsis }}</p>
+            <p v-if="synResult.tags?.length" class="syn-result-tags">
+              <span v-for="tg in synResult.tags" :key="tg" class="tag">{{ tg }}</span>
+            </p>
+          </div>
+          <div class="dialog-foot">
+            <button type="button" class="btn" @click="closeSynopsis">{{ t('common.close') }}</button>
+            <button type="button" class="btn btn-primary" @click="useSynopsisAsDraft">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              {{ t('index.synopsis.useDraft') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <ConfirmDialog
       :open="!!dramaToDelete"
       :title="t('index.deleteDialog.title')"
@@ -223,8 +292,8 @@
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { Clock, CircleHelp } from 'lucide-vue-next'
-import { dramaAPI, stylePresetAPI } from '~/composables/useApi'
+import { Clock, CircleHelp, Loader2, Sparkles, Wand2 } from 'lucide-vue-next'
+import { dramaAPI, stylePresetAPI, synopsisAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { startTour, autoTour } from '~/composables/useTour'
 import { useStylePresetLocale } from '~/composables/useStylePresetLocale'
@@ -248,6 +317,64 @@ const deletingDrama = ref(false)
 const form = ref({ title: '', style: '', aspect_ratio: '16:9', synopsis: '', total_episodes: 1, auto_video: false })
 const stylePresets = ref([])
 const styleSelectOptions = computed(() => stylePresets.value.map(p => ({ label: presetName(p), value: p.value })))
+const synForm = ref({ idea: '', style: '', aspect_ratio: '16:9' })
+const synLoading = ref(false)
+const synResult = ref(null)
+const synExtra = ref(null)
+const showSynopsis = ref(false)
+function openSynopsisDialog() {
+  synForm.value.style = synForm.value.style || form.value.style || stylePresets.value[0]?.value || ''
+  synForm.value.aspect_ratio = form.value.aspect_ratio || '16:9'
+  synResult.value = null
+  showSynopsis.value = true
+}
+function closeSynopsis() {
+  if (synLoading.value) return
+  showSynopsis.value = false
+  synResult.value = null
+}
+const synStyleDesc = computed(() => {
+  const p = stylePresets.value.find(p => p.value === synForm.value.style)
+  return p ? presetDesc(p) : ''
+})
+async function generateSynopsis() {
+  if (!synForm.value.idea?.trim() || synLoading.value) return
+  synLoading.value = true
+  synResult.value = null
+  try {
+    const res = await synopsisAPI.generate({
+      idea: synForm.value.idea.trim(),
+      style: synForm.value.style || undefined,
+      aspect_ratio: synForm.value.aspect_ratio || undefined,
+    })
+    const draft = res?.draft || null
+    if (!draft?.synopsis) throw new Error(t('index.synopsis.errorEmpty'))
+    synResult.value = draft
+  } catch (e) {
+    toastError(e)
+  } finally {
+    synLoading.value = false
+  }
+}
+function useSynopsisAsDraft() {
+  const d = synResult.value
+  if (!d) return
+  if (d.title) form.value.title = d.title
+  if (d.style) form.value.style = d.style
+  if (d.aspect_ratio) form.value.aspect_ratio = d.aspect_ratio
+  if (d.synopsis) form.value.synopsis = d.synopsis
+  if (d.genre) form.value.genre = d.genre
+  synExtra.value = {
+    description: d.description || undefined,
+    genre: d.genre || undefined,
+    tags: d.tags?.length ? d.tags : undefined,
+    cover_prompt: d.cover_prompt || undefined,
+  }
+  showSynopsis.value = false
+  synResult.value = null
+  showCreate.value = true
+  toast.success(t('index.synopsis.drafted'))
+}
 const selectedStyleDesc = computed(() => {
   const p = stylePresets.value.find(p => p.value === form.value.style)
   return p ? presetDesc(p) : ''
@@ -335,7 +462,8 @@ async function create() {
   if (!form.value.title?.trim()) return
   try {
     const autoGenerate = Boolean(form.value.synopsis?.trim() && (form.value.total_episodes || 1) > 0)
-    const payload = { ...form.value, auto_generate: autoGenerate }
+    const payload = { ...form.value, ...(synExtra.value || {}), auto_generate: autoGenerate }
+    synExtra.value = null
     const d = await dramaAPI.create(payload)
     if (d?.production) {
       toast.success(t('index.productionStarted', { title: d.title }))
@@ -672,6 +800,13 @@ onMounted(() => setTimeout(() => autoTour('index', INDEX_TOUR, t), 600))
 .field-label { font-size: 12px; font-weight: 600; color: var(--text-1); }
 .required { color: var(--error); }
 .field-hint { font-size: 11px; color: var(--text-3); line-height: 1.5; }
+.syn-loading { align-items: center; justify-content: center; text-align: center; padding: 36px 0; gap: 8px; color: var(--accent); }
+.syn-loading-text { font-size: 13px; color: var(--text-1); margin-top: 4px; }
+.syn-result { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; }
+.syn-result-title { font-size: 15px; font-weight: 650; color: var(--text-0); }
+.syn-result-text { font-size: 12.5px; line-height: 1.7; color: var(--text-1); white-space: pre-wrap; }
+.syn-result-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.syn-result-tags .tag { font-size: 11px; }
 .switch-row { display: flex; align-items: center; gap: 10px; cursor: pointer; min-height: 27px; }
 .switch-hint { margin: 0; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
