@@ -50,7 +50,7 @@ const EN_PHRASES: Array<{ re: RegExp; id: string }> = [
   { re: /(incorrect|invalid|bad)\s+(api|bearer)?\s*(key|token|secret)/i, id: 'Kunci API tidak valid, periksa kembali di halaman Pengaturan' },
   { re: /unauthorized|authentication failed|invalid credentials|api key expired/i, id: 'Autentikasi API gagal, periksa kembali kredensial layanan AI' },
   { re: /rate limit|too many requests|exceeded your current quota|insufficient_quota|quota exceeded/i, id: 'Pembatasan kecepatan atau kuota API tercapai, silakan coba lagi nanti' },
-  { re: /insufficient balance|no balance|balance is not enough|payment required/i, id: 'Saldo layanan AI tidak mencukupi, silakan isi ulang terlebih dahulu lalu coba lagi' },
+  { re: /insufficient balance|no balance|balance is not enough|payment required|prepayment credits? are depleted|credits? are depleted/i, id: 'Saldo layanan AI tidak mencukupi, silakan isi ulang terlebih dahulu lalu coba lagi' },
   { re: /model\s+(not found|does not exist|not supported|not available)/i, id: 'Model AI tidak tersedia atau tidak didukung untuk konfigurasi ini' },
   { re: /network error|connection (failed|refused|reset)|ECONNREFUSED|fetch failed/i, id: 'Gagal terhubung ke layanan AI, periksa koneksi internet' },
   { re: /content (policy|filter)|safety system|blocked by the system|text is being edited/i, id: 'Permintaan ditolak karena konten tidak sesuai pedoman layanan AI' },

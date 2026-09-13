@@ -215,11 +215,16 @@ let lastLoggedTextEndpointKey = ''
 /**
  * Menonaktifkan mode thinking (pemikiran)
  *
- * Latar belakang: proxy new-api mewajibkan pengembalian reasoning_content dalam permintaan multi-putar untuk model thinking,
- * namun Agent dengan pemanggilan tool multi-putar tidak dapat mengembalikannya, sehingga ditolak oleh proxy dengan error 400
- * ("The `reasoning_content` in the thinking mode must be passed back to the API").
- * Di sini parameter penonaktifan thinking disuntikkan ke dalam body permintaan dengan gaya masing-masing penyedia,
- * agar model tidak menghasilkan reasoning_content.
+ * Latar belakang: beberapa proxy (new-api style) mewajibkan pengembalian reasoning_content dalam
+ * permintaan multi-putar untuk model thinking, namun Agent dengan pemanggilan tool multi-putar
+ * tidak dapat mengembalikannya → 400 ("The `reasoning_content` ... must be passed back to the API").
+ * Di sini parameter penonaktifan thinking disuntikkan ke dalam body permintaan dengan gaya masing-masing
+ * penyedia agar model tidak menghasilkan reasoning_content.
+ *
+ * CATATAN: field `thinking` TIDAK lagi dikirim. Relay modern yang strict (mis. api.hcnsec.cn)
+ * membalas 400 ""thinking" is not supported on /v1/chat/completions", padahal `reasoning_effort` +
+ * `enable_thinking` sudah cukup mematikan reasoning tanpa membuat proxy 400. Provider yang justru
+ * butuh `thinking` bisa diatur manual lewat AI_THINKING_OFF_PATCH.
  *
  * - Diaktifkan secara default; AI_DISABLE_THINKING=false dapat menonaktifkan penyuntikan
  * - Melewati endpoint resmi OpenAI / Gemini (API resmi akan menolak parameter yang tidak dikenal)
@@ -232,10 +237,13 @@ function isOfficialTextHost(baseURL: string) {
 }
 
 function openaiThinkingOffPatch(): Record<string, any> {
+  // JANGAN mengirim field `thinking` pada /v1/chat/completions: banyak proxy/relay (mis. hcnsec)
+  // mengembalikan 400 ""thinking" is not supported ... Use "reasoning_effort"", padahal justru
+  // menerima `reasoning_effort` dan `enable_thinking`. Kombinasi ini terverifikasi mematikan
+  // reasoning (response tidak lagi berisi reasoning_content) pada model DeepSeek-V4 di hcnsec.
   const fallback = {
-    thinking: { type: 'disabled' },   // new-api umum / DeepSeek
-    enable_thinking: false,           // Qwen / seri Alibaba
-    reasoning_effort: 'none',         // Enum gaya OpenAI (channel Gemini dipetakan ke budget 0)
+    enable_thinking: false,  // Qwen / seri Alibaba
+    reasoning_effort: 'none', // Enum gaya OpenAI (channel Gemini dipetakan ke budget 0)
   }
   const raw = process.env.AI_THINKING_OFF_PATCH
   if (!raw) return fallback

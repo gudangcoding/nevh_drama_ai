@@ -51,11 +51,14 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
     // endpoint interactions banyak yang tidak dikonfigurasi oleh relay, probing akan menghasilkan false positive 500.
     // Gunakan request body legal minimum bukan body kosong — body kosong di beberapa relay akan memicu false positive kegagalan autentikasi upstream
     if (serviceType === 'video') {
-      // Video: probe endpoint generateVideos dengan body kosong untuk memverifikasi autentikasi dan endpoint
+      // Video: endpoint resmi Veo di API developer hanya mendukung :predictLongRunning
+      // (alias :generateVideos lama kini 404). Probe dengan body kosong: tidak memulai tugas
+      // penagihan (untuk body penuh akan memulai video berbayar), cukup verifikasi path+auth.
+      // Respons yang diharapkan: 400/429/200 → reachable; 404 → endpoint/path salah.
       const modelName = m || 'veo-3.1-generate-preview'
       return {
         method: 'POST',
-        url: joinProviderUrl(baseUrl, '/v1beta', `/models/${modelName}:generateVideos`),
+        url: joinProviderUrl(baseUrl, '/v1beta', `/models/${modelName}:predictLongRunning`),
         headers: geminiHeaders(apiKey, true),
         body: {},
       }
@@ -235,18 +238,27 @@ app.post('/test', async (c) => {
       if (candidate.status !== 404 && candidate.status !== 400) break
     }
     const text = await (resp as Response).text()
-    const reachable = [200, 204, 400, 401, 403].includes((resp as Response).status)
+    const reachable = [200, 204, 400, 401, 403, 429].includes((resp as Response).status)
     const usedUrlRedacted = redactUrl(usedUrl)
+    const status = (resp as Response).status
+    let message: string
+    if (!reachable) {
+      message = 'Endpoint tidak merespons sesuai harapan, periksa Base URL dan prefiks proxy'
+    } else if (status === 429) {
+      message = 'Endpoint dapat diakses, tetapi kuota/saldo layanan AI habis atau dibatasi (429)'
+    } else if ((resp as Response).ok) {
+      message = 'Endpoint dapat diakses, autentikasi dan path berfungsi normal'
+    } else {
+      message = 'Endpoint merespons, periksa kode status untuk memastikan autentikasi/path benar'
+    }
     const payload = {
       ok: (resp as Response).ok,
       reachable,
-      status: (resp as Response).status,
+      status,
       status_text: (resp as Response).statusText,
       method: probe.method,
       url: usedUrlRedacted,
-      message: reachable
-        ? ((resp as Response).ok ? 'Endpoint dapat diakses, autentikasi dan path berfungsi normal' : 'Endpoint merespons, periksa kode status untuk memastikan autentikasi/path benar')
-        : 'Endpoint tidak merespons sesuai harapan, periksa Base URL dan prefiks proxy',
+      message,
       response_preview: text.slice(0, 240),
     }
     if (reachable) {

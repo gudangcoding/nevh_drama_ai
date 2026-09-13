@@ -1,8 +1,10 @@
 /**
- * Adapter pembuatan video Google Gemini (Veo) melalui Google AI Studio
+ * Adapter pembuatan video Google Gemini (Veo) melalui Google AI Studio / API developer
  *
- * Endpoint: POST /v1beta/models/{model}:generateVideos
- * Respons awal: { name: "operations/xxx" } → polling untuk mendapatkan status
+ * Endpoint: POST /v1beta/models/{model}:predictLongRunning
+ * (Model veo-* di API developer hanya mengumumkan supportedGenerationMethods=s["predictLongRunning"];
+ *  alias lama :generateVideos sekarang 404.)
+ * Respons awal: { operations: "operations/xxx" } → polling GET /v1beta/operations/xxx
  *
  * Mendukung model Veo:
  * - veo-3.1-generate-preview   (Veo 3.1)
@@ -154,13 +156,14 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
     }
 
     return {
-      url: joinProviderUrl(config.baseUrl, '/v1beta', `/models/${model}:generateVideos`),
+      url: joinProviderUrl(config.baseUrl, '/v1beta', `/models/${model}:predictLongRunning`),
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-goog-api-key': config.apiKey,
       },
       body: {
+        model: `models/${model}`,
         instances: [instance],
         parameters,
       },
@@ -168,9 +171,11 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
   }
 
   parseGenerateResponse(result: any): VideoGenResponse {
-    // Operasi async: { name: "operations/xxx" }
-    if (result.name && result.name.startsWith('operations/')) {
-      return { isAsync: true, taskId: result.name }
+    // Operasi async: { name: "operations/xxx" } (alias lama) atau
+    // { operations: "operations/xxx" | ["operations/xxx"] | [{ name: ... }] } (predictLongRunning)
+    const op = this.extractOperationName(result)
+    if (op) {
+      return { isAsync: true, taskId: op }
     }
     // Sinkron (jarang terjadi untuk Veo, tapi kompatibel)
     const videoUrl = this.extractVideoUrl(result)
@@ -178,6 +183,26 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
       return { isAsync: false, videoUrl }
     }
     throw new Error('No operation name or video URL in Gemini response')
+  }
+
+  private extractOperationName(result: any): string | null {
+    if (!result || typeof result !== 'object') return null
+    if (typeof result.name === 'string' && result.name.startsWith('operations/')) {
+      return result.name
+    }
+    const ops = result.operations
+    if (typeof ops === 'string') return ops.startsWith('operations/') ? ops : null
+    if (Array.isArray(ops) && ops.length > 0) {
+      const first = ops[0]
+      if (typeof first === 'string') return first.startsWith('operations/') ? first : null
+      if (first && typeof first.name === 'string' && first.name.startsWith('operations/')) {
+        return first.name
+      }
+    }
+    if (ops && typeof ops.name === 'string' && ops.name.startsWith('operations/')) {
+      return ops.name
+    }
+    return null
   }
 
   buildPollRequest(config: AIConfig, taskId: string): ProviderRequest {

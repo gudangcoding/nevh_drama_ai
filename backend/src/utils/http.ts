@@ -93,8 +93,6 @@ export async function robustFetch(
       const resp = await fetch(url, dispatcherInit)
       lastResponse = resp
       if (resp.ok || !isRetryableStatus(resp.status)) return resp
-      // Lepaskan koneksi sebelum mencoba ulang, supaya agent tidak menahan connection
-      await resp.arrayBuffer().catch(() => undefined)
     } catch (err) {
       lastError = err
       const abortedByCaller = callerSignal?.aborted || (err as { name?: string })?.name === 'AbortError'
@@ -102,6 +100,10 @@ export async function robustFetch(
     }
 
     if (attempt === maxRetries) break
+
+    // Hanya melepas koneksi bila akan mencoba ulang. JANGAN menguras body response
+    // percobaan terakhir: nanti pemanggil membaca text()/json() untuk melihat error asli provider.
+    await lastResponse?.arrayBuffer().catch(() => undefined)
 
     const retryAfter = lastResponse
       ? Number(lastResponse.headers.get('retry-after') || 0)
