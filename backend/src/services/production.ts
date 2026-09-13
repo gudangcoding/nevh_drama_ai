@@ -23,6 +23,7 @@ import { getActiveConfig, getActiveConfigId } from './ai.js'
 import { getContentLanguage } from './app-settings.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn } from '../utils/task-logger.js'
 import { agentAbortSignal, isAgentTimeoutAbort } from '../utils/agent-timeout.js'
+import { isTransientAgentError } from '../utils/agent-retry.js'
 import { translateApiError, describeApiError } from '../utils/error-translate.js'
 
 export type ProductionPhase =
@@ -176,14 +177,10 @@ async function checkTextConfig(): Promise<void> {
 }
 
 /**
- * Kesalahan sementara (jaringan/5xx/timeout) — pantas di-retry sekali-dua kali agar
+ * Kesalahan sementara (jaringan/5xx/timeout header) — pantas di-retry sekali-dua kali agar
  * produksi tidak mati karena provider tiba-tiba sibuk. Kesalahan pasti (saldo habis,
  * kunci API salah, model tidak ada) tidak di-retry agar TIDAK menghabiskan token.
  */
-function isTransientError(err: unknown): boolean {
-  const raw = String((err as any)?.message || (err as any)?.cause?.message || err || '')
-  return /timeout|timed\s?out|ECONNRESET|ECONNREFUSED|ETIMEDOUT|socket hang up|fetch failed|network error|broken pipe|502|503|504|5\d\d/i.test(raw)
-}
 
 const AGENT_RETRY_LIMIT = Number(process.env.AI_AGENT_RETRY || 2)
 const AGENT_RETRY_BACKOFF_MS = Number(process.env.AI_AGENT_RETRY_BACKOFF || 4000)
@@ -207,7 +204,7 @@ async function runAgentSilent(agentType: string, jobId: number, episode: Episode
     } catch (err: any) {
       // Abort karena timeout adalah milik kita sendiri: mengulang dari langkah ke-0
       // hanya membakar token → langsung gagal, dilanjutkan via resume job.
-      if (isAgentTimeoutAbort(err) || !isTransientError(err) || attempt >= AGENT_RETRY_LIMIT) throw err
+        if (isAgentTimeoutAbort(err) || !isTransientAgentError(err) || attempt >= AGENT_RETRY_LIMIT) throw err
       attempt++
       logTaskWarn('Production', 'agent-retry', {
         jobId,

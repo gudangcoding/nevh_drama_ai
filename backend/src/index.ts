@@ -1,4 +1,8 @@
 import 'dotenv/config'
+// undici (fetch bawaan Node) mematikan permintaan bila header tidak terkirim sesuai batas
+// (default 300 detik). Provider AI kustom bisa menahan respons lebih lama, jadi dinaikkan
+// agar tidak memunculkan "Headers Timeout Error" pada permintaan yang sebenarnya selesai.
+process.env.NODE_HTTP_HEADERS_TIMEOUT ||= String(Number(process.env.AI_HTTP_HEADERS_TIMEOUT_MS || 900_000))
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'

@@ -11,6 +11,7 @@ import { buildAgentRequestContext } from '../../agents/context.js'
 import { getContentLanguage } from '../app-settings.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess } from '../../utils/task-logger.js'
 import { agentAbortSignal } from '../../utils/agent-timeout.js'
+import { generateWithRetry } from '../../utils/agent-retry.js'
 import { getPublishAdapter } from './adapters.js'
 
 export interface SeoCopy {
@@ -69,7 +70,7 @@ export async function generateSeoCopy(opts: { dramaId: number; episodeId?: numbe
 
   const agent = mastra.getAgent('publish_copier')
   if (!agent) throw new Error('Agent publish_copier tidak ditemukan')
-  const result = await agent.generate([{ role: 'user', content: prompt }], { maxSteps: 5, requestContext, abortSignal: agentAbortSignal(5) })
+  const result = await generateWithRetry(agent, [{ role: 'user', content: prompt }], { maxSteps: 5, requestContext, abortSignal: agentAbortSignal(5) }, 'publish-seo', { episodeId: opts.episodeId })
   const seo = parseSeoJson(result.text || '')
   if (!seo || !seo.title) {
     // Fallback aman jika model tidak menghasilkan JSON valid

@@ -390,9 +390,10 @@ const AUTO_MODEL_TTL = 10 * 60_000
 function scoreChatModel(id: string): number {
   const s = id.toLowerCase()
   let score = 0
-  if (/gpt|o1|o3|deepseek|qwen|glm|kimi|moonshot|doubao|claude|gemini|chat|think|pro-latest|reasoning/i.test(s)) score += 3
-  if (/(mini|flash|lite|small|fast|nano)/i.test(s)) score += 1
-  if (/(image|video|audio|whisper|tts|speech|embedding|rerank|moderation|dall|transcri)/i.test(s)) score -= 20
+  // Model cepat/ekonomis mendapat skor lebih tinggi supaya auto memilih model ringan (hemat token & latensi rendah)
+  if (/(mini|flash|lite|small|fast|nano|air|turbo|next)/i.test(s)) score += 4
+  if (/gpt|o1|o3|deepseek|qwen|glm|kimi|moonshot|doubao|claude|gemini|chat|think|pro-latest|reasoning/i.test(s)) score += 2
+  if (/(image|video|audio|whisper|tts|speech|embedding|rerank|moderation|dall|transcri|vector)/i.test(s)) score -= 20
   return score
 }
 

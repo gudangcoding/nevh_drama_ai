@@ -12,6 +12,7 @@ import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
 import { logTaskError, logTaskProgress } from '../utils/task-logger.js'
 import { agentAbortSignal } from '../utils/agent-timeout.js'
+import { generateWithRetry } from '../utils/agent-retry.js'
 
 type CharacterRow = typeof schema.characters.$inferSelect
 type SceneRow = typeof schema.scenes.$inferSelect
@@ -29,7 +30,7 @@ async function runPromptAgent(episodeId: number, dramaId: number, message: strin
     modelOverride: opts?.model || undefined,
     textConfigId: opts?.configId || undefined,
   })
-  await agent.generate([{ role: 'user', content: message }], { maxSteps, requestContext, abortSignal: agentAbortSignal(maxSteps) })
+  await generateWithRetry(agent, [{ role: 'user', content: message }], { maxSteps, requestContext, abortSignal: agentAbortSignal(maxSteps) }, 'final-prompt', { episodeId, dramaId })
 }
 
 export type PromptBatchItem = { character?: CharacterRow; scene?: SceneRow; prop?: PropRow }

@@ -6,6 +6,7 @@
 import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
 import { agentAbortSignal } from '../utils/agent-timeout.js'
+import { generateWithRetry } from '../utils/agent-retry.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 import { describeApiError } from '../utils/error-translate.js'
 
@@ -47,7 +48,7 @@ export function startExtraction(episodeId: number, dramaId: number, target: Extr
       modelOverride: opts.model || undefined,
       textConfigId: opts.configId || undefined,
     })
-    return agent.generate([{ role: 'user', content: EXTRACT_MESSAGES[target] }], {
+    return generateWithRetry(agent, [{ role: 'user', content: EXTRACT_MESSAGES[target] }], {
       maxSteps: 20,
       requestContext,
       abortSignal: agentAbortSignal(20),
@@ -62,7 +63,7 @@ export function startExtraction(episodeId: number, dramaId: number, target: Extr
           text: (step?.text || '').slice(0, 200) || undefined,
         })
       },
-    })
+    }, 'extract', { episodeId, target })
   })()
     .then((result: any) => {
       task.status = 'done'
