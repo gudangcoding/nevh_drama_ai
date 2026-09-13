@@ -16,12 +16,13 @@ import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
 import { startExtraction, getExtractionStatus, EXTRACT_TARGETS, type ExtractTarget } from './extraction.js'
 import { startVideoPromptBatch, getVideoPromptBatchStatus } from './video-prompts.js'
-import { ensureCharacterFinalPrompt, ensureSceneFinalPrompt, ensurePropFinalPrompt } from './final-prompt.js'
+import { ensureBatchFinalPrompts } from './final-prompt.js'
 import { generateImage, generateVideo } from './generation.js'
 import { mergeEpisodeVideos } from './ffmpeg-merge.js'
 import { getActiveConfig, getActiveConfigId } from './ai.js'
 import { getContentLanguage } from './app-settings.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn } from '../utils/task-logger.js'
+import { agentAbortSignal, isAgentTimeoutAbort } from '../utils/agent-timeout.js'
 import { translateApiError, describeApiError } from '../utils/error-translate.js'
 
 export type ProductionPhase =
@@ -201,10 +202,12 @@ async function runAgentSilent(agentType: string, jobId: number, episode: Episode
   let attempt = 0
   for (;;) {
     try {
-      await agent.generate([{ role: 'user', content: message }], { maxSteps, requestContext })
+      await agent.generate([{ role: 'user', content: message }], { maxSteps, requestContext, abortSignal: agentAbortSignal(maxSteps) })
       return
     } catch (err: any) {
-      if (!isTransientError(err) || attempt >= AGENT_RETRY_LIMIT) throw err
+      // Abort karena timeout adalah milik kita sendiri: mengulang dari langkah ke-0
+      // hanya membakar token → langsung gagal, dilanjutkan via resume job.
+      if (isAgentTimeoutAbort(err) || !isTransientError(err) || attempt >= AGENT_RETRY_LIMIT) throw err
       attempt++
       logTaskWarn('Production', 'agent-retry', {
         jobId,
@@ -316,7 +319,10 @@ interface AssetImageItem {
   kind: 'character' | 'scene' | 'prop'
   id: number
   label: string
-  ensurePrompt: (episodeId: number) => Promise<string>
+  /** Prompt akhir dari Agent (batch) — dipakai bila terisi */
+  finalPrompt: string
+  /** Prompt lokal darurat bila prompt akhir kosong */
+  defaultPrompt: string
 }
 
 async function doAssetImages(jobId: number, job: ProductionJobRow, config: ProductionJobConfig) {
@@ -329,52 +335,51 @@ async function doAssetImages(jobId: number, job: ProductionJobRow, config: Produ
     .where(and(eq(schema.episodes.dramaId, dramaId), isNull(schema.episodes.deletedAt)))
     .orderBy(schema.episodes.episodeNumber))[0]
 
-  const items: AssetImageItem[] = [
-    ...characters.filter(c => !c.imageUrl).map(c => ({
-      kind: 'character' as const,
-      id: c.id,
-      label: `Karakter: ${c.name}`,
-      ensurePrompt: (epId: number) => ensureCharacterFinalPrompt(c, epId, false, { model: config.text_model || undefined, configId: config.text_config_id || undefined }),
-    })),
-    ...scenes.filter(s => !s.imageUrl).map(s => ({
-      kind: 'scene' as const,
-      id: s.id,
-      label: `Adegan: ${s.location}`,
-      ensurePrompt: (epId: number) => ensureSceneFinalPrompt(s, epId, false, { model: config.text_model || undefined, configId: config.text_config_id || undefined }),
-    })),
-    ...props.filter(p => !p.imageUrl).map(p => ({
-      kind: 'prop' as const,
-      id: p.id,
-      label: `Properti: ${p.name}`,
-      ensurePrompt: (epId: number) => ensurePropFinalPrompt(p, epId, false, { model: config.text_model || undefined, configId: config.text_config_id || undefined }),
-    })),
-  ]
-
-  let done = -1
-  const total = items.length
   if (firstEp) {
+    // Prompt akhir aset dibuat BATCH dalam satu sesi Agent (bukan satu sesi per aset),
+    // agar tidak membakar token & waktu untuk belasan aset yang hanya butuh prompt singkat.
+    await ensureBatchFinalPrompts(firstEp.id, dramaId, [
+      ...characters.map(c => ({ character: c })),
+      ...scenes.map(s => ({ scene: s })),
+      ...props.map(p => ({ prop: p })),
+    ], { model: config.text_model || undefined, configId: config.text_config_id || undefined })
+
+    // Muat ulang setelah Agent menyimpan final_prompt, lalu susun item yang belum punya gambar
+    const freshChars = await db.select().from(schema.characters).where(and(eq(schema.characters.dramaId, dramaId), isNull(schema.characters.deletedAt)))
+    const freshScenes = await db.select().from(schema.scenes).where(and(eq(schema.scenes.dramaId, dramaId), isNull(schema.scenes.deletedAt)))
+    const freshProps = await db.select().from(schema.props).where(and(eq(schema.props.dramaId, dramaId), isNull(schema.props.deletedAt)))
+
+    const items: AssetImageItem[] = [
+      ...freshChars.filter(c => !c.imageUrl).map(c => ({
+        kind: 'character' as const,
+        id: c.id,
+        label: `Karakter: ${c.name}`,
+        defaultPrompt: `${c.name} ${c.appearance || ''} ${c.styling || ''} 16:9 horizontal character turnaround sheet, half-body character poster, front view, white background`.trim() || `Buat gambar untuk Karakter: ${c.name}`,
+        finalPrompt: c.finalPrompt || '',
+      })),
+      ...freshScenes.filter(s => !s.imageUrl).map(s => ({
+        kind: 'scene' as const,
+        id: s.id,
+        label: `Adegan: ${s.location}`,
+        defaultPrompt: `${s.prompt || ''} ${s.lighting || ''}`.trim() || `Buat gambar untuk Adegan: ${s.location}`,
+        finalPrompt: s.finalPrompt || '',
+      })),
+      ...freshProps.filter(p => !p.imageUrl).map(p => ({
+        kind: 'prop' as const,
+        id: p.id,
+        label: `Properti: ${p.name}`,
+        defaultPrompt: `${p.name} ${p.description || ''} single product photo on pure white background`.trim() || `Buat gambar untuk Properti: ${p.name}`,
+        finalPrompt: p.finalPrompt || '',
+      })),
+    ]
+
+    let done = 0
+    const total = items.length
     const errors = await collectPhaseErrors(items, jobId, async (item) => {
       done++
       await ensureActive(jobId)
-      setStage(jobId, `Buat gambar ${item.label} (${done + 1}/${total})`)
-      let prompt = await item.ensurePrompt(firstEp.id)
-      if (!prompt) {
-        let fallback = ''
-        if (item.kind === 'character') {
-          const rows = await db.select().from(schema.characters).where(eq(schema.characters.id, item.id))
-          const row = rows[0]
-          if (row) fallback = `${row.name} ${row.appearance || ''} ${row.styling || ''}`.trim()
-        } else if (item.kind === 'scene') {
-          const rows = await db.select().from(schema.scenes).where(eq(schema.scenes.id, item.id))
-          const row = rows[0]
-          if (row) fallback = `${row.prompt || ''} ${row.lighting || ''}`.trim()
-        } else {
-          const rows = await db.select().from(schema.props).where(eq(schema.props.id, item.id))
-          const row = rows[0]
-          if (row) fallback = `${row.name} ${row.description || ''}`.trim()
-        }
-        prompt = fallback || `Buat gambar untuk ${item.label}`
-      }
+      setStage(jobId, `Buat gambar ${item.label} (${done}/${total})`)
+      const prompt = item.finalPrompt?.trim() || item.defaultPrompt
       await ensureActive(jobId)
       const taskId = await generateImage({
         characterId: item.kind === 'character' ? item.id : undefined,
@@ -385,7 +390,6 @@ async function doAssetImages(jobId: number, job: ProductionJobRow, config: Produ
         configId: config.image_config_id || undefined,
       })
       await waitTaskDone(taskId, jobId)
-      done++
     })
 
     if (errors.length) {
@@ -394,7 +398,7 @@ async function doAssetImages(jobId: number, job: ProductionJobRow, config: Produ
         : `Sebagian gambar aset gagal dibuat (${errors.length}/${total}), dilanjutkan via resume. ${errors[0]}`
       throw new Error(detail)
     }
-  } else if (items.length) {
+  } else if (characters.length || scenes.length || props.length) {
     throw new Error('Tidak ada episode untuk fase gambar aset (jalankan fase scripts terlebih dahulu)')
   }
 }

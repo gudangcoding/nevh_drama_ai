@@ -5,6 +5,7 @@
  */
 import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
+import { agentAbortSignal } from '../utils/agent-timeout.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 import { describeApiError } from '../utils/error-translate.js'
 
@@ -49,6 +50,7 @@ export function startExtraction(episodeId: number, dramaId: number, target: Extr
     return agent.generate([{ role: 'user', content: EXTRACT_MESSAGES[target] }], {
       maxSteps: 20,
       requestContext,
+      abortSignal: agentAbortSignal(20),
       // Mencetak kemajuan Agent secara bertahap: tool mana yang dipanggil, output apa yang dihasilkan
       onStepFinish: (step: any) => {
         const tools = (step?.toolCalls || [])

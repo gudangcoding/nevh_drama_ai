@@ -13,6 +13,7 @@ import { getUser, isAdmin } from '../services/ownership.js'
 import { buildAgentRequestContext } from '../agents/context.js'
 import { mastra } from '../mastra/index.js'
 import { logTaskError, logTaskProgress, logTaskStart } from '../utils/task-logger.js'
+import { agentAbortSignal } from '../utils/agent-timeout.js'
 import { describeApiError } from '../utils/error-translate.js'
 
 const app = new Hono()
@@ -68,7 +69,7 @@ app.post('/generate', async (c) => {
   try {
     const result = await agent.generate(
       [{ role: 'user', content: idea }],
-      { maxSteps: 20, requestContext },
+      { maxSteps: 20, requestContext, abortSignal: agentAbortSignal(20) },
     )
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
     logTaskProgress('Agent', 'synopsis-done', { draftId, elapsedSeconds: elapsed })

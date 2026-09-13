@@ -1,47 +1,48 @@
 # Work Context
 
 ## Objective
-- Menyelesaikan semua todo yang tersisa (frontend "+ Buat Sinopsis", OpenAI custom base URL + model auto, efisiensi token, pipeline tahan banting, antrian produksi, verifikasi TSC + tests), lalu build dan naikkan versi proyek.
+- **FIX SUBYEK LAMBAT/GAGAL/BOROS TOKEN pada pipeline produksi aset gambar dan video** (user: "mengapa proses membuat gambar aset lambat dan sering gagal, serta banyak menghabiskan token, jangan-jangan yang video juga gagal buat video dan lambat, cek dan perbaiki"). Perbaikan sudah selesai & terverifikasi (TSC/test/build); belum di-commit.
+- Sebelumnya: semua todo asli (model-auto, efisiensi token, pipeline tahan banting, antrian, synopsis frontend, build + bump versi) sudah selesai.
 
 ## Important Details
-- Branch: `auto_episode`; HEAD = `8dd1cd3 optimasi agen aset` (berisi semua perubahan backend dari todo: agents/model-auto, aiConfigs probe, production queue/retry/collectPhaseErrors, test update — terkomit). Working tree (uncommitted): bump versi + fitur frontend.
-- Versi: root & backend `1.0.0 → 1.1.0`, desktop `5.0.1 → 5.1.0`. Backend otomatis membaca versi dari `backend/package.json` (fallback `server-update.ts`); desktop update-feed memakai `desktop/package.json` version. `HUOBAO_VERSION` hanya untuk build Docker (set saat rilis image).
-- Build: backend `npm run build` (tsc) ✓; frontend `npm run generate` (nuxt static) ✓; desktop `npm run build:backend` + `npm run build:main` ✓. Frontend punya 3 TS error pre-existing (useToast.ts, useUnifiedLanguage.ts, nuxt.config.ts) — bukan dari perubahan.
-- Tests backend: 64 tests → 49 pass / 15 fail. 15 fail TERBUKTI pre-existing (identik di HEAD `176a077`, tidak terkait perubahan). Tests = structural `.mjs` (node:test + readFileSync regex), jalankan `node --test "tests/*.test.mjs"` di `backend/`.
-- yang GAGAL di session ini: tidak ada.
+- Branch: `auto_episode`; HEAD = `8dd1cd3 optimasi agen aset` (backend + frontend-fit dari todo model-auto/synopsis sudah terkomit); working tree (uncommitted) = semua perubahan **perf ini** (agent-timeout.ts, production/final-prompt/extraction/video-prompts/agent/synopsis/publish) + sisa bump versi & 5 locale + index.vue.
+- Versi: root & backend `1.1.0`, desktop `5.1.0`; `HUOBAO_VERSION` hanya untuk build Docker.
+- Build: backend `npm run build` (tsc) ✓ sesudah perubahan perf. Frontend nuxt generate ✓ (session lalu). Tests backend: 64 → **49 pass / 15 fail pre-existing** (structural `.mjs`; `node --test "tests/*.test.mjs"` di `backend/`).
+- Env baru untuk timeout agent: `AI_AGENT_BASE_TIMEOUT_MS` (default 180_000), `AI_AGENT_STEP_TIMEOUT_MS` (45_000/langkah), `AI_AGENT_MAX_TIMEOUT_MS` (3_600_000). Rumus `min(base + maxSteps*step, max)`.
+- Dukungan opsi `abortSignal` pada Mastra `agent.generate` dikonfirmasi di `backend/node_modules/@mastra/core/dist/agent/agent.types.d.ts` (line 358-363, 402-409, 708).
+- yg GAGAL sesi ini: tidak ada.
 
 ## Work State
-### Completed
-- Backend di commit `8dd1cd3`:
-  - `agents/index.ts`: model auto OpenAI-compatible (cache 10 mnt, `scoreChatModel`, `autoResolveTextModel` probe `/models`+`/v1/models` via robustFetch + timeout 15s, error bahasa Indonesia bila kosong, guard gemini — model kosong/'auto' ditolak untuk gemini).
-  - `routes/aiConfigs.ts`: probe test provider teks fallback `/v1/models` → `/models` (break selain 404/400).
-  - `services/production.ts`: antrian global berurutan (`enqueueRun`/`queueTail`), retry transient agent (`isTransientError`, DMA_AGENT_RETRY default 2, backoff 4000ms), `collectPhaseErrors(items|tasks, jobId, worker)` membungkus asset-images/komposisi/video dengan ringkasan "Semua|Sebagian gagal dibuat (...)", pesan storyboard di-deduplikasi (hapus charList/sceneList/propList duplikat).
-  - `tests/production-job-structure.test.mjs`: asersi diupdate ke `collectPhaseErrors`.
-- Frontend (working tree):
-  - `pages/index.vue`: tombol `+ Buat Sinopsis` (btn-ghost + Wand2) di `head-actions` sebelah "+ Proyek Baru"; dialog sinopsis 3 state (form → loading → hasil): textarea idea + BaseSelect style/aspect_ratio → `synopsisAPI.generate` → preview (judul, genre, tag, sinopsis) → tombol "Gunakan ke Proyek Baru" mem-prefill form create + `synExtra` (description/genre/tags/cover_prompt) diteruskan lewat `dramaAPI.create`; `synLoading`/`synResult`/`synForm`/`synExtra`/`showSynopsis`; close diblok saat generating; `.syn-result`, `.syn-loading` styles.
-  - Locales: blok `index.synopsis.*` ditambahkan di **id, en, ja, ko, zh** (button, buttonHint, title, desc, idea, ideaPlaceholder, ideaHint, style, aspectRatio, generate, generating, generatingHint, untitled, useDraft, drafted, errorEmpty).
-- Verifikasi: `npx tsc --noEmit` backend bersih; test 49/64 pass (15 pre-existing gagal).
-- Versi naik + build sukses (backend tsc, nuxt generate, desktop bundles 5.1.0).
+### Completed (perubahan perf — working tree)
+- `utils/agent-timeout.ts` (baru): `agentTimeoutMs(maxSteps)`, `agentAbortSignal(maxSteps)` (AbortSignal.timeout), `isAgentTimeoutAbort(err)` (deteksi TimeoutError milik sendiri; dipakai agar sesi agent yang di-abort karena timeout TIDAK di-retry dari langkah 0 — retry hanya membakar token, cukup mark gagal + resume).
+- `services/production.ts`:
+  - `runAgentSilent` pasang `abortSignal: agentAbortSignal(maxSteps)`; catch: bila `isAgentTimeoutAbort(err)` → langsung throw (tanpa retry), selain itu retry transient seperti biasa.
+  - `doAssetImages` di-refactor: prompt akhir aset dibuat **BATCH 1 sesi Agent** (bukan 1 sesi per aset → hemat token & waktu besar untuk 15+ aset); setelah batch, re-select rows dari DB untuk memakai `finalPrompt` yang baru tersimpan, sisanya pakai `defaultPrompt` lokal; bug counter `done` (-1 + increment ganda) dihilangkan → `let done = 0` + single increment.
+  - `AssetImageItem` diubah: `ensurePrompt` dihapus, diganti `{ kind, id, label, finalPrompt, defaultPrompt }`.
+- `services/final-prompt.ts`: `runPromptAgent` diberi `maxSteps` param + `abortSignal`; tambah `ensureBatchFinalPrompts(episodeId, dramaId, items[], opts?)` — satu sesi `prompt_generator` (maxSteps `min(40, 4 + missing*2)`) menulis final_prompt untuk semua aset yg belum punya; kegagalan agent ditangkap & di-log, tidak dilempar (pemanggil tinggal fallback lokal). `ensureCharacter/Scene/PropFinalPrompt` tetap ada untuk rute manual.
+- Timeout dipasang di semua pemanggilan `agent.generate` lain: `extraction.ts` (maxSteps 20), `video-prompts.ts` (maxSteps 8 — video prompt agent per segment tidak hang lagi), `routes/synopsis.ts` (20), `routes/agent.ts` (20), `services/publish/index.ts` (5).
+- Verifikasi: TSC bersih, test 49/64 (15 pre-existing gagal), build backend sukses.
 
 ### Active
-- Tidak ada; semua todo selesai.
+- Tidak ada; tinggal commit setelah pengguna bersedia.
 
 ### Blocked
-- 15 test structural pre-existing gagal (regex kedaluwarsa dari refactor lama — module `mysql-schema.ts` tak ada, prompt Cina ↔ Indonesia, dll). Tidak disentuh karena di luar scope todo; perlu keputusan terpisah bila mau difix.
-- Frontend `tsc`: 3 error pre-existing (bukan dari perubahan ini).
+- 15 test structural pre-existing gagal (regex kedaluwarsa dari refactor lama) — tidak disentuh, butuh keputusan terpisah.
+- 3 error tsc frontend pre-existing (useToast.ts:13, useUnifiedLanguage.ts:12, nuxt.config.ts:1).
+- Belum ada observasi runtime nyata provider milik user (error 余额不足 hanya muncul di `tmp_backend2.log` saat uji coba; itu murni masalah saldo/kuota, bukan kode).
 
 ## Next Move
-- Commit working tree (8 file: 5 locales + index.vue + root/backend/desktop package.json) dengan pesan gaya repo (mis. `feat: tombol buat sinopsis + bump versi 5.1.0`).
-- Opsional: jalankan `npm run dist:win` di `desktop/` untuk menghasilkan installer (berat, unduh artifact electron-builder).
+- Commit working tree (pesan gaya repo, mis. `perf: timeout agent + batch prompt akhir aset, hemat token & cegah hang`).
+- Rekomendasi uji: jalankan produksi pada ~10+ episode; pantau `production_jobs.phase='asset_images'` → seharusnya 1 sesi prompt batch cepat lalu ≤2 gambar paralel; bila gagal, `cm` + resume. Log aktivitas task di task-logger.
 - Untuk rilis Docker: `docker buildx build --build-arg HUOBAO_VERSION=1.1.0 ...`.
 
 ## Relevant Files
-- `backend/src/agents/index.ts`: model auto (autoResolveTextModel/getModel).
-- `backend/src/routes/aiConfigs.ts`: probe fallback `/v1/models` → `/models`.
-- `backend/src/services/production.ts`: queue, retry, collectPhaseErrors, dedup storyboard message.
-- `backend/tests/production-job-structure.test.mjs`: asersi collectPhaseErrors.
-- `frontend/app/pages/index.vue`: tombol + dialog sinopsis, useSynopsisAsDraft, synExtra merged di `create()`.
+- `backend/src/utils/agent-timeout.ts`: helper timeout agent (baru).
+- `backend/src/services/production.ts`: `runAgentSilent` (abortSignal + no-retry-on-timeout), `doAssetImages` (batch + counter fix).
+- `backend/src/services/final-prompt.ts`: `ensureBatchFinalPrompts` (baru, batch 1 sesi) + `runPromptAgent` timeout.
+- `backend/src/services/extraction.ts`, `video-prompts.ts`, `routes/synopsis.ts`, `routes/agent.ts`, `services/publish/index.ts`: pemanggilan agent kini ber-abortSignal.
+- `frontend/app/pages/index.vue` + `locales/{id,en,ja,ko,zh}.json`: fitur synopsis selesai (working tree).
 - `frontend/app/composables/useApi.ts`: `synopsisAPI.generate` (line 67-70).
-- `frontend/app/locales/{id,en,ja,ko,zh}.json`: blok `index.synopsis.*`.
-- `backend/src/routes/synopsis.ts` + `db/schema.ts` (synopsisDrafts): field draft = title, genre, style, aspect_ratio, synopsis, description, tags, cover_prompt.
-- `package.json` (root/backend/desktop): versi 1.1.0 / 1.1.0 / 5.1.0.
+- `backend/tests/production-job-structure.test.mjs`: asersi collectPhaseErrors (tetap cocok).
+- `backend/node_modules/@mastra/core/dist/agent/agent.types.d.ts`: bukti opsi `abortSignal`.
+- `package.json` (root/backend/desktop): 1.1.0 / 1.1.0 / 5.1.0.
