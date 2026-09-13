@@ -221,10 +221,17 @@ let lastLoggedTextEndpointKey = ''
  * Di sini parameter penonaktifan thinking disuntikkan ke dalam body permintaan dengan gaya masing-masing
  * penyedia agar model tidak menghasilkan reasoning_content.
  *
- * CATATAN: field `thinking` TIDAK lagi dikirim. Relay modern yang strict (mis. api.hcnsec.cn)
- * membalas 400 ""thinking" is not supported on /v1/chat/completions", padahal `reasoning_effort` +
- * `enable_thinking` sudah cukup mematikan reasoning tanpa membuat proxy 400. Provider yang justru
- * butuh `thinking` bisa diatur manual lewat AI_THINKING_OFF_PATCH.
+ * CATATAN: field `thinking` TIDAK lagi dikirim (relay strict, mis. api.hcnsec.cn, membalas 400
+ * ""thinking" is not supported on /v1/chat/completions"). `enable_thinking` juga TIDAK dikirim lagi:
+ * beberapa relay (new-api style) memvalidasi parameter tak dikenal per channel dan menolak dengan
+ * 400 "Unsupported parameter(s): `enable_thinking`". Kombinasi `enable_thinking:false` yang dulu
+ * lolos di hcnsec kini ikut ditolak (30+ karya, satu host berbeda perilaku dari waktu ke waktu).
+ * Parameter default cukup `reasoning_effort: none` (enum gaya OpenAI, diterima DeepSeek V4 di hcnsec).
+ *
+ * Pertahanan berlapis: createThinkingOffFetch akan "menyembuhkan diri" bila relay membalas 400
+ * "unsupported/invalid/unknown parameter" — dimuat ulang sekali tanpa patch thinking ini, agar
+ * provider apa pun tetap berjalan kendati menolak `reasoning_effort`. Provider yang justru butuh
+ * `thinking` bisa diatur manual lewat AI_THINKING_OFF_PATCH.
  *
  * - Diaktifkan secara default; AI_DISABLE_THINKING=false dapat menonaktifkan penyuntikan
  * - Melewati endpoint resmi OpenAI / Gemini (API resmi akan menolak parameter yang tidak dikenal)
@@ -237,12 +244,11 @@ function isOfficialTextHost(baseURL: string) {
 }
 
 function openaiThinkingOffPatch(): Record<string, any> {
-  // JANGAN mengirim field `thinking` pada /v1/chat/completions: banyak proxy/relay (mis. hcnsec)
-  // mengembalikan 400 ""thinking" is not supported ... Use "reasoning_effort"", padahal justru
-  // menerima `reasoning_effort` dan `enable_thinking`. Kombinasi ini terverifikasi mematikan
-  // reasoning (response tidak lagi berisi reasoning_content) pada model DeepSeek-V4 di hcnsec.
+  // JANGAN mengirim `thinking` (relay hcnsec → 400 ""thinking" is not supported") maupun
+  // `enable_thinking` (relay new-api style → 400 "Unsupported parameter(s): `enable_thinking`").
+  // Cukup reasoning_effort: none — enum gaya OpenAI yang diterima DeepSeek V4 di hcnsec dan
+  // mematikan reasoning tanpa menimbulkan 400.
   const fallback = {
-    enable_thinking: false,  // Qwen / seri Alibaba
     reasoning_effort: 'none', // Enum gaya OpenAI (channel Gemini dipetakan ke budget 0)
   }
   const raw = process.env.AI_THINKING_OFF_PATCH
@@ -260,9 +266,11 @@ function createThinkingOffFetch(providerName: string, baseURL: string, inner: ty
   const openaiPatch = openaiThinkingOffPatch()
 
   return async (input: any, init?: any) => {
+    const originalBody = init && typeof init.body === 'string' ? init.body : undefined
+    let injected = false
     try {
-      if (init?.body && typeof init.body === 'string') {
-        const body = JSON.parse(init.body)
+      if (originalBody !== undefined) {
+        const body = JSON.parse(originalBody)
         if (providerName === 'gemini' && Array.isArray(body?.contents)) {
           // Format native Gemini
           body.generationConfig = {
@@ -270,14 +278,34 @@ function createThinkingOffFetch(providerName: string, baseURL: string, inner: ty
             thinkingConfig: { thinkingBudget: 0, includeThoughts: false },
           }
           init = { ...init, body: JSON.stringify(body) }
+          injected = true
         } else if (Array.isArray(body?.messages)) {
           // Format kompatibel OpenAI
+          const before = JSON.stringify(body)
           Object.assign(body, openaiPatch)
-          init = { ...init, body: JSON.stringify(body) }
+          const after = JSON.stringify(body)
+          if (before !== after) {
+            init = { ...init, body: after }
+            injected = true
+          }
         }
       }
     } catch { /* Jika parsing gagal, teruskan apa adanya */ }
-    return inner(input, init)
+
+    const result = await inner(input, init)
+    if (!injected || result.status !== 400) return result
+
+    // Penyembuhan diri: relay/strict new-api bisa menolak parameter thinking dengan 400
+    // ("Unsupported parameter(s): `enable_thinking`" / "unknown/invalid parameter ... not supported").
+    // Kalau terdeteksi, muat ulang SEKALI tanpa patch thinking ini; patch temperature/max_tokens tetap ikut.
+    let rejected = false
+    try {
+      const text = await result.clone().text()
+      rejected = /unsupported\s+paramet|unknown\s+paramet|invalid\s+paramet|unexpected\s+paramet|paramet(er|ers)?\s+(is\s+)?not\s+supported|`[\w._-]+`\s+is\s+not\s+supported/i.test(text)
+    } catch { /* body tidak dapat dibaca, lanjutkan apa adanya */ }
+    if (!rejected || originalBody === undefined) return result
+
+    return inner(input, { ...init, body: originalBody })
   }
 }
 
