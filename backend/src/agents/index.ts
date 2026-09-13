@@ -9,7 +9,7 @@ import type { RequestContext } from '@mastra/core/request-context'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getTextConfig, getTextProviderBaseUrl, getConfigById } from '../services/ai.js'
-import { logTaskProgress } from '../utils/task-logger.js'
+import { logTaskProgress, logTaskWarn } from '../utils/task-logger.js'
 import { robustFetch } from '../utils/http.js'
 import { scriptTools } from './tools/script-tools.js'
 import { extractTools } from './tools/extract-tools.js'
@@ -343,13 +343,75 @@ function createMaxTokensFetch(providerName: string, inner?: typeof fetch): typeo
   }
 }
 
+// ─── Model otomatis (provider OpenAI-compatible dengan Base URL kustom) ────────
+// Saat field model kosong / set ke "auto", backend mengambil daftar model dari
+// GET {baseURL}/models (pola new-api / api.hcnsec.cn) lalu memilih model chat yang
+// paling cocok untuk endpoint /v1/chat/completions. Hasil di-cache agar siklus
+// multi-langkah Agent tidak berulang kali mengetuk endpoint.
+const autoModelCache = new Map<string, { model: string; at: number }>()
+const AUTO_MODEL_TTL = 10 * 60_000
+
+function scoreChatModel(id: string): number {
+  const s = id.toLowerCase()
+  let score = 0
+  if (/gpt|o1|o3|deepseek|qwen|glm|kimi|moonshot|doubao|claude|gemini|chat|think|pro-latest|reasoning/i.test(s)) score += 3
+  if (/(mini|flash|lite|small|fast|nano)/i.test(s)) score += 1
+  if (/(image|video|audio|whisper|tts|speech|embedding|rerank|moderation|dall|transcri)/i.test(s)) score -= 20
+  return score
+}
+
+async function autoResolveTextModel(baseURL: string, apiKey: string, providerName: string): Promise<string> {
+  const cacheKey = `${providerName}|${baseURL}`
+  const cached = autoModelCache.get(cacheKey)
+  if (cached && Date.now() - cached.at < AUTO_MODEL_TTL) return cached.model
+
+  const base = baseURL.replace(/\/+$/, '')
+  const endpoints = [new Set([`${base}/models`, `${base}/v1/models`])]
+  let ids: string[] = []
+  for (const url of endpoints[0]) {
+    try {
+      const resp = await robustFetch(url, {
+        method: 'GET',
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!resp.ok) continue
+      const json: any = await resp.json()
+      const data = json?.data || json?.models
+      ids = Array.isArray(data) ? data.map((m: any) => String(m?.id || m?.model || '')).filter(Boolean) : []
+      if (ids.length) break
+    } catch (err: any) {
+      logTaskWarn('AIConfig', 'auto-model-probe-failed', { url, error: err.message })
+    }
+  }
+
+  if (!ids.length) {
+    logTaskWarn('AIConfig', 'auto-model-empty', { baseURL })
+    throw new Error('Model tidak ditentukan dan daftar model tidak dapat diambil otomatis dari Base URL. Periksa Base URL atau isi field model di Pengaturan.')
+  }
+
+  const chosen = [...ids].sort((a, b) => scoreChatModel(b) - scoreChatModel(a))[0]
+  autoModelCache.set(cacheKey, { model: chosen, at: Date.now() })
+  logTaskProgress('AIConfig', 'auto-model-resolved', { baseURL, model: chosen })
+  return chosen
+}
+
 async function getModel(fileModel: string | undefined, modelOverride?: string, textConfigId?: number) {
   // Permintaan dapat menentukan konfigurasi teks (termasuk provider/baseUrl/apiKey), jika tidak maka kembali ke konfigurasi yang aktif
   const textConfig = (textConfigId ? await getConfigById(textConfigId) : null) || await getTextConfig()
-  const modelName = modelOverride || fileModel || textConfig.model
+  let modelName = modelOverride || fileModel || textConfig.model
   const providerName = textConfig.provider.toLowerCase()
   const resolvedBaseURL = getTextProviderBaseUrl(textConfig)
   const temperature = textConfig.temperature ?? null
+
+  // "Model otomatis": model kosong/auto → resolusi dari daftar /models penyedia
+  if (!modelName || modelName.toLowerCase() === 'auto') {
+    if (providerName === 'gemini') {
+      throw new Error('Model otomatis tidak mendukung provider Gemini, isi field model di Pengaturan')
+    }
+    modelName = await autoResolveTextModel(resolvedBaseURL, textConfig.apiKey, providerName)
+  }
+
   const endpointKey = `${providerName}|${resolvedBaseURL}|${modelName}|t=${temperature ?? 'default'}`
   if (endpointKey !== lastLoggedTextEndpointKey) {
     lastLoggedTextEndpointKey = endpointKey

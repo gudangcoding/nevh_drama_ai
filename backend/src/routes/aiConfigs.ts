@@ -81,13 +81,17 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
   }
 
   // Penyedia teks kustom (kompatibel OpenAI) diterima: provider lain selain gemini/openai/volcengine
-  // diperlakukan sebagai endpoint /v1/chat/completions (pola ala Trae / new-api)
+  // diperlakukan sebagai endpoint /v1/chat/completions (pola ala Trae / new-api / api.hcnsec.cn).
+  // Base URL bisa berisi atau tidak berisi /v1; probe mencoba kedua varian.
   if (serviceType === 'text' && !['gemini', 'openai', 'volcengine'].includes(p)) {
+    const candidates = [joinProviderUrl(baseUrl, '/v1', '/models'), joinProviderUrl(baseUrl, '', '/models')]
+    const baseURL = candidates[0]
     return {
       method: 'GET',
-      url: joinProviderUrl(baseUrl, '', '/models'),
+      url: baseURL,
       headers: bearerHeaders(apiKey),
       body: undefined,
+      fallbackUrls: candidates.slice(1),
     }
   }
 
@@ -199,8 +203,15 @@ app.post('/test', async (c) => {
   }
 
   const model = Array.isArray(body.model) ? body.model[0] : body.model
-  const probe = buildProbe(body.service_type, body.provider, body.base_url, model, body.api_key)
-  const probeUrl = redactUrl(probe.url)
+  const probe = buildProbe(body.service_type, body.provider, body.base_url, model, body.api_key) as {
+    url: string
+    method: string
+    headers: Record<string, string>
+    body?: unknown
+    fallbackUrls?: string[]
+  }
+  const urls = [probe.url, ...(probe.fallbackUrls || [])]
+  const probeUrl = redactUrl(urls[0])
 
   logTaskProgress('AIConfig', 'probe-start', {
     serviceType: body.service_type,
@@ -210,36 +221,45 @@ app.post('/test', async (c) => {
   })
 
   try {
-    const resp = await fetch(probe.url, {
-      method: probe.method,
-      headers: probe.headers,
-      body: probe.body ? JSON.stringify(probe.body) : undefined,
-    })
-    const text = await resp.text()
-    const reachable = [200, 204, 400, 401, 403].includes(resp.status)
+    let resp: Response | null = null
+    let usedUrl = urls[0]
+    for (const url of urls) {
+      const candidate = await fetch(url, {
+        method: probe.method,
+        headers: probe.headers,
+        body: probe.body ? JSON.stringify(probe.body) : undefined,
+      })
+      resp = candidate
+      usedUrl = url
+      // 404 pada varian pertama (Base URL tanpa prefiks /v1 yang benar) → coba varian berikutnya
+      if (candidate.status !== 404 && candidate.status !== 400) break
+    }
+    const text = await (resp as Response).text()
+    const reachable = [200, 204, 400, 401, 403].includes((resp as Response).status)
+    const usedUrlRedacted = redactUrl(usedUrl)
     const payload = {
-      ok: resp.ok,
+      ok: (resp as Response).ok,
       reachable,
-      status: resp.status,
-      status_text: resp.statusText,
+      status: (resp as Response).status,
+      status_text: (resp as Response).statusText,
       method: probe.method,
-      url: probeUrl,
+      url: usedUrlRedacted,
       message: reachable
-        ? (resp.ok ? 'Endpoint dapat diakses, autentikasi dan path berfungsi normal' : 'Endpoint merespons, periksa kode status untuk memastikan autentikasi/path benar')
+        ? ((resp as Response).ok ? 'Endpoint dapat diakses, autentikasi dan path berfungsi normal' : 'Endpoint merespons, periksa kode status untuk memastikan autentikasi/path benar')
         : 'Endpoint tidak merespons sesuai harapan, periksa Base URL dan prefiks proxy',
       response_preview: text.slice(0, 240),
     }
     if (reachable) {
       logTaskSuccess('AIConfig', 'probe-done', {
         provider: body.provider,
-        status: resp.status,
-        url: probeUrl,
+        status: (resp as Response).status,
+        url: usedUrlRedacted,
       })
     } else {
       logTaskError('AIConfig', 'probe-unexpected', {
         provider: body.provider,
-        status: resp.status,
-        url: probeUrl,
+        status: (resp as Response).status,
+        url: usedUrlRedacted,
       })
     }
     return success(c, payload)

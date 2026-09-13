@@ -26,9 +26,11 @@ test('production orchestrator exists with approval-gated phases and idempotent r
   assert.match(svc, /!hasVideo/)
   assert.match(svc, /status: 'failed', errorMsg/)
 
-  // Konkurensi terbatas (2 paralel) untuk tugas generasi
+  // Konkurensi terbatas (2 paralel) untuk tugas generasi; fase tahan banting
+  // mengumpulkan error per item agar satu shot gagal tidak mematikan seluruh fase
+  assert.match(svc, /collectPhaseErrors\(items, jobId,/)
+  assert.match(svc, /collectPhaseErrors\(tasks, jobId,/)
   assert.match(svc, /mapLimit\(items, 2,/)
-  assert.match(svc, /mapLimit\(tasks, 2,/)
 
   // Koneksi ulang service yang sudah ada
   assert.match(svc, /startExtraction/)

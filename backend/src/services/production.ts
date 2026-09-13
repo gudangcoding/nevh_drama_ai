@@ -21,7 +21,7 @@ import { generateImage, generateVideo } from './generation.js'
 import { mergeEpisodeVideos } from './ffmpeg-merge.js'
 import { getActiveConfig, getActiveConfigId } from './ai.js'
 import { getContentLanguage } from './app-settings.js'
-import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn } from '../utils/task-logger.js'
 import { translateApiError, describeApiError } from '../utils/error-translate.js'
 
 export type ProductionPhase =
@@ -59,6 +59,18 @@ class JobStopped extends Error {
 
 /** Guard runtime menjalankan job yang sama (mencegah duplikasi eksekutor via approve/resume ganda) */
 const runningJobs = new Set<number>()
+
+// ─── Antrian produksi global ────────────────────────────────────────────────────
+// Semua job produksi (start/approve/resume) dijalankan berurutan satu per satu,
+// agar puluhan drama tidak memicu puluhan agent/gambar/video sekaligus (sumber
+// utama timeout "Batas waktu pembuatan terlampaui"). runJob tidak pernah melempar
+// (semua fase sudah menangkap error), jadi satu job gagal tidak memblokir berikutnya.
+let queueTail: Promise<void> = Promise.resolve()
+
+function enqueueRun(jobId: number): void {
+  queueTail = queueTail.then(() => runJob(jobId)).catch(() => {})
+  logTaskProgress('Production', 'queued', { jobId })
+}
 
 const TERMINAL = new Set<ProductionStatus>(['completed', 'failed', 'cancelled'])
 
@@ -109,6 +121,27 @@ async function mapLimit<T>(items: T[], limit: number, worker: (item: T, index: n
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => runner()))
 }
 
+/**
+ * Jalankan worker per item dengan batas konkurensi, kumpulkan error per item tanpa
+ * mematikan seluruh fase. Satu shot gagal (timeout/API reject) TIDAK membatalkan
+ * shot lain yang masih antre — hasil yang berhasil tetap tersimpan, sisanya mudah
+ * dilanjutkan via resume tanpa mengulang pekerjaan yang sudah selesai.
+ */
+async function collectPhaseErrors<T>(items: T[], jobId: number, worker: (item: T, index: number) => Promise<void>): Promise<string[]> {
+  const errors: string[] = []
+  await mapLimit(items, 2, async (item, index) => {
+    try {
+      await worker(item, index)
+    } catch (err: any) {
+      // Pembatalan job bukan error produksi — langsung dihentikan
+      if (err instanceof JobStopped) throw err
+      errors.push(String(err?.message || err))
+      logTaskWarn('Production', 'phase-item-failed', { jobId, error: String(err?.message || err), index })
+    }
+  })
+  return errors
+}
+
 async function waitTaskDone(taskId: number, jobId: number): Promise<void> {
   for (;;) {
     await ensureActive(jobId)
@@ -141,6 +174,19 @@ async function checkTextConfig(): Promise<void> {
   }
 }
 
+/**
+ * Kesalahan sementara (jaringan/5xx/timeout) — pantas di-retry sekali-dua kali agar
+ * produksi tidak mati karena provider tiba-tiba sibuk. Kesalahan pasti (saldo habis,
+ * kunci API salah, model tidak ada) tidak di-retry agar TIDAK menghabiskan token.
+ */
+function isTransientError(err: unknown): boolean {
+  const raw = String((err as any)?.message || (err as any)?.cause?.message || err || '')
+  return /timeout|timed\s?out|ECONNRESET|ECONNREFUSED|ETIMEDOUT|socket hang up|fetch failed|network error|broken pipe|502|503|504|5\d\d/i.test(raw)
+}
+
+const AGENT_RETRY_LIMIT = Number(process.env.AI_AGENT_RETRY || 2)
+const AGENT_RETRY_BACKOFF_MS = Number(process.env.AI_AGENT_RETRY_BACKOFF || 4000)
+
 async function runAgentSilent(agentType: string, jobId: number, episode: EpisodeRow, drama: DramaRow, config: ProductionJobConfig, message: string, maxSteps = 20): Promise<void> {
   const agent = mastra.getAgent(agentType)
   if (!agent) throw new Error(`Agent ${agentType} tidak tersedia`)
@@ -151,7 +197,26 @@ async function runAgentSilent(agentType: string, jobId: number, episode: Episode
     textConfigId: config.text_config_id || undefined,
     language: getContentLanguage(),
   })
-  await agent.generate([{ role: 'user', content: message }], { maxSteps, requestContext })
+
+  let attempt = 0
+  for (;;) {
+    try {
+      await agent.generate([{ role: 'user', content: message }], { maxSteps, requestContext })
+      return
+    } catch (err: any) {
+      if (!isTransientError(err) || attempt >= AGENT_RETRY_LIMIT) throw err
+      attempt++
+      logTaskWarn('Production', 'agent-retry', {
+        jobId,
+        agentType,
+        episodeNumber: episode.episodeNumber,
+        attempt,
+        maxAttempts: AGENT_RETRY_LIMIT,
+        error: String(err?.message || err),
+      })
+      await sleep(AGENT_RETRY_BACKOFF_MS * attempt)
+    }
+  }
 }
 
 // ─── Fase: scripts ─────────────────────────────────────────────────────────────
@@ -288,7 +353,7 @@ async function doAssetImages(jobId: number, job: ProductionJobRow, config: Produ
   let done = -1
   const total = items.length
   if (firstEp) {
-    await mapLimit(items, 2, async (item) => {
+    const errors = await collectPhaseErrors(items, jobId, async (item) => {
       done++
       await ensureActive(jobId)
       setStage(jobId, `Buat gambar ${item.label} (${done + 1}/${total})`)
@@ -322,6 +387,13 @@ async function doAssetImages(jobId: number, job: ProductionJobRow, config: Produ
       await waitTaskDone(taskId, jobId)
       done++
     })
+
+    if (errors.length) {
+      const detail = errors.length === total
+        ? `Semua gambar aset gagal dibuat. ${errors[0]}`
+        : `Sebagian gambar aset gagal dibuat (${errors.length}/${total}), dilanjutkan via resume. ${errors[0]}`
+      throw new Error(detail)
+    }
   } else if (items.length) {
     throw new Error('Tidak ada episode untuk fase gambar aset (jalankan fase scripts terlebih dahulu)')
   }
@@ -332,9 +404,6 @@ async function doAssetImages(jobId: number, job: ProductionJobRow, config: Produ
 async function doStoryboards(jobId: number, job: ProductionJobRow, config: ProductionJobConfig) {
   await checkTextConfig()
   const dramaId = job.dramaId
-  const characters = await db.select().from(schema.characters).where(and(eq(schema.characters.dramaId, dramaId), isNull(schema.characters.deletedAt)))
-  const scenes = await db.select().from(schema.scenes).where(and(eq(schema.scenes.dramaId, dramaId), isNull(schema.scenes.deletedAt)))
-  const props = await db.select().from(schema.props).where(and(eq(schema.props.dramaId, dramaId), isNull(schema.props.deletedAt)))
 
   const episodes = await db.select().from(schema.episodes)
     .where(and(eq(schema.episodes.dramaId, dramaId), isNull(schema.episodes.deletedAt)))
@@ -344,20 +413,16 @@ async function doStoryboards(jobId: number, job: ProductionJobRow, config: Produ
     await ensureActive(jobId)
     setStage(jobId, `Pecah storyboard — Episode ${ep.episodeNumber}`)
 
-    const charList = characters.length ? characters.map(c => `${c.name}(ID:${c.id})`).join('、') : '(Belum ada karakter)'
-    const sceneList = scenes.length ? scenes.map(s => `${s.location}(ID:${s.id})`).join('、') : '(Belum ada adegan)'
-    const propList = props.length ? props.map(p => `${p.name}(ID:${p.id})`).join('、') : '(Belum ada properti)'
-
+    // Konteks (skrip, karakter, adegan, properti) dibaca AGENT lewat tool
+    // read_storyboard_context — jangan mengirim ulang daftar yang sama di pesan
+    // (menghemat token di tiap langkah multi-langkah Agent).
     const message =
       `Urai skrip episode ini menjadi storyboard, dan untuk setiap segmen storyboard sekaligus buat video_prompt (prompt pembuatan video).\n` +
       `Model video saat ini: ${ep.videoConfigId ? (await configLabel('video', ep.videoConfigId)) : 'default'}, buat video_prompt sesuai karakteristik dan batasan durasi model tersebut.\n\n` +
-      `Karakter yang sudah ada di drama ini: ${charList}\n` +
-      `Adegan yang sudah ada di drama ini: ${sceneList}\n` +
-      `Properti yang sudah ada di drama ini: ${propList}\n\n` +
       `Persyaratan binding:\n` +
-      `- Setiap shot harus mengikat character_ids hanya dari daftar karakter di atas berdasarkan isi skrip (ID wajib dari daftar; karakter yang muncul pasti diikat, jangan ada yang terlewat)\n` +
-      `- Setiap shot sebaiknya mengisi scene_id dari daftar adegan di atas (ID wajib dari daftar), jangan menciptakan adegan baru dari imajinasi\n` +
-      `- Jika ada properti kunci yang muncul di shot, ikat prop_ids dari daftar properti di atas (ID wajib dari daftar); jika tidak ada kirim array kosong\n` +
+      `- Setiap shot harus mengikat character_ids hanya dari daftar karakter pada read_storyboard_context (ID wajib dari daftar; karakter yang muncul pasti diikat, jangan ada yang terlewat)\n` +
+      `- Setiap shot sebaiknya mengisi scene_id dari daftar adegan (ID wajib dari daftar), jangan menciptakan adegan baru dari imajinasi\n` +
+      `- Jika ada properti kunci yang muncul di shot, ikat prop_ids dari daftar properti (ID wajib dari daftar); jika tidak ada kirim array kosong\n` +
       `- Hanya shot lingkungan kosong murni yang boleh tidak mengikat karakter`
 
     await runAgentSilent('storyboard_breaker', jobId, ep, { id: dramaId, title: '' } as DramaRow, config, message, 40)
@@ -402,7 +467,7 @@ async function doComposedImages(jobId: number, job: ProductionJobRow, config: Pr
   }
   const total = tasks.length
 
-  await mapLimit(tasks, 2, async ({ sb, ep }) => {
+  const errors = await collectPhaseErrors(tasks, jobId, async ({ sb, ep }) => {
     done++
     await ensureActive(jobId)
     setStage(jobId, `Buat gambar komposisi S${sb.storyboardNumber} — Episode ${ep.episodeNumber} (${done}/${total})`)
@@ -417,6 +482,13 @@ async function doComposedImages(jobId: number, job: ProductionJobRow, config: Pr
     })
     await waitTaskDone(taskId, jobId)
   })
+
+  if (errors.length) {
+    const detail = errors.length === total
+      ? `Semua gambar komposisi gagal dibuat. ${errors[0]}`
+      : `Sebagian gambar komposisi gagal dibuat (${errors.length}/${total}), dilanjutkan via resume. ${errors[0]}`
+    throw new Error(detail)
+  }
 }
 
 // ─── Fase: videos (generasi video — setelah persetujuan) ───────────────────────
@@ -446,7 +518,7 @@ async function doVideos(jobId: number, job: ProductionJobRow, config: Production
   }
   const total = tasks.length
 
-  await mapLimit(tasks, 2, async ({ sb, ep }) => {
+  const errors = await collectPhaseErrors(tasks, jobId, async ({ sb, ep }) => {
     done++
     await ensureActive(jobId)
     setStage(jobId, `Buat video S${sb.storyboardNumber} — Episode ${ep.episodeNumber} (${done}/${total})`)
@@ -464,6 +536,13 @@ async function doVideos(jobId: number, job: ProductionJobRow, config: Production
     })
     await waitTaskDone(taskId, jobId)
   })
+
+  if (errors.length) {
+    const detail = errors.length === total
+      ? `Semua video gagal dibuat. ${errors[0]}`
+      : `Sebagian video gagal dibuat (${errors.length}/${total}), dilanjutkan via resume. ${errors[0]}`
+    throw new Error(detail)
+  }
 }
 
 async function getDramaRow(dramaId: number): Promise<DramaRow | null> {
@@ -616,7 +695,7 @@ export async function startProduction(dramaId: number, opts: ProductionJobConfig
   })
   const jobId = getInsertId(res)
   logTaskStart('Production', 'start', { jobId, dramaId, totalEpisodes: drama.totalEpisodes })
-  void runJob(jobId)
+  enqueueRun(jobId)
   return (await getJobById(jobId)) as ProductionJobRow
 }
 
@@ -630,7 +709,7 @@ export async function approveProduction(dramaId: number): Promise<ProductionJobR
     .set({ phase: 'videos', status: 'running', approvedAt: now(), stageDetail: 'Pembuatan video dimulai', errorMsg: null, updatedAt: now() })
     .where(eq(schema.productionJobs.id, job.id))
   logTaskStart('Production', 'approve', { jobId: job.id, dramaId })
-  void runJob(job.id)
+  enqueueRun(job.id)
   return (await getJobById(job.id)) as ProductionJobRow
 }
 
@@ -657,7 +736,7 @@ export async function resumeProduction(dramaId: number): Promise<ProductionJobRo
     .set({ status: 'running', stageDetail: 'Melanjutkan produksi', errorMsg: null, updatedAt: now() })
     .where(eq(schema.productionJobs.id, job.id))
   logTaskStart('Production', 'resume', { jobId: job.id, dramaId })
-  void runJob(job.id)
+  enqueueRun(job.id)
   return (await getJobById(job.id)) as ProductionJobRow
 }
 
