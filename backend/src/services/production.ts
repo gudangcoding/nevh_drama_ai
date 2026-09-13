@@ -23,7 +23,7 @@ import { getActiveConfig, getActiveConfigId } from './ai.js'
 import { getContentLanguage } from './app-settings.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn } from '../utils/task-logger.js'
 import { agentAbortSignal, isAgentTimeoutAbort } from '../utils/agent-timeout.js'
-import { isTransientAgentError } from '../utils/agent-retry.js'
+import { isTransientAgentError, logAgentUsage } from '../utils/agent-retry.js'
 import { translateApiError, describeApiError } from '../utils/error-translate.js'
 
 export type ProductionPhase =
@@ -199,7 +199,8 @@ async function runAgentSilent(agentType: string, jobId: number, episode: Episode
   let attempt = 0
   for (;;) {
     try {
-      await agent.generate([{ role: 'user', content: message }], { maxSteps, requestContext, abortSignal: agentAbortSignal(maxSteps) })
+      const result = await agent.generate([{ role: 'user', content: message }], { maxSteps, requestContext, abortSignal: agentAbortSignal(maxSteps) })
+      logAgentUsage(`production:${agentType}`, result, { jobId, episodeId: episode.id })
       return
     } catch (err: any) {
       // Abort karena timeout adalah milik kita sendiri: mengulang dari langkah ke-0
