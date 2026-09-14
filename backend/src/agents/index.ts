@@ -379,6 +379,59 @@ function createMaxTokensFetch(providerName: string, inner?: typeof fetch): typeo
   }
 }
 
+/**
+ * Menyederhanakan array `messages` agar hanya ada tepat satu `system` di index 0.
+ *
+ * Latar belakang: beberapa model (terutama Qwen3.x lewat vLLM / new-api relay) mewajibkan
+ * tepat satu `system` message di awal. Mastra multi-step tool-loop + skill/workspace
+ * dapat menginjeksi beberapa `system` messages (instruksi dasar, skill, bahasa),
+ * yang menyebabkan 400 "System message must be at the beginning" di relay hcnsec.
+ *
+ * Operasi ini lossless: semua teks system digabung dengan \n\n, urutan pesan lain tetap.
+ * Dilapisi hanya untuk permintaan OpenAI-compatible (`body.messages`), bukan Gemini `contents`.
+ */
+function extractTextFromContent(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) return content.map((p: any) => p?.text || '').filter(Boolean).join('\n')
+  return ''
+}
+
+function createSystemCoalesceFetch(inner: typeof fetch = robustFetch): typeof fetch {
+  return async (input: any, init?: any) => {
+    const originalBody = init && typeof init.body === 'string' ? init.body : undefined
+    if (originalBody === undefined) return inner(input, init)
+
+    let patchedInit = init
+    try {
+      const body = JSON.parse(originalBody)
+      if (!Array.isArray(body?.messages) || body.messages.length <= 1) return inner(input, init)
+
+      const sysTexts: string[] = []
+      const nonSystem: any[] = []
+      let needsCoalesce = false
+
+      for (let i = 0; i < body.messages.length; i++) {
+        const m = body.messages[i]
+        if (m && (m.role === 'system' || m.role === 'developer')) {
+          sysTexts.push(extractTextFromContent(m.content))
+          if (i !== 0) needsCoalesce = true // system not at index 0
+        } else {
+          nonSystem.push(m)
+        }
+      }
+
+      if (sysTexts.length <= 1 && !needsCoalesce) return inner(input, init)
+
+      body.messages = sysTexts.length > 0
+        ? [{ role: 'system', content: sysTexts.filter(Boolean).join('\n\n') }, ...nonSystem]
+        : nonSystem
+      patchedInit = { ...init, body: JSON.stringify(body) }
+    } catch { /* body tidak dapat diproses, lanjutkan apa adanya */ }
+
+    return inner(input, patchedInit)
+  }
+}
+
 // ─── Model otomatis (provider OpenAI-compatible dengan Base URL kustom) ────────
 // Saat field model kosong / set ke "auto", backend mengambil daftar model dari
 // GET {baseURL}/models (pola new-api / api.hcnsec.cn) lalu memilih model chat yang
@@ -460,8 +513,10 @@ async function getModel(fileModel: string | undefined, modelOverride?: string, t
     })
   }
 
-  // Menumpuk patch permintaan: thinking-off (endpoint non-resmi) + suhu yang dikonfigurasi + batas output (non-resmi OpenAI)
-  const thinkingOffFetch = createThinkingOffFetch(providerName, resolvedBaseURL)
+  // Menumpuk patch permintaan: system-coalesce (dasar, utk host Qwen/strict) → thinking-off
+  // (endpoint non-resmi) → suhu yang dikonfigurasi → batas output (non-resmi OpenAI)
+  const coalesceFetch = createSystemCoalesceFetch()
+  const thinkingOffFetch = createThinkingOffFetch(providerName, resolvedBaseURL, coalesceFetch)
   const tempFetch = temperature !== null
     ? createTemperatureFetch(providerName, temperature, thinkingOffFetch)
     : thinkingOffFetch

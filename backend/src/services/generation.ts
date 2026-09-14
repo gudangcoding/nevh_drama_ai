@@ -343,7 +343,7 @@ async function processTask(id: number, config: AIConfig) {
 
     if (!isAsync && videoUrl) {
       logTaskProgress(label, 'sync-complete', { id, videoUrl })
-      await handleVideoComplete(record, videoUrl, params.duration)
+      await handleVideoComplete(record, videoUrl, params.duration, geminiDownloadHeaders(config))
       return
     }
 
@@ -426,7 +426,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
           }
         } else if (pollResp.videoUrl) {
           logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, videoUrl: pollResp.videoUrl })
-          await handleVideoComplete(record, pollResp.videoUrl, pollResp.duration)
+          await handleVideoComplete(record, pollResp.videoUrl, pollResp.duration, geminiDownloadHeaders(config))
           return
         }
       }
@@ -504,12 +504,12 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
   }
 }
 
-async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined) {
+async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined, headers?: Record<string, string>) {
   // Provider (Gemini Veo) dapat mengembalikan video sebagai data URL base64
   const dataMatch = videoUrl.match(/^data:video\/([\w+.-]+);base64,(.+)$/)
   const localPath = dataMatch
     ? await saveBase64Image(dataMatch[2], `video/${dataMatch[1]}`, 'videos')
-    : await downloadFile(videoUrl, 'videos')
+    : await downloadFile(videoUrl, 'videos', headers)
   // Frame poster untuk tampilan daftar/sampul, menghindari frontend harus buffer seluruh video untuk menampilkan frame pertama
   await extractVideoPoster(localPath)
   await db.update(schema.sysTask)
@@ -635,4 +635,13 @@ function normalizeStoredVideoResolution(resolution: string | null | undefined): 
   if (value === '480p' || value === '720p' || value === '1080p') return value
   if (value === '2k') return '2K'
   return undefined
+}
+
+/**
+ * Header unduhan untuk penyedia Gemini (Veo): URI video `https://generativelanguage.googleapis.com/v1beta/files/...:download`
+ * mewajibkan header API key untuk mengunduh; provider lain tidak perlu header khusus.
+ */
+function geminiDownloadHeaders(config: AIConfig): Record<string, string> | undefined {
+  if (config.provider !== 'gemini' || !config.apiKey) return undefined
+  return { 'x-goog-api-key': config.apiKey }
 }

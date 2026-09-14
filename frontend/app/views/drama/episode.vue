@@ -2909,8 +2909,8 @@ function watchAsyncResult(check, attempts = 24, delay = 2500) {
 
 async function watchAssetImages(taskIds, ids, kind, attempts = 48, delay = 2500) {
   const clearPending = () => {
-    const ref = kind === 'character' ? pendingCharImageIds : kind === 'scene' ? pendingSceneImageIds : pendingPropImageIds
-    ref.value = ref.value.filter(item => !ids.includes(item))
+    const pendingRef = kind === 'character' ? pendingCharImageIds : kind === 'scene' ? pendingSceneImageIds : pendingPropImageIds
+    pendingRef.value = pendingRef.value.filter(item => !ids.includes(item))
   }
   const findRec = id => kind === 'character'
     ? chars.value.find(c => c.id === id)
