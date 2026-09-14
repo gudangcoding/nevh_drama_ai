@@ -1,152 +1,152 @@
-# 🎬 Huobao Drama - AI Short Drama Generation Platform
+# 🎬 Huobao Drama - Platform Produksi Drama Pendek AI
 
 <div align="center">
 
-**A full-stack TypeScript platform for automated AI short-drama production**
+**Platform TypeScript full-stack untuk produksi drama pendek AI otomatis**
 
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Download](https://img.shields.io/github/v/release/chatfire-AI/huobao-drama?style=flat&logo=github&label=Download)](https://github.com/chatfire-AI/huobao-drama/releases/latest)
 
-**English** | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+**Bahasa Indonesia** | [English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Walkthrough](#-visual-walkthrough) • [Desktop App](#-desktop-app-recommended) • [Deployment](#-deployment)
+[Fitur](#-fitur) • [Mulai Cepat](#-mulai-cepat) • [Panduan Visual](#-panduan-visual) • [Aplikasi Desktop](#-aplikasi-desktop-direkomendasikan) • [Deploy](#-deploy)
 
-<h2>🔑 <a href="https://api.firemux.com">Get a Huobao API Key 👉 Get started</a></h2>
+<h2>🔑 <a href="https://api.firemux.com">Dapatkan Kunci API Huobao 👉 Mulai</a></h2>
 
-**Text, image, and video AI capabilities — one key unlocks everything**
+**Kemampuan AI untuk teks, gambar, dan video — satu kunci membuka semuanya**
 
-After deploying, paste the key in "Settings → Huobao Quick Setup" to write three recommended configs in one click
+Setelah deploy, tempel kunci di "Pengaturan → Pengaturan Cepat Huobao" untuk menulis tiga konfigurasi yang direkomendasikan dalam satu klik
 
-<h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">Download Desktop App (macOS / Windows)</a></h3>
+<h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">Unduh Aplikasi Desktop (macOS / Windows)</a></h3>
 
 </div>
 
 ---
 
-## 📖 Overview
+## 📖 Ikhtisar
 
-Huobao Drama is an AI-powered short-drama production platform that automates the entire pipeline: script generation, character design, storyboard breakdown, and video compositing.
+Huobao Drama adalah platform produksi drama pendek bertenaga AI yang mengotomatiskan seluruh alur kerja: pembuatan naskah, desain karakter, pemecahan storyboard, dan komposisi video.
 
-### 🎯 Core Value
+### 🎯 Nilai Inti
 
-- **🤖 AI-Driven**: LLMs parse scripts and extract characters, scenes, and storyboard information
-- **🎨 Intelligent Creation**: AI image generation for character designs and scene backgrounds
-- **📹 Video Generation**: Text-to-video and image-to-video models automatically produce storyboard clips
-- **🔄 End-to-End Workflow**: A complete pipeline from idea to finished episode
+- **🤖 Berbasis AI**: LLM menganalisis naskah dan mengekstrak karakter, adegan, dan informasi storyboard
+- **🎨 Penciptaan Cerdas**: Pembuatan gambar AI untuk desain karakter dan latar belakang adegan
+- **📹 Pembuatan Video**: Model text-to-video dan image-to-video secara otomatis menghasilkan klip storyboard
+- **🔄 Alur Kerja Lengkap**: Dari ide hingga episode selesai
 
-### 🛠️ Architecture
+### 🛠️ Arsitektur
 
 ```
-frontend/   — Nuxt 3 + Vue 3 + TypeScript (pure CSS, no UI framework)
+frontend/   — Nuxt 3 + Vue 3 + TypeScript (CSS murni, tanpa framework UI)
 backend/    — Hono + Drizzle ORM + Mastra AI Agents + better-sqlite3
-backend/workspace/skills/ — Agent skill definitions (SKILL.md, editable in the UI)
-desktop/    — Electron desktop app (main process + esbuild + electron-builder dmg/exe)
-data/       — Generated assets and the SQLite database
+backend/workspace/skills/ — Definisi skill agen (SKILL.md, dapat diedit di UI)
+desktop/    — Aplikasi desktop Electron (proses utama + esbuild + electron-builder dmg/exe)
+data/       — Aset yang dihasilkan dan database SQLite
 ```
 
 ---
 
-## ✨ Features
+## ✨ Fitur
 
-### 🎭 Character Management
+### 🎭 Manajemen Karakter
 
-- ✅ AI-generated character designs
-- ✅ Batch character generation
-- ✅ Character image upload and management
+- ✅ Desain karakter yang dihasilkan AI
+- ✅ Pembuatan karakter massal
+- ✅ Unggah dan manajemen gambar karakter
 
-### 🎬 Video Tasks
+### 🎬 Tugas Video
 
-- ✅ Automatic AI video-task generation
-- ✅ Scene descriptions and video prompt generation
-- ✅ Batch video generation per task
+- ✅ Pembuatan tugas video AI otomatis
+- ✅ Deskripsi adegan dan pembuatan prompt video
+- ✅ Pembuatan video massal per tugas
 
-### 🎥 Video Generation
+### 🎥 Pembuatan Video
 
-- ✅ Text-to-video generation
-- ✅ FFmpeg per-shot compositing and subtitle handling
-- ✅ Full-episode stitching and export
+- ✅ Pembuatan video dari teks
+- ✅ Komposisi per-shot FFmpeg dan penanganan subtitle
+- ✅ Penggabungan dan ekspor episode penuh
 
-### 📦 Asset Management
+### 📦 Manajemen Aset
 
-- ✅ Unified asset library
-- ✅ Local storage support
-- ✅ Task progress tracking
+- ✅ Perpustakaan aset terpadu
+- ✅ Dukungan penyimpanan lokal
+- ✅ Pelacakan progres tugas
 
-### 🤖 AI Agents
+### 🤖 Agen AI
 
-Four built-in Mastra agents with database-backed configuration and Skill extensions:
+Empat agen Mastra bawaan dengan konfigurasi berbasis database dan ekstensi Skill:
 
-| Agent | Role |
+| Agen | Peran |
 |---|---|
-| `script_rewriter` | Novel → formatted script rewriting |
-| `extractor` | Intelligent extraction and dedup of characters / scenes / props |
-| `storyboard_breaker` | Script → storyboard sequence breakdown |
-| `prompt_generator` | Image prompts for characters/scenes/props + storyboard video prompts |
+| `script_rewriter` | Novel → naskah terformat |
+| `extractor` | Ekstraksi cerdas dan deduplikasi karakter/adegan/properti |
+| `storyboard_breaker` | Naskah → urutan storyboard |
+| `prompt_generator` | Prompt gambar untuk karakter/adegan/properti + prompt video storyboard |
 
-### 🌐 Multi-Language UI
+### 🌐 UI Multi-Bahasa
 
-The interface ships in **中文 / English / 日本語 / 한국어**, with a global setting for AI-generated content language.
+Antarmuka tersedia dalam **中文 / English / 日本語 / 한국어**, dengan pengaturan global untuk bahasa konten yang dihasilkan AI.
 
-### 🔌 Multi-Provider Support
+### 🔌 Multi-Provider
 
-| Type | Providers |
+| Tipe | Provider |
 |---|---|
-| **Text** | OpenAI (compatible APIs), Gemini |
-| **Image** | OpenAI, Gemini, Volcano Engine |
-| **Video** | Volcano Engine Seedance 2.0 (Standard / Fast / Mini), MiniMax H3, Alibaba Bailian Wan 3.0 (Prime / Standard) |
+| **Teks** | OpenAI (API kompatibel), Gemini |
+| **Gambar** | OpenAI, Gemini, Volcano Engine |
+| **Video** | Volcano Engine Seedance 2.0 (Standar / Cepat / Mini), MiniMax H3, Alibaba Bailian Wan 3.0 (Prime / Standar) |
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Mulai Cepat
 
-### 📋 Requirements
+### 📋 Persyaratan
 
-| Software | Version | Notes |
+| Perangkat Lunak | Versi | Catatan |
 |---|---|---|
-| **Node.js** | 20+ | Runtime for frontend and backend |
-| **npm** | 9+ | Package manager |
+| **Node.js** | 20+ | Runtime untuk frontend dan backend |
+| **npm** | 9+ | Manajer paket |
 
-> **Zero-install database**: Bundled SQLite (single file in the project data directory) — no database server required.
-> **No FFmpeg install needed**: Binaries ship via the `ffmpeg-static` / `ffprobe-static` npm packages — works out of the box.
+> **Database tanpa instalasi**: SQLite bawaan (satu file di direktori data proyek) — tidak perlu server database.
+> **Tanpa instalasi FFmpeg**: Binari dikirim melalui paket npm `ffmpeg-static` / `ffprobe-static` — langsung digunakan.
 
-### ⚙️ Environment Variables
+### ⚙️ Variabel Lingkungan
 
-No config files — everything is set via environment variables (all have defaults; local dev needs zero configuration):
+Tanpa file konfigurasi — semuanya diatur melalui variabel lingkungan (semua memiliki default; pengembangan lokal tidak perlu konfigurasi):
 
-| Variable | Default | Description |
+| Variabel | Default | Deskripsi |
 |---|---|---|
-| `SQLITE_PATH` | `<repo>/data/huobao.sqlite3` | SQLite database file location |
-| `PORT` | `5679` | Backend service port |
-| `STORAGE_PATH` | `<repo>/data/static` | Generated-file storage directory |
-| `HUOBAO_DATA_DIR` | — | Injected by the Electron main process (userData data root) |
-| `WORKSPACE_PATH` | `backend/workspace` | Agent skills/prompts directory (desktop: writable copy under userData) |
-| `FRONTEND_DIST` | `frontend/dist` | Frontend static build directory |
-| `FFMPEG_BIN` / `FFPROBE_BIN` | bundled npm binaries | Custom ffmpeg/ffprobe executable paths |
-| `PUBLIC_BASE_URL` | — | Public URL Seedance needs to reference local assets (server deployments) |
+| `SQLITE_PATH` | `<repo>/data/huobao.sqlite3` | Lokasi file database SQLite |
+| `PORT` | `5679` | Port layanan backend |
+| `STORAGE_PATH` | `<repo>/data/static` | Direktori penyimpanan file yang dihasilkan |
+| `HUOBAO_DATA_DIR` | — | Disuntikkan oleh proses utama Electron (root data userData) |
+| `WORKSPACE_PATH` | `backend/workspace` | Direktori skill/prompt agen (desktop: salinan tertulis di bawah userData) |
+| `FRONTEND_DIST` | `frontend/dist` | Direktori build statis frontend |
+| `FFMPEG_BIN` / `FFPROBE_BIN` | binari npm bawaan | Path eksekusi ffmpeg/ffprobe kustom |
+| `PUBLIC_BASE_URL` | — | URL publik yang dibutuhkan Seedance untuk merujuk aset lokal (deploy server) |
 
-> **Note**: AI service API keys, base URLs, and model parameters are all configured in the web UI "Settings" page and stored in the database — never in config files or environment variables.
+> **Catatan**: Kunci API layanan AI, URL basis, dan parameter model semuanya dikonfigurasi di halaman "Pengaturan" UI web dan disimpan di database — tidak pernah di file konfigurasi atau variabel lingkungan.
 
-### 📥 Installation
+### 📥 Instalasi
 
 ```bash
-# Clone the repository
+# Clone repositori
 git clone https://github.com/chatfire-AI/huobao-drama.git
 cd huobao-drama
 
-# Install backend dependencies
+# Instal dependensi backend
 cd backend && npm install
 
-# Install frontend dependencies
+# Instal dependensi frontend
 cd ../frontend && npm install
 ```
 
-### 🎯 Running
+### 🎯 Menjalankan
 
-#### Option 1: Development mode (recommended)
+#### Opsi 1: Mode pengembangan (direkomendasikan)
 
-Frontend and backend run separately with hot reload:
+Frontend dan backend berjalan secara terpisah dengan hot reload:
 
 ```bash
 # Terminal 1: backend
@@ -159,226 +159,226 @@ npm run dev
 ```
 
 - Frontend: `http://localhost:3013`
-- Backend API: `http://localhost:5679/api/v1`
-- The frontend automatically proxies `/api` and `/static` to the backend
+- API Backend: `http://localhost:5679/api/v1`
+- Frontend secara otomatis memproxy `/api` dan `/static` ke backend
 
-#### Option 2: Single-service mode
+#### Opsi 2: Mode layanan tunggal
 
-The backend serves both the API and the frontend static files:
+Backend melayani API dan file statis frontend:
 
 ```bash
-# 1. Build the frontend
+# 1. Build frontend
 cd frontend && npm run generate
 
-# 2. Copy the build output where the backend expects it
-#    (generate outputs to .output/public; the backend reads frontend/dist)
+# 2. Salin output build ke tempat yang diharapkan backend
+#    (generate output ke .output/public; backend membaca frontend/dist)
 cp -r .output/public dist
 
-# 3. Start the backend
+# 3. Jalankan backend
 cd ../backend && npm start
 ```
 
-Visit: `http://localhost:5679`
+Kunjungi: `http://localhost:5679`
 
 ### 🗄️ Database
 
-Bundled SQLite (`better-sqlite3` + WAL mode). Tables are created automatically on first launch (idempotent DDL replay + seed data). Default file: `data/huobao.sqlite3`, overridable via `SQLITE_PATH`. The desktop app stores data in the user-data directory (`~/Library/Application Support/HuobaoDrama/data/`).
+SQLite bawaan (`better-sqlite3` + mode WAL). Tabel dibuat secara otomatis pada peluncuran pertama (DDL replay idempoten + data seed). File default: `data/huobao.sqlite3`, dapat diubah melalui `SQLITE_PATH`. Aplikasi desktop menyimpan data di direktori userData (`~/Library/Application Support/HuobaoDrama/data/`).
 
-Migrating data from a legacy MySQL deployment:
+Migrasi data dari deploy MySQL lama:
 
-**Automatic migration on startup (recommended)**: When MySQL is explicitly configured (`DATABASE_URL` or `MYSQL_HOST`) and the SQLite database is empty, the backend automatically detects and imports all tables once (per-table row-count validation, single-transaction atomic writes, automatic rollback with retry on next launch, and a `.mysql-imported` marker to avoid re-importing). Set `MYSQL_AUTO_IMPORT=false` to disable.
+**Migrasi otomatis saat startup (direkomendasikan)**: Ketika MySQL dikonfigurasi secara eksplisit (`DATABASE_URL` atau `MYSQL_HOST`) dan database SQLite kosong, backend secara otomatis mendeteksi dan mengimpor semua tabel (validasi jumlah baris per tabel, penulisan atomik transaksi tunggal, rollback otomatis dengan percobaan ulang pada peluncuran berikutnya, dan penanda `.mysql-imported` untuk menghindari impor ulang). Atur `MYSQL_AUTO_IMPORT=false` untuk menonaktifkan.
 
 ```bash
-# Or run manually (non-empty target requires --force; automatic backup before writing)
+# Atau jalankan secara manual (target tidak kosong memerlukan --force; backup otomatis sebelum menulis)
 cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 ```
 
-> Migration covers database rows only; media files (images/videos) under the old deployment's `data/static/` must be copied manually, or historical assets won't load.
+> Migrasi hanya mencakup baris database; file media (gambar/video) di bawah `data/static/` deploy lama harus disalin secara manual, atau aset historis tidak akan dimuat.
 
-### 🔑 First Use: Configure AI Services
+### 🔑 Penggunaan Pertama: Konfigurasi Layanan AI
 
-All AI features (text/image/video) require model services to be configured first — a banner at the top of the page guides you until then:
+Semua fitur AI (teks/gambar/video) memerlukan layanan model dikonfigurasi terlebih dahulu — banner di bagian atas halaman memandu Anda sampai那时:
 
-1. Open the "Settings" page
-2. Paste your Huobao API key in "Huobao Quick Setup" ([get one at api.firemux.com](https://api.firemux.com)) to write three recommended configs (text, image, video) in one click
-3. Or add providers one by one via "Manual Templates", with connectivity testing
+1. Buka halaman "Pengaturan"
+2. Tempel kunci API Huobao Anda di "Pengaturan Cepat Huobao" ([dapatkan di api.firemux.com](https://api.firemux.com)) untuk menulis tiga konfigurasi yang direkomendasikan (teks, gambar, video) dalam satu klik
+3. Atau tambahkan provider satu per satu melalui "Template Manual", dengan pengujian konektivitas
 
-Once configured, the banner disappears and you can start producing episodes.
-
----
-
-## 📖 Visual Walkthrough
-
-The complete pipeline from novel to finished episode. The left progress rail always shows where you are.
-
-### Step 1 · Create a Project
-
-On the home page click "New Project", pick a **aspect ratio** (16:9 landscape / 9:16 portrait, fixed after creation) and a **visual style** (3D, realistic, … — injected into every image prompt).
-
-<p align="center">
-  <img src="docs/screenshots/02-create-drama.png" alt="Create a project" width="800">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/01-projects.png" alt="Project list" width="800">
-</p>
-
-### Step 2 · Configure AI Services (first run)
-
-Paste an API key in Settings → "Huobao Quick Setup" to write the three recommended configs at once, or add providers manually. The current model can be switched any time from the top bar (see Step 5).
-
-<p align="center">
-  <img src="docs/screenshots/03-settings-quick.png" alt="AI service setup" width="800">
-</p>
-
-### Step 3 · Script Stage
-
-Paste your **source novel** into the workbench, then hit "AI Rewrite" to produce a shooting script — split by episode with scenes and characters annotated. You can switch text models and tone while rewriting.
-
-<p align="center">
-  <img src="docs/screenshots/05-script.png" alt="Script stage" width="800">
-</p>
-
-### Step 4 · Assets
-
-Run **extraction** on the script to get the character / scene / prop list, then generate a consistent reference image for each (or in batch). These images are injected as reference material when generating videos.
-
-<p align="center">
-  <img src="docs/screenshots/06-assets.png" alt="Asset production" width="800">
-</p>
-
-### Step 5 · Storyboard & Videos
-
-On the "Video Production" page, first run **storyboard breakdown** (AI splits shots and writes video prompts). Then:
-
-- Pick the **video model** in the top bar (Seedance / Wan 3.0 / MiniMax…); resolution and duration tiers follow the model
-- Review and tweak each shot's prompt on the right (`@character` references map to reference images automatically)
-- Click "Batch Generate Videos"; failed tasks can be retried in one click
-
-<p align="center">
-  <img src="docs/screenshots/07-storyboard.png" alt="Storyboard breakdown" width="800">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/08-videos.png" alt="Video generation" width="800">
-</p>
-
-### Step 6 · Merge & Export
-
-Select shots (hover to preview each clip), click "Start Merging" and FFmpeg assembles the full episode — play online or download. Click "Mark Done" when finished to light up the progress rail.
-
-<p align="center">
-  <img src="docs/screenshots/09-export.png" alt="Merge & export" width="800">
-</p>
-
-The episode list shows the production status of every episode — click "Enter Studio" to continue:
-
-<p align="center">
-  <img src="docs/screenshots/04-episodes.png" alt="Episode list" width="800">
-</p>
+Setelah dikonfigurasi, banner menghilang dan Anda dapat mulai memproduksi episode.
 
 ---
 
-## 📦 Deployment
+## 📖 Panduan Visual
 
-### 🖥️ Desktop App (recommended)
+Alur kerja lengkap dari novel hingga episode selesai. Rel progres kiri selalu menunjukkan posisi Anda.
 
-**⬇️ Prebuilt installers: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+### Langkah 1 · Buat Proyek
 
-| Platform | File to download |
+Di halaman beranda klik "Proyek Baru", pilih **rasio aspek** (16:9 lanskap / 9:16 potret, tetap setelah pembuatan) dan **gaya visual** (3D, realistis, … — disuntikkan ke setiap prompt gambar).
+
+<p align="center">
+  <img src="docs/screenshots/02-create-drama.png" alt="Buat proyek" width="800">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/01-projects.png" alt="Daftar proyek" width="800">
+</p>
+
+### Langkah 2 · Konfigurasi Layanan AI (jalankan pertama)
+
+Tempel kunci API di Pengaturan → "Pengaturan Cepat Huobao" untuk menulis tiga konfigurasi sekaligus, atau tambahkan provider secara manual. Model saat ini dapat diubah kapan saja dari bilah atas (lihat Langkah 5).
+
+<p align="center">
+  <img src="docs/screenshots/03-settings-quick.png" alt="Pengaturan layanan AI" width="800">
+</p>
+
+### Langkah 3 · Tahap Naskah
+
+Tempel **novel sumber** Anda di workbench, lalu klik "AI Rewrite" untuk menghasilkan naskah syuting — dibagi per episode dengan adegan dan karakter yang ditandai. Anda dapat mengganti model teks dan nada saat menulis ulang.
+
+<p align="center">
+  <img src="docs/screenshots/05-script.png" alt="Tahap naskah" width="800">
+</p>
+
+### Langkah 4 · Aset
+
+Jalankan **ekstraksi** pada naskah untuk mendapatkan daftar karakter/adegan/properti, lalu buat gambar referensi yang konsisten untuk masing-masing (atau massal). Gambar ini disuntikkan sebagai bahan referensi saat menghasilkan video.
+
+<p align="center">
+  <img src="docs/screenshots/06-assets.png" alt="Produksi aset" width="800">
+</p>
+
+### Langkah 5 · Storyboard & Video
+
+Di halaman "Produksi Video", pertama jalankan **pemecahan storyboard** (AI memecah shot dan menulis prompt video). Kemudian:
+
+- Pilih **model video** di bilah atas (Seedance / Wan 3.0 / MiniMax…); resolusi dan durasi mengikuti model
+- Tinjau dan sesuaikan prompt setiap shot di kanan (`@character` merujuk ke gambar referensi secara otomatis)
+- Klik "Buat Video Massal"; tugas yang gagal dapat dicoba ulang dalam satu klik
+
+<p align="center">
+  <img src="docs/screenshots/07-storyboard.png" alt="Pemecahan storyboard" width="800">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/08-videos.png" alt="Pembuatan video" width="800">
+</p>
+
+### Langkah 6 · Gabung & Ekspor
+
+Pilih shot (arahkan kursor untuk melihat pratinjau setiap klip), klik "Mulai Menggabungkan" dan FFmpeg merangkai episode penuh — putar online atau unduh. Klik "Tandai Selesai" setelah selesai untuk menyalakan rel progres.
+
+<p align="center">
+  <img src="docs/screenshots/09-export.png" alt="Gabung & ekspor" width="800">
+</p>
+
+Daftar episode menunjukkan status produksi setiap episode — klik "Masuk Studio" untuk melanjutkan:
+
+<p align="center">
+  <img src="docs/screenshots/04-episodes.png" alt="Daftar episode" width="800">
+</p>
+
+---
+
+## 📦 Deploy
+
+### 🖥️ Aplikasi Desktop (direkomendasikan)
+
+**⬇️ Installer pra-bangun: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+
+| Platform | File untuk diunduh |
 |---|---|
-| macOS (Apple Silicon, M-series) | `HuobaoDrama-<version>-arm64.dmg` |
+| macOS (Apple Silicon, seri M) | `HuobaoDrama-<version>-arm64.dmg` |
 | macOS (Intel) | `HuobaoDrama-<version>.dmg` |
 | Windows | `HuobaoDrama Setup <version>.exe` |
 
-No build required — download the dmg/exe and install. Installed clients auto-update via the built-in updater. (To package from source instead, see the commands below.)
+Tidak perlu build — unduh dmg/exe dan instal. Klien yang terinstal memperbarui diri secara otomatis melalui pembaruan bawaan. (Untuk memaket dari source, lihat perintah di bawah.)
 
-Double-click to install, works out of the box (macOS + Windows): the SQLite database, generated media, and Agent skills all live in the user-data directory — uninstalling the app does not affect your data.
+Klik dua kali untuk menginstal, langsung digunakan (macOS + Windows): database SQLite, media yang dihasilkan, dan skill agen semuanya berada di direktori data pengguna — menghapus aplikasi tidak mempengaruhi data Anda.
 
 ```bash
-# One-command packaging (frontend generate → backend esbuild → electron-builder)
-npm run dist        # macOS dmg (arm64 + Intel)
-npm run dist:win    # Windows NSIS installer (win-x64, cross-buildable on macOS)
+# Pemetakan satu perintah (frontend generate → backend esbuild → electron-builder)
+npm run dist        # dmg macOS (arm64 + Intel)
+npm run dist:win    # installer NSIS Windows (win-x64, cross-buildable di macOS)
 
-# Artifacts
+# Artefak
 # desktop/release/HuobaoDrama-<version>-arm64.dmg     (Apple Silicon)
 # desktop/release/HuobaoDrama-<version>.dmg           (Intel)
 # desktop/release/HuobaoDrama Setup <version>.exe     (Windows)
 ```
 
-Installation notes:
+Catatan instalasi:
 
-- The macOS build is unsigned — on first launch, right-click → Open, or run `xattr -cr /Applications/HuobaoDrama.app`
-- The Windows build is unsigned — SmartScreen will prompt "More info → Run anyway"
-- User-data directory: `~/Library/Application Support/HuobaoDrama/` (database, generated media, writable copies of online-edited skills)
-- FFmpeg/FFprobe binaries are bundled — no system install needed
-- Electron is pinned to 37.x: better-sqlite3's win32 prebuilds max out at that ABI (the key to compilation-free cross-packaging)
-- External links open in the system browser (e.g. "Get a key at api.firemux.com")
+- Build macOS tidak ditandatangani — pada peluncuran pertama, klik kanan → Buka, atau jalankan `xattr -cr /Applications/HuobaoDrama.app`
+- Build Windows tidak ditandatangani — SmartScreen akan menampilkan "Info lainnya → Tetap jalankan"
+- Direktori data pengguna: `~/Library/Application Support/HuobaoDrama/` (database, media yang dihasilkan, salinan tertulis skill yang diedit online)
+- Binari FFmpeg/FFprobe dibundel — tidak perlu instalasi sistem
+- Electron dipink ke 37.x: pra-build win32 better-sqlite3 maksimal pada ABI tersebut (kunci untuk cross-packaging tanpa kompilasi)
+- Tautan eksternal dibuka di browser sistem (misalnya "Dapatkan kunci di api.firemux.com")
 
-#### 🔄 In-App Updates (no Apple signing required)
+#### 🔄 Pembaruan Dalam Aplikasi (tanpa tanda tangan Apple)
 
-The desktop app ships with a built-in updater (same class of solution as Tauri: directory replacement on macOS / silent installer on Windows, with local sha256 verification). To publish a new release:
+Aplikasi desktop dilengkapi pembaruan bawaan (solusi sekelas Tauri: penggantian direktori di macOS / penginstal senyap di Windows, dengan verifikasi sha256 lokal). Untuk menerbitkan rilis baru:
 
 ```bash
-# 1. Bump version in desktop/package.json, then package
-npm run dist        # macOS (produces dmg + update zip)
-npm run dist:win    # Windows (produces Setup.exe)
+# 1. Tingkatkan versi di desktop/package.json, lalu paket
+npm run dist        # macOS (menghasilkan dmg + zip pembaruan)
+npm run dist:win    # Windows (menghasilkan Setup.exe)
 
-# 2. Generate the release manifest release/latest.json (with per-platform sha256)
+# 2. Buat manifes rilis release/latest.json (dengan sha256 per-platform)
 cd desktop && npm run feed
 
-# 3. Publish: upload latest.json + installers + zips to a GitHub Release (tag like v1.0.1)
+# 3. Terbitkan: unggah latest.json + installer + zip ke GitHub Release (tag seperti v1.0.1)
 ```
 
-Installed clients check the manifest automatically after launch (manual check available in "Settings → About & Updates") and prompt to download and install when a new version is found. Override the manifest URL with the `HUOBAO_UPDATE_FEED` environment variable.
+Klien yang terinstal memeriksa manifes secara otomatis setelah peluncuran (pemeriksaan manual tersedia di "Pengaturan → Tentang & Pembaruan") dan menampilkan unduh dan instal saat versi baru ditemukan. Ganti URL manifes dengan variabel lingkungan `HUOBAO_UPDATE_FEED`.
 
-Desktop development:
+Pengembangan desktop:
 
 ```bash
-npm run build:frontend   # frontend static output (frontend/.output/public)
-cd desktop && npm run dev  # bundle the backend and run in an Electron window
-```
+npm run build:frontend   # output statis frontend (frontend/.output/public)
+cd desktop && npm run dev  # bundle backend dan jalankan di jendela Electron
+``
 
-> Known limitation: Seedance video models need a `PUBLIC_BASE_URL` public address to reference local assets; the desktop app has no public entry point, so that scenario produces a clear error message. Text-to-video, image generation, and all other capabilities are unaffected.
+> Batasan yang diketahui: Model video Seedance memerlukan alamat publik `PUBLIC_BASE_URL` untuk merujuk aset lokal; aplikasi desktop tidak memiliki titik masuk publik, sehingga skenario tersebut menghasilkan pesan error yang jelas. Text-to-video, pembuatan gambar, dan semua kemampuan lainnya tidak terpengaruh.
 
 ---
 
-### 🏭 Server Deployment
+### 🏭 Deploy Server
 
 ```bash
-# 1. Build the frontend
+# 1. Build frontend
 cd frontend && npm run generate
 
-# 2. Copy the build output (generate outputs to frontend/.output/public; the backend reads
-#    frontend/dist — skip this step and the API works but pages 404)
+# 2. Salin output build (generate output ke frontend/.output/public; backend membaca
+#    frontend/dist — lewati langkah ini dan API berfungsi tetapi halaman 404)
 cp -r .output/public dist && cd ..
 
-# 3. Start the backend
+# 3. Jalankan backend
 cd backend && npm start
 ```
 
-Files to upload to the server:
+File untuk diunggah ke server:
 
 ```
-backend/                    # backend source + node_modules
-backend/workspace/skills/   # Agent skill files
-frontend/dist/              # frontend build output
-data/                       # data directory (auto-created on first run)
+backend/                    # sumber backend + node_modules
+backend/workspace/skills/   # file skill agen
+frontend/dist/              # output build frontend
+data/                       # direktori data (dibuat otomatis saat pertama kali dijalankan)
 ```
 
-#### Nginx Reverse Proxy
+#### Reverse Proxy Nginx
 
 ```nginx
 server {
     listen 80;
     server_name your-domain.com;
 
-    # Max 50MB for reference video/audio uploads
+    # Maks 50MB untuk unggahan video/audio referensi
     client_max_body_size 100m;
 
-    # Generated images/videos served straight from disk, bypassing Node:
-    # sendfile zero-copy + long-lived caching
-    # (files are uuid-named and immutable, so immutable caching is safe)
+    # Gambar/video yang dihasilkan dilayani langsung dari disk, melewati Node:
+    # sendfile zero-cache + caching jangka panjang
+    # (file bernama uuid dan tidak berubah, sehingga caching aman)
     location /static/ {
         alias /path/to/huobao-drama/data/static/;
         sendfile on;
@@ -396,11 +396,11 @@ server {
 }
 ```
 
-> Media loading optimization: the backend automatically generates 400px thumbnails (`*_thumb.webp`) for list pages and extracts poster frames (`*_poster.jpg`) as video covers — the frontend only loads original files when opening the full image or playing. To backfill historical files, run `npm run backfill-artwork` under `backend/`.
+> Optimalisasi pemuatan media: backend secara otomatis menghasilkan thumbnail 400px (`*_thumb.webp`) untuk halaman daftar dan mengekstrak frame poster (`*_poster.jpg`) sebagai sampul video — frontend hanya memuat file asli saat membuka gambar penuh atau memutar. Untuk mengisi ulang file historis, jalankan `npm run backfill-artwork` di bawah `backend/`.
 
-### 🐳 Docker Deployment (with in-app updates)
+### 🐳 Deploy Docker (dengan pembaruan dalam aplikasi)
 
-**Option A — prebuilt image (no clone, no build):** multi-arch (`linux/amd64` + `linux/arm64`), x86 servers and ARM devices match automatically
+**Opsi A — image pra-bangun (tanpa clone, tanpa build):** multi-arsitektur (`linux/amd64` + `linux/arm64`), server x86 dan perangkat ARM cocok secara otomatis
 
 ```bash
 docker pull huobao/huobao-drama:4.0.0
@@ -413,22 +413,22 @@ docker run -d \
   huobao/huobao-drama:4.0.0
 ```
 
-**Option B — docker compose (source build + Watchtower in-app updates):** the repo root provides an all-in-one `Dockerfile` (three stages: frontend generate + backend dependencies + runtime; the backend runs via tsx just like server deployment) and `docker-compose.yml` (app + Watchtower):
+**Opsi B — docker compose (build source + pembaruan dalam aplikasi Watchtower):** akar repositori menyediakan `Dockerfile` all-in-one (tiga tahap: frontend generate + dependensi backend + runtime; backend berjalan melalui tsx seperti deploy server) dan `docker-compose.yml` (aplikasi + Watchtower):
 
 ```bash
-# 1. Configure the environment (Watchtower token — must match on the app and watchtower sides)
+# 1. Konfigurasi lingkungan (token Watchtower — harus cocok di sisi aplikasi dan watchtower)
 cp .env.example .env   # edit WATCHTOWER_TOKEN
 
-# 2. Build and start (inject a version at publish time for "About & Updates" comparison)
+# 2. Build dan jalankan (suntikkan versi saat penerbitan untuk perbandingan "Tentang & Pembaruan")
 HUOBAO_VERSION=4.0.0 docker compose up -d --build
 
-# 3. Visit http://localhost:5679
+# 3. Kunjungi http://localhost:5679
 ```
 
-- **Data persistence**: the named volume `huobao-data` mounts `/app/data` (SQLite + generated images/videos + workspace/skills) — image updates don't lose data
-- **In-app updates**: the compose file ships a [Watchtower](https://containrrr.dev/watchtower/) sidecar (`--label-enable` only updates labeled containers, `--cleanup` removes old images, daily self-check). "Settings → About & Updates" can check for new versions and "Update Now" — the backend triggers it via the Watchtower HTTP API, which pulls the new image and rebuilds the container; refresh the page after a few minutes
-- **Manual mode**: remove the app's two `HUOBAO_WATCHTOWER_*` env vars (or the whole watchtower service) from `docker-compose.yml` — "About & Updates" then degrades to a new-version notice + manual `docker compose pull && docker compose up -d`
-- **Publishing images**: `docker buildx build --platform linux/amd64,linux/arm64 --build-arg HUOBAO_VERSION=x.y.z -t huobao/huobao-drama:x.y.z -t huobao/huobao-drama:latest --push .` — the version manifest is shared with the desktop app via `latest.json` on GitHub Releases (overridable with `HUOBAO_UPDATE_FEED`)
+- **Persistensi data**: volume bernama `huobao-data` memasang `/app/data` (SQLite + gambar/video yang dihasilkan + workspace/skills) — pembaruan gambar tidak kehilangan data
+- **Pembaruan dalam aplikasi**: file compose menyertakan sisi [Watchtower](https://containrrr.dev/watchtower/) (`--label-enable` hanya memperbarui container berlabel, `--cleanup` menghapus gambar lama, pemeriksaan diri harian). "Pengaturan → Tentang & Pembaruan" dapat memeriksa versi baru dan "Perbarui Sekarang" — backend memicunya melalui API HTTP Watchtower, yang menarik gambar baru dan membangun ulang container; muat ulang halaman setelah beberapa menit
+- **Mode manual**: hapus dua variabel lingkungan `HUOBAO_WATCHTOWER_*` (atau seluruh layanan watchtower) dari `docker-compose.yml` — "Tentang & Pembaruan" kemudian menurunkan ke pemberitahuan versi baru + `docker compose pull && docker compose up -d` manual
+- **Penerbitan gambar**: `docker buildx build --platform linux/amd64,linux/arm64 --build-arg HUOBAO_VERSION=x.y.z -t huobao/huobao-drama:x.y.z -t huobao/huobao-drama:latest --push .` — manifes versi dibagikan dengan aplikasi desktop melalui `latest.json` di GitHub Releases (dapat diubah dengan `HUOBAO_UPDATE_FEED`)
 
 ---
 
@@ -437,53 +437,53 @@ HUOBAO_VERSION=4.0.0 docker compose up -d --build
 ### Backend
 
 - **Runtime**: Node.js 20+
-- **Web framework**: Hono
-- **ORM**: Drizzle ORM + better-sqlite3 (WAL mode)
-- **AI Agents**: Mastra + AI SDK (OpenAI compatible)
-- **Video processing**: FFmpeg (fluent-ffmpeg + bundled binaries)
-- **Image processing**: Sharp
+- **Framework web**: Hono
+- **ORM**: Drizzle ORM + better-sqlite3 (mode WAL)
+- **Agen AI**: Mastra + AI SDK (kompatibel OpenAI)
+- **Pemrosesan video**: FFmpeg (fluent-ffmpeg + binari bawaan)
+- **Pemrosesan gambar**: Sharp
 
 ### Desktop
 
-- **Shell**: Electron (utilityProcess hosts the backend; BrowserWindow loads same-origin)
-- **Packaging**: esbuild (single-file backend bundle) + electron-builder (dmg arm64/x64, NSIS win-x64)
+- **Shell**: Electron (utilityProcess menghosting backend; BrowserWindow memuat origin yang sama)
+- **Pemaketan**: esbuild (bundle backend satu file) + electron-builder (dmg arm64/x64, NSIS win-x64)
 
 ### Frontend
 
-- **Framework**: Nuxt 3 (SPA mode)
-- **Language**: Vue 3 + TypeScript
-- **Routing**: File-based routing (Vue Router 4)
-- **Styling**: Pure CSS + CSS Variables
-- **Icons**: Lucide Vue
+- **Framework**: Nuxt 3 (mode SPA)
+- **Bahasa**: Vue 3 + TypeScript
+- **Routing**: Routing berbasis file (Vue Router 4)
+- **Styling**: CSS murni + CSS Variables
+- **Ikon**: Lucide Vue
 - **i18n**: vue-i18n (中文 / English / 日本語 / 한국어)
 
 ---
 
-## 📝 FAQ
+## 📋 FAQ
 
-### Q: Where does the desktop app store data?
+### Q: Di mana aplikasi desktop menyimpan data?
 
-A: `~/Library/Application Support/HuobaoDrama/data/` (SQLite database + generated images/videos); writable copies of online-edited skills live in the sibling `workspace/` directory. In development mode the repo's `data/` directory is used instead.
+A: `~/Library/Application Support/HuobaoDrama/data/` (database SQLite + gambar/video yang dihasilkan); salinan tertulis skill yang diedit online berada di direktori `workspace/` tetangga. Dalam mode pengembangan, direktori `data/` repositori digunakan.
 
-### Q: How do I migrate legacy MySQL data to SQLite?
+### Q: Bagaimana cara memigrasikan data MySQL lama ke SQLite?
 
-A: Keep MySQL reachable (environment variables or `backend/.env`), then run `cd backend && npx tsx scripts/import-mysql-to-sqlite.ts`. The script creates tables automatically, imports table-by-table, and validates row counts (non-empty targets require `--force`; a backup is made before writing).
+A: Pastikan MySQL dapat dijangkau (variabel lingkungan atau `backend/.env`), lalu jalankan `cd backend && npx tsx scripts/import-mysql-to-sqlite.ts`. Script membuat tabel secara otomatis, mengimpor per tabel, dan memvalidasi jumlah baris (target tidak kosong memerlukan `--force`; backup dibuat sebelum menulis).
 
-### Q: FFmpeg not installed or not found?
+### Q: FFmpeg tidak terinstal atau tidak ditemukan?
 
-A: No install needed. The project bundles `ffmpeg-static` / `ffprobe-static` binaries (carried along in the desktop package). A system `PATH` FFmpeg won't conflict either, and you can point explicitly via `FFMPEG_BIN`/`FFPROBE_BIN`.
+A: Tidak perlu instalasi. Proyek membundel binari `ffmpeg-static` / `ffprobe-static` (dibawa dalam paket desktop). FFmpeg sistem `PATH` juga tidak akan konflik, dan Anda dapat menunjuk secara eksplisit melalui `FFMPEG_BIN`/`FFPROBE_BIN`.
 
-### Q: The top of the page says "No model configured"?
+### Q: Bagian atas halaman bertuliskan "Tidak ada model yang dikonfigurasi"?
 
-A: That's the normal first-deploy guidance. Go to "Settings" and use "Huobao Quick Setup" to paste an API key and write configs in one click, or add providers via "Manual Templates". The banner disappears once text, image, and video all have an enabled config.
+A: Itu adalah panduan normal untuk deploy pertama. Buka "Pengaturan" dan gunakan "Pengaturan Cepat Huobao" untuk menempel kunci API dan menulis konfigurasi dalam satu klik, atau tambahkan provider melalui "Template Manual". Banner menghilang setelah teks, gambar, dan video semuanya memiliki konfigurasi yang diaktifkan.
 
-### Q: The frontend can't reach the backend API?
+### Q: Frontend tidak dapat menjangkau API backend?
 
-A: Check that the backend is running and the port is correct. In dev mode the proxy config lives in `frontend/nuxt.config.ts`.
+A: Pastikan backend berjalan dan port benar. Dalam mode pengembangan, konfigurasi proxy berada di `frontend/nuxt.config.ts`.
 
-### Q: Database tables not created?
+### Q: Tabel database tidak dibuat?
 
-A: The backend creates all tables automatically on first launch — check the logs to confirm initialization succeeded.
+A: Backend membuat semua tabel secara otomatis pada peluncuran pertama — periksa log untuk memastikan inisialisasi berhasil.
 
 ---
 
@@ -491,109 +491,109 @@ A: The backend creates all tables automatically on first launch — check the lo
 
 ### v4.0.0 (2026-08)
 
-#### 🖥️ Desktop App + Database Migration
+#### 🖥️ Aplikasi Desktop + Migrasi Database
 
-- Electron desktop app (macOS dmg, arm64/x64 dual architecture)
-  - Double-click install, works out of the box: automatic port selection, single-instance lock, crash-isolated backend subprocess
-  - User-data isolation: SQLite database / generated media / skill copies all live in the userData directory
-  - FFmpeg/FFprobe bundled; workspace skill templates copied on first launch, upgrades only fill gaps without overwriting
-- Database fully migrated from MySQL to SQLite (better-sqlite3 + WAL)
-  - Zero business-code changes (the Drizzle query layer is naturally portable); idempotent DDL replay
-  - New one-shot import script `import-mysql-to-sqlite.ts` (per-table row-count validation + automatic backup)
-- Backend bundled to a single file with esbuild (externals: sharp/better-sqlite3/ffmpeg binary packages)
-- Removed Docker/MySQL deployment (recoverable from git history)
+- Aplikasi desktop Electron (dmg macOS, dual arsitektur arm64/x64)
+  - Klik dua kali untuk menginstal, langsung digunakan: pemilihan port otomatis, kunci instans tunggal, subprocess backend terisolasi saat crash
+  - Isolasi data pengguna: database SQLite / media yang dihasilkan / salinan skill semuanya berada di direktori userData
+  - FFmpeg/FFprobe dibundel; template skill workspace disalin pada peluncuran pertama, pembaruan hanya mengisi kekosongan tanpa menimpa
+- Database dimigrasi sepenuhnya dari MySQL ke SQLite (better-sqlite3 + WAL)
+  - Perubahan kode bisnis nol (lapisan query Drizzle secara alami portabel); DDL replay idempoten
+  - Script impor satu kali baru `import-mysql-to-sqlite.ts` (validasi jumlah baris per tabel + backup otomatis)
+- Backend dibundel menjadi satu file dengan esbuild (eksternal: paket binari sharp/better-sqlite3/ffmpeg)
+- Menghapus deploy Docker/MySQL (dapat dipulihkan dari riwayat git)
 
 ### v3.1.0 (2026-09)
 
-- Added Alibaba Bailian Wan 3.0 video models (Prime / Standard, official `input.media`/`parameters` payloads)
-- Resolution selector in the workbench top bar with native tiers per provider (Seedance 480p/720p, MiniMax 768P/2K, Wan 480P/720P/1080P)
-- Default video model changed to Seedance 2.0 Mini
-- Fixed generation errors caused by provider/model mismatch when switching video models
-- Batch video: selection mode + pre-generation confirmation (shot count / total duration / model / resolution), one-click retry for failed tasks
-- Storyboard duration now editable directly in the video-generation params area, applied to single and batch generation
-- Content-moderation failures (real-person / sensitive content) now prompt to switch models and retry
+- Menambahkan model video Alibaba Bailian Wan 3.0 (Prime / Standar, payload `input.media`/`parameters` resmi)
+- Pemilih resolusi di bilah atas workbench dengan level asli per provider (Seedance 480p/720p, MiniMax 768P/2K, Wan 480P/720P/1080P)
+- Model video default diubah ke Seedance 2.0 Mini
+- Memperbaiki kesalahan pembuatan yang disebabkan oleh ketidakcocokan provider/model saat beralih model video
+- Video massal: mode pemilihan + konfirmasi pra-pembuatan (jumlah shot / durasi total / model / resolusi), percobaan ulang satu klik untuk tugas yang gagal
+- Durasi storyboard sekarang dapat diedit langsung di area parameter pembuatan video, diterapkan pada pembuatan tunggal dan massal
+- Kegagalan moderasi konten (orang asli / konten sensitif) sekarang menampilkan prompt untuk beralih model dan mencoba ulang
 
 ### v3.0.0 (2026-08)
 
-#### 🚀 Deployment & Experience Improvements
+#### 🚀 Peningkatan Deploy & Pengalaman
 
-- Docker deployment readiness
-  - MySQL / app health checks; the app waits for the database before starting
-  - Database initialization retries — zero manual intervention on first containerized deploy
-  - Removed the system FFmpeg dependency; bundled binaries everywhere
-  - Agent skills directory volume persistence (online edits in Settings survive)
-  - New `docker/init.sql` and export scripts (DBA review / pre-created tables)
-- First-use guidance
-  - Site-wide banner guiding to Settings when no AI service is configured
-  - New "Huobao Quick Setup" in Settings: one key writes three recommended configs (text/image/video)
-  - Unconfigured-model errors localized with pointers to Settings
-- Default video model changed to Seedance 2.0 Fast
-- Provider consolidation: OpenAI / Gemini / Volcano Engine only
-- Workbench: task-list drawer, pipeline stage status, selective stitching (validates video files exist before merging)
-- Asset library redesign, @mention improvements, episode list rework
+- Kesiapan deploy Docker
+  - Pemeriksaan kesehatan MySQL / aplikasi; aplikasi menunggu database sebelum memulai
+  - Pencobaan ulang inisialisasi database — intervensi manual nol pada deploy berkontainer pertama
+  - Menghapus dependensi FFmpeg sistem; binari dibundel di mana-mana
+  - Persistensi volume direktori skill agen (pengeditan online di Pengaturan tetap ada)
+  - `docker/init.sql` baru dan script ekspor (tinjauan DBA / tabel pra-dibuat)
+- Panduan penggunaan pertama
+  - Banner situs yang memandu ke Pengaturan saat tidak ada layanan AI yang dikonfigurasi
+  - "Pengaturan Cepat Huobao" baru di Pengaturan: satu kunci menulis tiga konfigurasi yang direkomendasikan (teks/gambar/video)
+  - Kesalahan model yang tidak dikonfigurasi dilokalisasi dengan petunjuk ke Pengaturan
+- Model video default diubah ke Seedance 2.0 Fast
+- Konsolidasi provider: Hanya OpenAI / Gemini / Volcano Engine
+- Workbench: laci daftar tugas, status tahap pipeline, penggabungan selektif (memvalidasi file video ada sebelum menggabungkan)
+- Redesain perpustakaan aset, peningkatan @mention, perombakan daftar episode
 
 ### v2.0.0 (2026-04)
 
-#### 🚀 Major Update
+#### 🚀 Pembaruan Besar
 
-- Full migration to a TypeScript stack
+- Migrasi penuh ke tumpukan TypeScript
   - Backend: Hono + Drizzle ORM + mysql2
   - Frontend: Nuxt 3 + Vue 3
-  - AI Agents: Mastra framework
-- Episode workbench UI and production flow rebuilt
-  - More compact console layout
-  - Storyboard editing area rebuilt
-  - Shot image, video, compositing, and export screens rebuilt
-- Docker deployment support — frontend and backend merged into a single image
-- Runtime Skill loading mechanism
-- Expanded multi-provider media adapters
-  - Image: OpenAI, Gemini, Volcano Engine, Alibaba
+  - Agen AI: framework Mastra
+- UI workbench episode dan alur produksi dibangun ulang
+  - Tata letak konsol lebih kompak
+  - Area pengeditan storyboard dibangun ulang
+  - Layar gambar shot, video, komposisi, dan ekspor dibangun ulang
+- Dukungan deploy Docker — frontend dan backend digabungkan menjadi satu image
+- Mekanisme loading Skill runtime
+- Memperluas adaptor media multi-provider
+  - Gambar: OpenAI, Gemini, Volcano Engine, Alibaba
   - Video: Volcano Engine/Seedance, Vidu, Alibaba
-- Improved local file handling and on-demand reference-image transcoding
+- Peningkatan penanganan file lokal dan transcoding referensi gambar on-demand
 
 ### v1.0.4 (2026-01-27)
 
-- Local storage strategy to avoid dead external asset links
-- Base64 reference-image embedded transport
-- Fixed shot-switch state reset
-- Scene migration to chapters
+- Strategi penyimpanan lokal untuk menghindari tautan aset eksternal yang mati
+- Transport referensi gambar tersemat Base64
+- Memperbaiki reset state penggantian shot
+- Migrasi adegan ke bab
 
 ### v1.0.3 (2026-01-16)
 
-- Database concurrency performance improvements
-- Docker cross-platform support for host.docker.internal
+- Peningkatan performa konkurensi database
+- Dukungan lintas platform Docker untuk host.docker.internal
 
 ### v1.0.2 (2026-01-14)
 
-- Fixed video-generation API response parsing
-- OpenAI Sora video endpoint configuration
-- Improved error handling and logging
+- Memperbaiki parsing respons API pembuatan video
+- Konfigurasi endpoint video OpenAI Sora
+- Peningkatan penanganan kesalahan dan pencatatan
 
 ---
 
-## 📄 License
+## 📄 Lisensi
 
-This project is licensed under **[CC BY-NC-SA 4.0](LICENSE)** (Attribution-NonCommercial-ShareAlike 4.0 International).
+Proyek ini dilisensikan di bawah **[CC BY-NC-SA 4.0](LICENSE)** (Atribusi-NonKomersial-BerbagiSerupa 4.0 Internasional).
 
-- ✅ Personal use, learning, and non-commercial projects are welcome
-- ✅ Modifications and redistribution allowed under the same license with attribution
-- ❌ **Commercial use is prohibited** — you may not use this project, in whole or in part, for any commercial purpose (including paid services, commercial deployments, or resale) without prior written permission from the author
+- ✅ Penggunaan pribadi, pembelajaran, dan proyek non-komersial dipersilakan
+- ✅ Modifikasi dan redistribusi diizinkan di bawah lisensi yang sama dengan atribusi
+- ❌ **Penggunaan komersial dilarang** — Anda tidak dapat menggunakan proyek ini, seluruhnya atau sebagian, untuk tujuan komersial apa pun (termasuk layanan berbayar, deploy komersial, atau penjualan ulang) tanpa izin tertulis dari penulis
 
-Full license text: see [LICENSE](LICENSE).
+Teks lisensi lengkap: lihat [LICENSE](LICENSE).
 
 ---
 
-## 🤝 Contributing
+## 🤝 Berkontribusi
 
-Issues and Pull Requests are welcome!
+Issue dan Pull Request dipersilakan!
 
-1. Fork the project
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1. Fork proyek
+2. Buat fitur branch (`git checkout -b feature/AmazingFeature`)
+3. Commit perubahan Anda (`git commit -m 'Add some AmazingFeature'`)
+4. Push ke branch (`git push origin feature/AmazingFeature`)
+5. Buka Pull Request
 
-Common checks:
+Pemeriksaan umum:
 
 ```bash
 cd backend && npm run typecheck
@@ -602,32 +602,32 @@ cd ../frontend && npm run build
 
 ---
 
-## ☕ Donate
+## ☕ Donasi
 
-If this project helps you, buy the author a coffee ☕ — your support keeps the updates coming!
+Jika proyek ini membantu Anda, belikan penulis kopi ☕ — dukungan Anda membuat pembaruan tetap datang!
 
 <div align="center">
-  <img src="donate.png" alt="Alipay donation QR code" width="240" />
+  <img src="donate.png" alt="Kode QR donasi Alipay" width="240" />
 </div>
 
 ---
 
-## 💬 WeChat Group
+## 💬 Grup WeChat
 
-Scan the QR code to join the WeChat group:
+Pindai kode QR untuk bergabung dengan grup WeChat:
 
 <div align="center">
-  <img src="docs/images/wx-group.jpg" width="200" alt="WeChat group QR code" />
+  <img src="docs/images/wx-group.jpg" width="200" alt="Kode QR grup WeChat" />
 </div>
 
 ---
 
-> _"Let AI do the creating with us"_
+> _"Biar AI yang berkreasi bersama kita"_
 
-## 🔗 Links
+## 🔞 Tautan
 
-This project has been recognized with a link from the [LINUX DO](https://linux.do/) community.
+Proyek ini telah diakui dengan tautan dari komunitas [LINUX DO](https://linux.do/).
 
-- [LINUX DO](https://linux.do/) — a genuine open-source spirit, a community built on sharing
+- [LINUX DO](https://linux.do/) — semangat open-source yang tulus, komunitas yang dibangun atas dasar berbagi
 
 ---
