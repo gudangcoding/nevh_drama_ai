@@ -241,6 +241,7 @@
       "saving": "保存中…",
       "generating": "{kind}「{name}」图片生成中",
       "genTimeout": "{kind}「{name}」生成超时，可稍后刷新查看",
+      "genFailed": "{kind}「{name}」生成失败",
       "uploaded": "{kind}「{name}」图片已上传",
       "needEpisodeForImage": "请先在「剧集列表」创建至少一集，才能生成素材图",
       "needEpisodeForPrompt": "请先在「剧集列表」创建至少一集，才能生成最终提示词",
@@ -849,7 +850,9 @@
       "batchGeneratingProp": "道具图片批量生成中",
       "allCharsDone": "所有角色图片已生成",
       "allScenesDone": "所有场景图片已生成",
-      "allPropsDone": "所有道具图片已生成"
+      "allPropsDone": "所有道具图片已生成",
+      "genFailed": "图片生成失败",
+      "genTimeout": "图片生成超时"
     },
     "extract": {
       "done": "{type}提取完成",

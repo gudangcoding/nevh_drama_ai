@@ -289,6 +289,7 @@
       "saving": "Menyimpan…",
       "generating": "Gambar {kind} \"{name}\" sedang dibuat",
       "genTimeout": "Pembuatan {kind} \"{name}\" habis waktu; muat ulang nanti untuk memeriksa",
+      "genFailed": "Pembuatan {kind} \"{name}\" gagal",
       "uploaded": "Gambar {kind} \"{name}\" telah diunggah",
       "needEpisodeForImage": "Buat setidaknya satu episode di \"Episode\" sebelum membuat gambar aset",
       "needEpisodeForPrompt": "Buat setidaknya satu episode di \"Episode\" sebelum membuat prompt akhir",
@@ -897,7 +898,9 @@
       "batchGeneratingProp": "Gambar properti massal sedang dibuat",
       "allCharsDone": "Semua gambar karakter dibuat",
       "allScenesDone": "Semua gambar adegan dibuat",
-      "allPropsDone": "Semua gambar properti dibuat"
+      "allPropsDone": "Semua gambar properti dibuat",
+      "genFailed": "Pembuatan gambar gagal",
+      "genTimeout": "Pembuatan gambar habis waktu"
     },
     "extract": {
       "done": "Ekstraksi {type} selesai",

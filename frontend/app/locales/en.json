@@ -241,6 +241,7 @@
       "saving": "Saving…",
       "generating": "{kind} “{name}” image generating",
       "genTimeout": "{kind} “{name}” generation timed out; refresh later to check",
+      "genFailed": "{kind} “{name}” generation failed",
       "uploaded": "{kind} “{name}” image uploaded",
       "needEpisodeForImage": "Create at least one episode in “Episodes” before generating asset images",
       "needEpisodeForPrompt": "Create at least one episode in “Episodes” before generating the final prompt",
@@ -849,7 +850,9 @@
       "batchGeneratingProp": "Batch prop images generating",
       "allCharsDone": "All character images generated",
       "allScenesDone": "All scene images generated",
-      "allPropsDone": "All prop images generated"
+      "allPropsDone": "All prop images generated",
+      "genFailed": "Image generation failed",
+      "genTimeout": "Image generation timed out"
     },
     "extract": {
       "done": "{type} extraction complete",

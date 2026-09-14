@@ -2907,6 +2907,42 @@ function watchAsyncResult(check, attempts = 24, delay = 2500) {
   })()
 }
 
+async function watchAssetImages(taskIds, ids, kind, attempts = 48, delay = 2500) {
+  const clearPending = () => {
+    const ref = kind === 'character' ? pendingCharImageIds : kind === 'scene' ? pendingSceneImageIds : pendingPropImageIds
+    ref.value = ref.value.filter(item => !ids.includes(item))
+  }
+  const findRec = id => kind === 'character'
+    ? chars.value.find(c => c.id === id)
+    : kind === 'scene'
+      ? scenes.value.find(s => s.id === id)
+      : propItems.value.find(p => p.id === id)
+  for (let i = 0; i < attempts; i++) {
+    await sleep(delay)
+    await refresh()
+    const done = ids.every(id => {
+      const rec = findRec(id)
+      return !!(rec?.image_url || rec?.imageUrl)
+    })
+    if (done) { clearPending(); return }
+    let failedMsg = ''
+    for (const tid of taskIds) {
+      try {
+        const task = await taskAPI.get(tid)
+        const st = task?.status
+        if (st === 'failed' || st === 'error' || st === 'timeout') { failedMsg = task?.errorMsg || ''; break }
+      } catch {}
+    }
+    if (failedMsg) {
+      clearPending()
+      toast.error(failedMsg)
+      return
+    }
+  }
+  clearPending()
+  toast.info(t('episode.image.genTimeout'))
+}
+
 async function genCharImg(id) {
   try {
     if (!isPendingCharImage(id)) pendingCharImageIds.value.push(id)
@@ -2917,15 +2953,11 @@ async function genCharImg(id) {
         await ensureAssetPrompt('character', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
-    await characterAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    const res = await characterAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success(t('episode.image.generatingChar'))
     await refresh()
-    watchAsyncResult(() => {
-      const char = chars.value.find(c => c.id === id)
-      const done = !!(char?.image_url || char?.imageUrl)
-      if (done) pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
-      return done
-    })
+    const taskIds = res?.image_generation_id ? [Number(res.image_generation_id)] : []
+    watchAssetImages(taskIds, [id], 'character')
   } catch (e) {
     pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
     toastError(e)
@@ -2935,15 +2967,11 @@ function batchCharImages() {
   const ids = visualChars.value.filter(c => !(c.image_url || c.imageUrl)).map(c => c.id)
   if (!ids.length) { toast.info(t('episode.image.allCharsDone')); return }
   pendingCharImageIds.value = [...new Set([...pendingCharImageIds.value, ...ids])]
-  characterAPI.batchImages(ids, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(async () => {
+  characterAPI.batchImages(ids, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(async (res) => {
     toast.success(t('episode.image.batchGeneratingChar'))
     await refresh()
-    watchAsyncResult(() => ids.every(id => {
-      const char = chars.value.find(c => c.id === id)
-      const done = !!(char?.image_url || char?.imageUrl)
-      if (done) pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
-      return done
-    }), 36)
+    const taskIds = Array.isArray(res?.ids) ? res.ids.map(Number) : []
+    watchAssetImages(taskIds, ids, 'character', 36)
   }).catch(e => {
     pendingCharImageIds.value = pendingCharImageIds.value.filter(item => !ids.includes(item))
     toastError(e)
@@ -2959,15 +2987,11 @@ async function genSceneImg(id) {
         await ensureAssetPrompt('scene', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
-    await sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    const res = await sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success(t('episode.image.generatingScene'))
     await refresh()
-    watchAsyncResult(() => {
-      const scene = scenes.value.find(s => s.id === id)
-      const done = !!(scene?.image_url || scene?.imageUrl)
-      if (done) pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
-      return done
-    })
+    const taskIds = res?.image_generation_id ? [Number(res.image_generation_id)] : []
+    watchAssetImages(taskIds, [id], 'scene')
   } catch (e) {
     pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
     toastError(e)
@@ -2986,15 +3010,11 @@ async function genPropImg(id) {
         await ensureAssetPrompt('prop', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
-    await propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    const res = await propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success(t('episode.image.generatingProp'))
     await refresh()
-    watchAsyncResult(() => {
-      const prop = propItems.value.find(p => p.id === id)
-      const done = !!(prop?.image_url || prop?.imageUrl)
-      if (done) pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
-      return done
-    })
+    const taskIds = res?.image_generation_id ? [Number(res.image_generation_id)] : []
+    watchAssetImages(taskIds, [id], 'prop')
   } catch (e) {
     pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
     toastError(e)
@@ -3004,27 +3024,29 @@ function batchSceneImages() {
   const ids = scenes.value.filter(s => !(s.image_url || s.imageUrl)).map(s => s.id)
   if (!ids.length) { toast.info(t('episode.image.allScenesDone')); return }
   pendingSceneImageIds.value = [...new Set([...pendingSceneImageIds.value, ...ids])]
-  ids.forEach(id => { sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toastError(e)) })
-  toast.success(t('episode.image.batchGeneratingScene'))
-  watchAsyncResult(() => ids.every(id => {
-    const scene = scenes.value.find(s => s.id === id)
-    const done = !!(scene?.image_url || scene?.imageUrl)
-    if (done) pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
-    return done
-  }), 36)
+  Promise.allSettled(ids.map(id => sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()))).then(async (results) => {
+    toast.success(t('episode.image.batchGeneratingScene'))
+    await refresh()
+    const taskIds = results.map(r => r.status === 'fulfilled' && r.value?.image_generation_id ? Number(r.value.image_generation_id) : 0).filter(Boolean)
+    watchAssetImages(taskIds, ids, 'scene', 36)
+  }).catch(e => {
+    pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => !ids.includes(item))
+    toastError(e)
+  })
 }
 function batchPropImages() {
   const ids = propItems.value.filter(p => !(p.image_url || p.imageUrl)).map(p => p.id)
   if (!ids.length) { toast.info(t('episode.image.allPropsDone')); return }
   pendingPropImageIds.value = [...new Set([...pendingPropImageIds.value, ...ids])]
-  ids.forEach(id => { propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toastError(e)) })
-  toast.success(t('episode.image.batchGeneratingProp'))
-  watchAsyncResult(() => ids.every(id => {
-    const prop = propItems.value.find(p => p.id === id)
-    const done = !!(prop?.image_url || prop?.imageUrl)
-    if (done) pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
-    return done
-  }), 36)
+  Promise.allSettled(ids.map(id => propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()))).then(async (results) => {
+    toast.success(t('episode.image.batchGeneratingProp'))
+    await refresh()
+    const taskIds = results.map(r => r.status === 'fulfilled' && r.value?.image_generation_id ? Number(r.value.image_generation_id) : 0).filter(Boolean)
+    watchAssetImages(taskIds, ids, 'prop', 36)
+  }).catch(e => {
+    pendingPropImageIds.value = pendingPropImageIds.value.filter(item => !ids.includes(item))
+    toastError(e)
+  })
 }
 function getVideoUrl(s) { return s?.video_url || s?.videoUrl || s?.composed_video_url || s?.composedVideoUrl || null }
 function hasVid(s) { return !!getVideoUrl(s) }

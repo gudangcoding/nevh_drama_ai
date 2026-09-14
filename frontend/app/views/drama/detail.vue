@@ -698,7 +698,7 @@
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI, productionAPI } from '~/composables/useApi'
+import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI, taskAPI, productionAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { Loader2 } from 'lucide-vue-next'
 
@@ -1021,19 +1021,21 @@ async function generateMaterial(m) {
   if (pendingMaterials.value.has(key)) return
   pendingMaterials.value = new Set(pendingMaterials.value).add(key)
   try {
-    if (m.kindKey === 'character') await characterAPI.generateImage(m.id, epId)
-    else if (m.kindKey === 'scene') await sceneAPI.generateImage(m.id, epId)
-    else await propAPI.generateImage(m.id, epId)
+    let res
+    if (m.kindKey === 'character') res = await characterAPI.generateImage(m.id, epId)
+    else if (m.kindKey === 'scene') res = await sceneAPI.generateImage(m.id, epId)
+    else res = await propAPI.generateImage(m.id, epId)
     toast.success(t('detail.mat.generating', { kind: m.kind, name: m.name }))
-    pollMaterial(m)
+    pollMaterial(m, res?.image_generation_id ? Number(res.image_generation_id) : null)
   } catch (e) {
     pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
     toastError(e)
   }
 }
 
-// Gambar adalah tugas asinkron: polling untuk memuat ulang drama, hingga imageUrl untuk aset ini muncul
-async function pollMaterial(m) {
+// Gambar adalah tugas asinkron: polling untuk memuat ulang drama, hingga imageUrl untuk aset ini muncul;
+// bila task backend berstatus failed, tampilkan error penyebabnya alih-alih spinner yang tidak berakhir
+async function pollMaterial(m, taskId = null) {
   const key = pendingKey(m)
   for (let i = 0; i < 40; i++) {
     await sleep(2500)
@@ -1044,6 +1046,17 @@ async function pollMaterial(m) {
     if (rec && matImage(rec)) {
       pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
       return
+    }
+    if (taskId) {
+      try {
+        const task = await taskAPI.get(taskId)
+        const st = task?.status
+        if (st === 'failed' || st === 'error' || st === 'timeout') {
+          pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
+          toast.error(task?.errorMsg || t('detail.mat.genFailed', { kind: m.kind, name: m.name }))
+          return
+        }
+      } catch {}
     }
   }
   pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))

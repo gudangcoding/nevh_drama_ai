@@ -1,7 +1,7 @@
 {
   "name": "nevh-drama-desktop",
   "productName": "Nevh Drama",
-  "version": "5.1.6",
+  "version": "5.1.7",
   "private": true,
   "description": "Nevh Drama STudio（Electron JS）",
   "author": "Nevh",
