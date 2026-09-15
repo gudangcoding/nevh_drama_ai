@@ -25,6 +25,16 @@
           </span>
         </div>
       </div>
+      <button
+        class="btn head-action"
+        :disabled="exportingPrompts"
+        :title="t('detail.head.exportPromptsTitle')"
+        @click="exportPrompts"
+      >
+        <svg v-if="exportingPrompts" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        {{ t('detail.head.exportPrompts') }}
+      </button>
       <button class="btn btn-primary head-action" @click="openAddEpisode">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -709,6 +719,7 @@ const drama = ref(null)
 const dramaId = Number(route.params.id)
 const addDialog = ref(false)
 const creatingEpisode = ref(false)
+const exportingPrompts = ref(false)
 const newEpisodeTitle = ref('')
 const episodeToDelete = ref(null)
 const deletingEpisode = ref(false)
@@ -948,6 +959,111 @@ async function confirmDelEpisode() {
     toastError(e)
   } finally {
     deletingEpisode.value = false
+  }
+}
+
+// Ekspor semua prompt proyek (sinopsis, karakter, adegan, properti, storyboard/video) ke file teks
+// agar bisa dipakai ulang di platform lain (mis. Google Flow)
+function promptSection(title, rows) {
+  const lines = [`## ${title}`]
+  for (const row of rows) {
+    if (!row) continue
+    lines.push(`### ${row.title}`)
+    for (const [label, value] of row.fields || []) {
+      if (value) lines.push(`**${label}:** ${value}`)
+    }
+  }
+  lines.push('')
+  return lines.join('\n')
+}
+
+async function buildPromptsText() {
+  const d = await dramaAPI.get(dramaId)
+  const parts = []
+
+  parts.push(`# ${d.title || ''}`)
+  const meta = []
+  if (d.genre) meta.push(`Genre: ${d.genre}`)
+  if (d.style) meta.push(`Style: ${d.style}`)
+  if (d.aspect_ratio || d.aspectRatio) meta.push(`Aspect ratio: ${d.aspect_ratio || d.aspectRatio}`)
+  if (meta.length) parts.push(meta.join(' | '))
+  parts.push('')
+  if (d.synopsis) parts.push(`## Synopsis\n${d.synopsis}\n`)
+
+  const chars = (d.characters || [])
+    .filter((c) => !(c.deleted_at || c.deletedAt))
+    .map((c) => ({
+      title: `${c.name || '-'}${c.role ? ` (${c.role})` : ''}`,
+      fields: [
+        ['Appearance', c.appearance || ''],
+        ['Styling', c.styling || ''],
+        ['Persona', c.description || ''],
+        ['Final prompt', c.final_prompt || c.finalPrompt || ''],
+      ],
+    }))
+  parts.push(promptSection(`Characters (${chars.length})`, chars))
+
+  const scenes = (d.scenes || [])
+    .filter((s) => !(s.deleted_at || s.deletedAt))
+    .map((s) => ({
+      title: [s.location, s.time].filter(Boolean).join(' · ') || '-',
+      fields: [
+        ['Prompt', s.prompt || ''],
+        ['Lighting', s.lighting || ''],
+        ['Final prompt', s.final_prompt || s.finalPrompt || ''],
+      ],
+    }))
+  parts.push(promptSection(`Scenes (${scenes.length})`, scenes))
+
+  const props = (d.props || [])
+    .filter((p) => !(p.deleted_at || p.deletedAt))
+    .map((p) => ({
+      title: p.name || '-',
+      fields: [
+        ['Type', p.type || ''],
+        ['Description', p.description || ''],
+        ['Final prompt', p.final_prompt || p.finalPrompt || ''],
+      ],
+    }))
+  parts.push(promptSection(`Props (${props.length})`, props))
+
+  const eps = (d.episodes || []).filter((e) => !(e.deleted_at || e.deletedAt))
+  for (const ep of eps) {
+    const storyboards = await episodeAPI.storyboards(ep.id).catch(() => [])
+    const sbParts = (storyboards || []).map((sb, i) => {
+      const shotTitle = `Shot ${i + 1}${sb.video_prompt || sb.videoPrompt ? '' : ' (no video prompt)'}`
+      const fields = []
+      if (sb.scene_id) fields.push(['Scene ID', String(sb.scene_id)])
+      if (sb.location) fields.push(['Location', sb.location])
+      if (sb.duration) fields.push(['Duration', `${sb.duration}s`])
+      if (sb.video_prompt || sb.videoPrompt) fields.push(['Video prompt', sb.video_prompt || sb.videoPrompt])
+      return { title: shotTitle, fields }
+    })
+    parts.push(promptSection(`Episode ${ep.episode_number || ep.episodeNumber || ''}${ep.title ? ` — ${ep.title}` : ''} — Storyboards (${sbParts.length})`, sbParts))
+  }
+
+  return parts.join('\n').trim() + '\n'
+}
+
+async function exportPrompts() {
+  exportingPrompts.value = true
+  try {
+    const text = await buildPromptsText()
+    const filename = `${(drama.value?.title || 'drama').replace(/[\\/:*?"<>|]+/g, '_')}_prompts.txt`
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 2000)
+    toast.success(t('detail.head.exportPrompts'))
+  } catch (e) {
+    toastError(e)
+  } finally {
+    exportingPrompts.value = false
   }
 }
 

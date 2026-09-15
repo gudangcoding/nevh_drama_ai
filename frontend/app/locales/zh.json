@@ -178,7 +178,9 @@
       "charCount": "{n} 角色",
       "sceneCount": "{n} 场景",
       "epCount": "{n} 集",
-      "addEpisode": "添加集"
+      "addEpisode": "添加集",
+      "exportPrompts": "导出完整提示词",
+      "exportPromptsTitle": "下载全部提示词（剧情、角色、场景、分镜/视频），便于在 Google Flow 等其他平台复用"
     },
     "tabs": {
       "episodes": "剧集列表",

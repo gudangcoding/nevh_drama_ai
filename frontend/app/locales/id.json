@@ -184,7 +184,9 @@
       "charCount": "{n} karakter",
       "sceneCount": "{n} adegan",
       "epCount": "{n} episode",
-      "addEpisode": "Tambah Episode"
+      "addEpisode": "Tambah Episode",
+      "exportPrompts": "Export Prompt Lengkap",
+      "exportPromptsTitle": "Unduh semua prompt (sinopsis, karakter, adegan, storyboard/video) untuk dipakai di platform lain seperti Google Flow"
     },
     "tabs": {
       "episodes": "Episode",

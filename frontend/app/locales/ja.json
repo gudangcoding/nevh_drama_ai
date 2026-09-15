@@ -178,7 +178,9 @@
       "charCount": "{n} キャラクター",
       "sceneCount": "{n} シーン",
       "epCount": "{n} 話",
-      "addEpisode": "話を追加"
+      "addEpisode": "話を追加",
+      "exportPrompts": "全プロンプトをエクスポート",
+      "exportPromptsTitle": "全プロンプト（あらすじ・キャラクター・シーン・絵コンテ/動画）をダウンロードし、Google Flow など他のプラットフォームで再利用"
     },
     "tabs": {
       "episodes": "エピソード一覧",

@@ -35,11 +35,16 @@ const DEFAULT_MODEL = 'veo-3.1-generate-preview'
 /** Batas referensi: gambar 3, ekstensi 1 */
 const REF_LIMITS = { images: 3 } as const
 
-/** Durasi didukung per model */
-const DURATION_MAP: Record<string, { min: number; max: number }> = {
-  'veo-3.1': { min: 4, max: 8 },
-  'veo-3.0': { min: 4, max: 8 },
-  'veo-2.0': { min: 5, max: 8 },
+/**
+ * Durasi yang DIDUKUNG per model — bukan rentang bebas! Dokumen resmi Veo 3.x:
+ * "Video lengths: 4, 6, or 8 seconds; reference image to video only supports 8 seconds."
+ * Veo 2.0: 5 atau 8 detik. Durasi selain nilai ini (mis. 5/6/7 detik di Veo 3.x)
+ * ditolak API dengan error validasi, jadi harus di-snap ke nilai terdekat.
+ */
+const DURATION_MAP: Record<string, number[]> = {
+  'veo-3.1': [4, 6, 8],
+  'veo-3.0': [4, 6, 8],
+  'veo-2.0': [5, 8],
 }
 
 const VALID_RATIOS = new Set(['16:9', '9:16'])
@@ -78,12 +83,12 @@ function buildImageRef(url: string): { mimeType: string; bytesBase64Encoded?: st
   return null
 }
 
-function getDurationRange(model: string): { min: number; max: number } {
+function getDurationAllowed(model: string): number[] {
   const lower = model.toLowerCase()
-  for (const [prefix, range] of Object.entries(DURATION_MAP)) {
-    if (lower.includes(prefix)) return range
+  for (const [prefix, allowed] of Object.entries(DURATION_MAP)) {
+    if (lower.includes(prefix)) return allowed
   }
-  return { min: 2, max: 8 }
+  return [4, 6, 8]
 }
 
 export class GeminiVideoAdapter implements VideoProviderAdapter {
@@ -117,20 +122,35 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
       const img = buildImageRef(firstFrame)
       if (img && img.bytesBase64Encoded) instance.image = img
     } else if (refImages.length > 0) {
-      const images = refImages
-        .map(buildImageRef)
-        .filter((img): img is { mimeType: string; bytesBase64Encoded: string } => !!img && !!img.bytesBase64Encoded)
-        .slice(0, REF_LIMITS.images)
-      if (images.length > 0) {
-        instance.referenceImages = images.map((image) => ({ referenceType: 'asset', image }))
+      // Dokumen resmi Veo: referenceImages saat ini HANYA mendukung rasio 16:9.
+      // Bila proyek memakai 9:16 (potret) dan ada gambar referensi, jangan kirim referenceImages
+      // (akan ditolak API "9:16 not supported for referenceImages") — gunakan referensi pertama
+      // sebagai frame awal (image-to-video) yang mendukung 9:16.
+      const ratio = record.aspectRatio || '16:9'
+      if (ratio === '9:16') {
+        const images = refImages
+          .map(buildImageRef)
+          .filter((img): img is { mimeType: string; bytesBase64Encoded: string } => !!img && !!img.bytesBase64Encoded)
+          .slice(0, 1)
+        if (images.length > 0) {
+          instance.image = images[0]
+        }
+      } else {
+        const images = refImages
+          .map(buildImageRef)
+          .filter((img): img is { mimeType: string; bytesBase64Encoded: string } => !!img && !!img.bytesBase64Encoded)
+          .slice(0, REF_LIMITS.images)
+        if (images.length > 0) {
+          instance.referenceImages = images.map((image) => ({ referenceType: 'asset', image }))
+        }
       }
     }
 
     // Parameters: Vertex/Gemini API Veo
-    const durationRange = getDurationRange(model)
+    const allowedDurations = getDurationAllowed(model)
     // Referensi/frame memaksa durasi 8 detik sesuai dokumen resmi
     const forced8s = Boolean(instance.referenceImages) || Boolean(instance.lastFrame)
-    const duration = forced8s ? 8 : this.normalizeDuration(record.duration, durationRange)
+    const duration = forced8s ? 8 : this.normalizeDuration(record.duration, allowedDurations)
 
     const parameters: Record<string, any> = {
       sampleCount: 1,
@@ -252,9 +272,12 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
     return video.uri || video.url || video.videoUri || video.gcsUri || null
   }
 
-  private normalizeDuration(duration?: number | null, range = { min: 2, max: 8 }): number {
-    const parsed = Math.round(Number(duration || range.max))
-    if (!Number.isFinite(parsed)) return range.max
-    return Math.min(range.max, Math.max(range.min, parsed))
+  private normalizeDuration(duration?: number | null, allowed = [4, 6, 8]): number {
+    const parsed = Math.round(Number(duration || allowed[allowed.length - 1]))
+    if (!Number.isFinite(parsed)) return allowed[allowed.length - 1]
+    // Snap ke nilai durasi yang didukung (4/6/8 untuk Veo 3.x) agar tidak ditolak API
+    return allowed.reduce((best, candidate) =>
+      Math.abs(candidate - parsed) < Math.abs(best - parsed) ? candidate : best,
+    allowed[0])
   }
 }

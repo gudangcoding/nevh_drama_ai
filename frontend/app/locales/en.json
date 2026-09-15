@@ -178,7 +178,9 @@
       "charCount": "{n} characters",
       "sceneCount": "{n} scenes",
       "epCount": "{n} episodes",
-      "addEpisode": "Add Episode"
+      "addEpisode": "Add Episode",
+      "exportPrompts": "Export Full Prompts",
+      "exportPromptsTitle": "Download all prompts (synopsis, characters, scenes, storyboards/video) to reuse on other platforms like Google Flow"
     },
     "tabs": {
       "episodes": "Episodes",

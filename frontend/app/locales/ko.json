@@ -178,7 +178,9 @@
       "charCount": "캐릭터 {n}",
       "sceneCount": "장면 {n}",
       "epCount": "{n}화",
-      "addEpisode": "화 추가"
+      "addEpisode": "화 추가",
+      "exportPrompts": "전체 프롬프트 내보내기",
+      "exportPromptsTitle": "모든 프롬프트(줄거리·캐릭터·장면·스토리보드/비디오)를 다운로드하여 Google Flow 등 다른 플랫폼에서 재사용"
     },
     "tabs": {
       "episodes": "에피소드 목록",
