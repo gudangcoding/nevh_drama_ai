@@ -6,7 +6,7 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
           </svg>
-          {{ t('episode.topbar.back') }}
+          <span class="back-label">{{ t('episode.topbar.back') }}</span>
         </button>
         <div class="studio-identity">
           <h1 class="studio-title">{{ drama.title }}</h1>
@@ -3512,6 +3512,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   border-radius: var(--radius-pill);
   white-space: nowrap;
   font-size: 11px;
+  flex-shrink: 1;
 }
 
 .studio-identity {
@@ -5904,6 +5905,14 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 .dim { color: var(--text-3); }
 
 @media (max-width: 1080px) {
+  .studio-topbar .topbar-back {
+    min-width: 0;
+    padding: 0 8px;
+  }
+  .studio-topbar .topbar-back .back-label {
+    display: none;
+  }
+
   .studio-body {
     grid-template-columns: 1fr;
   }
