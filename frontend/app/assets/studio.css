@@ -419,7 +419,7 @@ select.input { appearance: auto; cursor: pointer; padding-right: 14px; }
   border-bottom: 1px solid var(--border);
 }
 .dialog-title { font-size: 17px; font-weight: 700; }
-.dialog-body { padding: var(--sp-6); overflow-y: auto; }
+.dialog-body { padding: var(--sp-6); overflow-y: auto; flex: 1 1 auto; min-height: 0; }
 .dialog-foot {
   display: flex;
   justify-content: flex-end;

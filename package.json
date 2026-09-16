@@ -1,6 +1,6 @@
 {
   "name": "huobao-drama",
-  "version": "1.1.10",
+  "version": "1.1.11",
   "private": true,
   "description": "火宝短剧 — AI 短剧制作工具（桌面版编排入口）",
   "scripts": {
