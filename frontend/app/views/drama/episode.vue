@@ -283,6 +283,11 @@
                 </button>
               </div>
             </div>
+            <div v-if="assetQueueActive || assetQueue.length" class="asset-queue-bar">
+              <Loader2 :size="12" class="animate-spin" />
+              <span class="asset-queue-text">{{ assetQueueStatusText }}</span>
+              <button v-if="assetQueue.length" class="btn btn-sm" @click="cancelAssetQueue">{{ t('episode.asset.cancelQueue') }}</button>
+            </div>
             <div v-if="extractingTargets.length && !chars.length && !scenes.length && !propItems.length" class="step-loading">
               <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
               <div class="loading-text">{{ t('episode.prod.extractingTypes', { types: extractingLabels }) }}</div>
@@ -361,6 +366,15 @@
                     <span class="afp-label">{{ t('episode.asset.finalPromptTurnaround') }}</span>
                     <span :class="['afp-text', !(c.final_prompt || c.finalPrompt) && 'dim']">{{ c.final_prompt || c.finalPrompt || t('episode.asset.finalPromptAutoTurnaround') }}</span>
                   </div>
+                  <div v-if="assetProgressOf('character', c.id)" class="asset-progress" :class="'is-' + (assetProgressOf('character', c.id)?.stage || 'queued')">
+                    <div class="asset-progress-top">
+                      <span class="asset-progress-label">{{ assetProgressStageLabel('character', c.id) }}</span>
+                      <span class="asset-progress-pct mono">{{ assetProgressPercent('character', c.id) }}%</span>
+                    </div>
+                    <div class="asset-progress-track" role="progressbar" :aria-valuenow="assetProgressPercent('character', c.id)" aria-valuemin="0" aria-valuemax="100">
+                      <div class="asset-progress-fill" :style="{ width: assetProgressPercent('character', c.id) + '%' }" />
+                    </div>
+                  </div>
                 </div>
               </article>
             </div>
@@ -404,6 +418,15 @@
                   <div class="asset-meta asset-final" :class="{ dim: !(s.final_prompt || s.finalPrompt) }" :title="s.final_prompt || s.finalPrompt || ''">
                     <span class="afp-label">{{ t('episode.asset.finalPromptFixed') }}</span>
                     {{ s.final_prompt || s.finalPrompt || t('episode.asset.finalPromptAutoFixed') }}
+                  </div>
+                  <div v-if="assetProgressOf('scene', s.id)" class="asset-progress" :class="'is-' + (assetProgressOf('scene', s.id)?.stage || 'queued')">
+                    <div class="asset-progress-top">
+                      <span class="asset-progress-label">{{ assetProgressStageLabel('scene', s.id) }}</span>
+                      <span class="asset-progress-pct mono">{{ assetProgressPercent('scene', s.id) }}%</span>
+                    </div>
+                    <div class="asset-progress-track" role="progressbar" :aria-valuenow="assetProgressPercent('scene', s.id)" aria-valuemin="0" aria-valuemax="100">
+                      <div class="asset-progress-fill" :style="{ width: assetProgressPercent('scene', s.id) + '%' }" />
+                    </div>
                   </div>
                 </div>
                 <div class="asset-foot">
@@ -461,6 +484,15 @@
                   <div class="asset-meta asset-final" :class="{ dim: !(p.final_prompt || p.finalPrompt) }" :title="p.final_prompt || p.finalPrompt || ''">
                     <span class="afp-label">{{ t('episode.asset.finalPromptWhiteBg') }}</span>
                     {{ p.final_prompt || p.finalPrompt || t('episode.asset.finalPromptAutoWhiteBg') }}
+                  </div>
+                  <div v-if="assetProgressOf('prop', p.id)" class="asset-progress" :class="'is-' + (assetProgressOf('prop', p.id)?.stage || 'queued')">
+                    <div class="asset-progress-top">
+                      <span class="asset-progress-label">{{ assetProgressStageLabel('prop', p.id) }}</span>
+                      <span class="asset-progress-pct mono">{{ assetProgressPercent('prop', p.id) }}%</span>
+                    </div>
+                    <div class="asset-progress-track" role="progressbar" :aria-valuenow="assetProgressPercent('prop', p.id)" aria-valuemin="0" aria-valuemax="100">
+                      <div class="asset-progress-fill" :style="{ width: assetProgressPercent('prop', p.id) + '%' }" />
+                    </div>
                   </div>
                 </div>
                 <div class="asset-foot">
@@ -537,6 +569,11 @@
                   <button type="button" class="video-task-metric is-failed" :class="{ on: videoListFilter === 'failed' }" @click="toggleVideoFilter('failed')">{{ t('episode.vid.metricFailed', { n: videoTaskFailedCount }) }}</button>
                 </div>
                 </div>
+                <div v-if="videoQueueActive || videoQueue.length" class="video-queue-bar">
+                  <Loader2 :size="12" class="animate-spin" />
+                  <span class="asset-queue-text">{{ videoQueueStatusText }}</span>
+                  <button v-if="videoQueue.length" class="btn btn-sm" @click="cancelVideoQueue">{{ t('episode.vid.cancelQueue') }}</button>
+                </div>
                 <div v-if="videoSelectMode" class="shot-quick-actions video-quick-actions">
                   <button class="shot-quick-btn" @click="toggleSelectAllVideos">{{ t('episode.sb.selectAll') }}</button>
                   <button class="shot-quick-btn" @click="selectMissingVideos">{{ t('episode.vid.selectMissing') }}</button>
@@ -585,10 +622,17 @@
                       </span>
                       <span class="video-task-sep">·</span>
                       <span>{{ task.duration }}s</span>
+                      <template v-if="videoProgressOf(task.id)">
+                        <span class="video-task-sep">·</span>
+                        <span class="video-task-queue" :title="videoProgressLabel(task.id)">{{ videoProgressLabel(task.id) }} · {{ videoProgressPercent(task.id) }}%</span>
+                      </template>
                       <template v-if="task.meta">
                         <span class="video-task-sep">·</span>
                         <span class="video-task-loc truncate">{{ task.meta }}</span>
                       </template>
+                    </div>
+                    <div v-if="videoProgressOf(task.id)" class="video-task-progress-track" role="progressbar" :aria-valuenow="videoProgressPercent(task.id)" aria-valuemin="0" aria-valuemax="100">
+                      <div class="video-task-progress-fill" :style="{ width: videoProgressPercent(task.id) + '%' }" />
                     </div>
                     <div v-if="task.error" class="video-task-error" :title="task.error">
                       {{ mapError(task.error) }}
@@ -698,6 +742,7 @@
                     <span :class="['dot', videoTaskState(selectedSb) === 'done' && 'ok', videoTaskState(selectedSb) === 'pending' && 'pending']" />
                     {{ videoTaskStatusLabel(selectedSb) }}
                   </span>
+                  <span v-if="videoProgressOf(selectedSb.id)" class="video-task-queue">{{ videoProgressLabel(selectedSb.id) }} · {{ videoProgressPercent(selectedSb.id) }}%</span>
                   <span v-if="selectedSb.duration" class="video-player-sub">{{ selectedSb.duration }}s</span>
                 </div>
                 <button
@@ -1260,6 +1305,15 @@
           </div>
 
           <footer class="dialog-foot asset-detail-foot">
+            <div v-if="assetDetail.open && assetDetail.item && assetProgressOf(assetDetail.type, assetDetail.item.id)" class="asset-progress is-dialog" :class="'is-' + (assetProgressOf(assetDetail.type, assetDetail.item.id)?.stage || 'queued')">
+              <div class="asset-progress-top">
+                <span class="asset-progress-label">{{ assetProgressStageLabel(assetDetail.type, assetDetail.item.id) }}</span>
+                <span class="asset-progress-pct mono">{{ assetProgressPercent(assetDetail.type, assetDetail.item.id) }}%</span>
+              </div>
+              <div class="asset-progress-track" role="progressbar" :aria-valuenow="assetProgressPercent(assetDetail.type, assetDetail.item.id)" aria-valuemin="0" aria-valuemax="100">
+                <div class="asset-progress-fill" :style="{ width: assetProgressPercent(assetDetail.type, assetDetail.item.id) + '%' }" />
+              </div>
+            </div>
             <div class="asset-detail-secondary-actions">
               <button class="btn btn-danger" @click="askDeleteAsset(assetDetail.type, assetDetail.item)">{{ t('common.delete') }}</button>
               <button class="btn" @click="closeAssetDetail">{{ t('common.close') }}</button>
@@ -1615,6 +1669,197 @@ function chatConfigId() { return ownerConfigId(textModelOptions.value, chatModel
 const pendingCharImageIds = ref([])
 const pendingSceneImageIds = ref([])
 const pendingPropImageIds = ref([])
+// ─── Progress realtime per-card aset ─────────────────────────────────────
+// Provider gambar tidak mengembalikan persen; progress dihitung dari fase +
+// elapsed polling agar tiap card terbaca "sampai mana":
+// prompt(10%) → antre(25%) → generating(30→92% naik per detik) → done(100%).
+const assetProgressMap = ref({})
+function assetProgressKey(type, id) { return `${type}:${id}` }
+function setAssetProgress(type, id, patch) {
+  const key = assetProgressKey(type, id)
+  const prev = assetProgressMap.value[key] || { stage: 'queued', percent: 5, startedAt: Date.now(), elapsed: 0, error: '' }
+  assetProgressMap.value = { ...assetProgressMap.value, [key]: { ...prev, ...patch } }
+}
+function clearAssetProgress(type, id) {
+  const key = assetProgressKey(type, id)
+  if (!(key in assetProgressMap.value)) return
+  const next = { ...assetProgressMap.value }
+  delete next[key]
+  assetProgressMap.value = next
+}
+function assetProgressOf(type, id) {
+  return assetProgressMap.value[assetProgressKey(type, id)] || null
+}
+function assetProgressPercent(type, id) {
+  const p = assetProgressOf(type, id)
+  if (!p) return 0
+  if (p.stage === 'done') return 100
+  if (p.stage === 'failed') return p.percent || 100
+  if (p.stage === 'generating') {
+    // Estimasi: gambar biasanya 30–120 dtk; naik mulus 30→92% lalu mentok sampai selesai.
+    // (elapsed disimpan per tick polling; fallback ke startedAt bila tick belum jalan)
+    const elapsed = Math.max(p.elapsed || 0, p.startedAt ? (Date.now() - p.startedAt) / 1000 : 0)
+    return Math.min(92, Math.round(30 + Math.min(elapsed / 120, 1) * 62))
+  }
+  if (p.stage === 'prompt') return 12
+  return 25
+}
+function assetProgressStageLabel(type, id) {
+  const p = assetProgressOf(type, id)
+  if (!p) return ''
+  if (p.stage === 'prompt') return t('episode.asset.stagePrompt')
+  if (p.stage === 'queued') {
+    return (p.queuePos && p.queueTotal)
+      ? t('episode.asset.queuePos', { pos: p.queuePos, total: p.queueTotal })
+      : t('episode.asset.stageQueued')
+  }
+  if (p.stage === 'generating') return t('episode.asset.stageGenerating', { n: Math.round(p.elapsed || 0) })
+  if (p.stage === 'done') return t('episode.asset.stageDone')
+  if (p.stage === 'failed') return p.error || t('episode.asset.stageFailed')
+  return ''
+}
+let assetProgressTicker = null
+function startAssetProgressTicker() {
+  if (assetProgressTicker) return
+  assetProgressTicker = setInterval(() => {
+    if (!Object.keys(assetProgressMap.value).length) return
+    // Picu re-render agar persen berbasis elapsed naik tiap detik tanpa request tambahan.
+    assetProgressMap.value = { ...assetProgressMap.value }
+    if (typeof videoProgressMap !== 'undefined' && Object.keys(videoProgressMap.value || {}).length) {
+      videoProgressMap.value = { ...videoProgressMap.value }
+    }
+  }, 1000)
+}
+startAssetProgressTicker()
+
+// ─── Antrean pembuatan gambar aset: SATU PER SATU (FIFO) ─────────────────
+// Semua generate gambar aset (karakter/adegan/properti, satuan maupun batch,
+// dari card maupun dialog) masuk antrean ini. Worker memproses satu per satu
+// sampai selesai/gagal sebelum lanjut ke berikutnya — tidak ada lagi N sesi
+// agent teks + N request gambar yang ditembak serentak. Setiap item antre
+// selalu punya indikator progres (posisi antre / tahap / elapsed).
+const assetQueue = ref([]) // [{ kind, id }] menunggu giliran
+const assetQueueActive = ref(null) // { kind, id } sedang diproses
+function isAssetQueued(kind, id) { return assetQueue.value.some(j => j.kind === kind && j.id === id) }
+function isAssetJobActive(kind, id) {
+  return !!assetQueueActive.value && assetQueueActive.value.kind === kind && assetQueueActive.value.id === id
+}
+function assetPendingRef(kind) {
+  return kind === 'character' ? pendingCharImageIds : kind === 'scene' ? pendingSceneImageIds : pendingPropImageIds
+}
+function assetDisplayName(kind, id) {
+  if (kind === 'character') return chars.value.find(x => x.id === id)?.name || `#${id}`
+  if (kind === 'scene') return scenes.value.find(x => x.id === id)?.location || `#${id}`
+  return propItems.value.find(x => x.id === id)?.name || `#${id}`
+}
+/** Tulis ulang posisi antre (Antre #pos dari total) ke semua item menunggu */
+function refreshAssetQueueProgress() {
+  const activeCount = assetQueueActive.value ? 1 : 0
+  const total = assetQueue.value.length + activeCount
+  assetQueue.value.forEach((j, i) => {
+    setAssetProgress(j.kind, j.id, { stage: 'queued', queuePos: i + 1 + activeCount, queueTotal: total, elapsed: 0, error: '' })
+  })
+}
+/**
+ * Masukkan aset ke antrean. Mengembalikan daftar { id, pos } yang baru ditambahkan
+ * (kosong bila semuanya sudah dalam antrean / sedang diproses).
+ */
+function enqueueAssetJobs(kind, ids) {
+  const pendingRef = assetPendingRef(kind)
+  const added = []
+  for (const id of ids) {
+    if (isAssetQueued(kind, id) || isAssetJobActive(kind, id)) continue
+    assetQueue.value.push({ kind, id })
+    if (!pendingRef.value.includes(id)) pendingRef.value.push(id)
+    added.push(id)
+  }
+  refreshAssetQueueProgress()
+  // Tandai posisi tiap item baru (pos dihitung setelah semua dimasukkan)
+  const result = added.map(id => {
+    const idx = assetQueue.value.findIndex(j => j.kind === kind && j.id === id)
+    return { id, pos: idx + 1 + (assetQueueActive.value ? 1 : 0) }
+  })
+  pumpAssetQueue()
+  return result
+}
+let assetQueuePumping = false
+async function pumpAssetQueue() {
+  if (assetQueuePumping) return
+  assetQueuePumping = true
+  try {
+    while (assetQueue.value.length) {
+      const job = assetQueue.value.shift()
+      assetQueueActive.value = job
+      refreshAssetQueueProgress()
+      try {
+        await runAssetJob(job.kind, job.id)
+      } catch (e) { /* runAssetJob sudah mencatat failed + toast */ }
+      assetQueueActive.value = null
+      refreshAssetQueueProgress()
+    }
+  } finally {
+    assetQueuePumping = false
+  }
+}
+function assetFindRec(kind, id) {
+  return kind === 'character'
+    ? chars.value.find(c => c.id === id)
+    : kind === 'scene'
+      ? scenes.value.find(s => s.id === id)
+      : propItems.value.find(p => p.id === id)
+}
+/** Satu job aset: prompt akhir (teks) → request gambar → tunggu selesai. Awaitable. */
+async function runAssetJob(kind, id) {
+  const pendingRef = assetPendingRef(kind)
+  const startedAt = Date.now()
+  try {
+    const rec = assetFindRec(kind, id)
+    if (rec && !(rec.final_prompt || rec.finalPrompt)) {
+      setAssetProgress(kind, id, { stage: 'prompt', startedAt, elapsed: 0, error: '' })
+      try {
+        await ensureAssetPrompt(kind, id)
+      } catch {} // prompt gagal tidak menghentikan: backend fallback sebelum generate gambar
+    }
+    const total = assetQueue.value.length + 1
+    setAssetProgress(kind, id, { stage: 'queued', queuePos: 1, queueTotal: total, startedAt, elapsed: 0 })
+    const api = kind === 'character' ? characterAPI : kind === 'scene' ? sceneAPI : propAPI
+    const res = await api.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    await refresh()
+    const taskIds = res?.image_generation_id ? [Number(res.image_generation_id)] : []
+    return await watchAssetImages(taskIds, [id], kind)
+  } catch (e) {
+    setAssetProgress(kind, id, { stage: 'failed', error: e?.message || String(e || ''), elapsed: Math.round((Date.now() - startedAt) / 1000) })
+    toastError(e)
+    return false
+  } finally {
+    pendingRef.value = pendingRef.value.filter(item => item !== id)
+  }
+}
+/** Batalkan item yang masih menunggu (yang sedang berjalan diselesaikan) */
+function cancelAssetQueue() {
+  const waiting = [...assetQueue.value]
+  if (!waiting.length) return
+  assetQueue.value = []
+  const byKind = { character: [], scene: [], prop: [] }
+  for (const j of waiting) {
+    ;(byKind[j.kind] || (byKind[j.kind] = [])).push(j.id)
+    clearAssetProgress(j.kind, j.id)
+  }
+  pendingCharImageIds.value = pendingCharImageIds.value.filter(id => !byKind.character.includes(id))
+  pendingSceneImageIds.value = pendingSceneImageIds.value.filter(id => !byKind.scene.includes(id))
+  pendingPropImageIds.value = pendingPropImageIds.value.filter(id => !byKind.prop.includes(id))
+  toast.info(t('episode.asset.queueCancelled', { n: waiting.length }))
+}
+const assetQueueStatusText = computed(() => {
+  const parts = []
+  if (assetQueueActive.value) {
+    parts.push(t('episode.asset.queueActive', {
+      name: assetDisplayName(assetQueueActive.value.kind, assetQueueActive.value.id),
+    }))
+  }
+  if (assetQueue.value.length) parts.push(t('episode.asset.queueWaiting', { n: assetQueue.value.length }))
+  return parts.join(' · ')
+})
 const pendingVideoIds = ref([])
 const failedVideoMessages = ref({})
 // 任务列表面板：顶栏按钮触发的右侧抽屉,按集聚合 sys_task + video_merges
@@ -1814,6 +2059,8 @@ async function ensureAssetPrompt(type, id, force = false, autoImage = false) {
   const key = `${type}:${id}`
   if (generatingPromptKeys.value.includes(key)) return ''
   generatingPromptKeys.value.push(key)
+  const hadImageProgress = !!assetProgressOf(type, id)
+  if (!hadImageProgress) setAssetProgress(type, id, { stage: 'prompt', startedAt: Date.now(), elapsed: 0, error: '' })
   try {
     const res = type === 'character'
       ? await characterAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId(), autoImage)
@@ -1822,7 +2069,14 @@ async function ensureAssetPrompt(type, id, force = false, autoImage = false) {
         : await propAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId(), autoImage)
     const fp = res?.final_prompt || res?.finalPrompt || ''
     if (fp) applyFinalPrompt(type, id, fp)
+    if (!hadImageProgress && !autoImage && !isAssetImagePending(type, id)) {
+      setAssetProgress(type, id, { stage: 'done', elapsed: 0 })
+      setTimeout(() => clearAssetProgress(type, id), 3000)
+    }
     return fp
+  } catch (e) {
+    if (!hadImageProgress) setAssetProgress(type, id, { stage: 'failed', error: e?.message || String(e || '') })
+    throw e
   } finally {
     generatingPromptKeys.value = generatingPromptKeys.value.filter(k => k !== key)
   }
@@ -1832,6 +2086,10 @@ async function ensureAssetPrompt(type, id, force = false, autoImage = false) {
 async function genAssetFinalPrompt() {
   const detail = assetDetail.value
   if (!detail.open || !detail.item?.id) return
+  if (isAssetQueued(detail.type, detail.item.id) || isAssetJobActive(detail.type, detail.item.id)) {
+    toast.info(t('episode.asset.alreadyQueued'))
+    return
+  }
   const force = !!assetFinalPrompt.value
   try {
     const fp = await ensureAssetPrompt(detail.type, detail.item.id, force, autoImageAfterPrompt.value)
@@ -1977,6 +2235,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleImageViewerKeydown)
   stopGenTasksPolling()
+  if (assetProgressTicker) { clearInterval(assetProgressTicker); assetProgressTicker = null }
 })
 
 function isPendingSceneImage(id) {
@@ -2208,15 +2467,14 @@ function confirmBatchVideos() {
   const targets = [...batchVideoConfirm.value.targets]
   batchVideoConfirm.value = { open: false, targets: [] }
   if (!targets.length) return
-  const ids = targets.map(s => s.id)
-  targets.forEach(sb => genVid(sb, { silent: true }))
-  toast.success(t('episode.vid.batchStarted', { n: ids.length }))
-  watchAsyncResult(() => ids.every(id => {
+  const ids = targets.map(s => s.id).filter(id => {
     const target = sbs.value.find(s => s.id === id)
-    const done = !!getVideoUrl(target)
-    if (done) pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== id)
-    return done
-  }), 80, 4000)
+    return target && !hasVid(target)
+  })
+  if (!ids.length) { toast.info(t('episode.vid.noneToGenerate')); return }
+  const added = enqueueVideoJobs(ids, true)
+  if (added.length) toast.success(t('episode.vid.batchQueued', { n: added.length }))
+  else toast.info(t('episode.vid.alreadyQueued'))
   if (videoSelectMode.value) toggleVideoSelectMode()
 }
 
@@ -2912,6 +3170,8 @@ async function watchAssetImages(taskIds, ids, kind, attempts = 48, delay = 2500)
     const pendingRef = kind === 'character' ? pendingCharImageIds : kind === 'scene' ? pendingSceneImageIds : pendingPropImageIds
     pendingRef.value = pendingRef.value.filter(item => !ids.includes(item))
   }
+  const startedAt = Date.now()
+  for (const id of ids) setAssetProgress(kind, id, { stage: 'generating', startedAt, elapsed: 0, error: '' })
   const findRec = id => kind === 'character'
     ? chars.value.find(c => c.id === id)
     : kind === 'scene'
@@ -2919,12 +3179,18 @@ async function watchAssetImages(taskIds, ids, kind, attempts = 48, delay = 2500)
       : propItems.value.find(p => p.id === id)
   for (let i = 0; i < attempts; i++) {
     await sleep(delay)
+    const elapsed = Math.round((Date.now() - startedAt) / 1000)
+    for (const id of ids) setAssetProgress(kind, id, { stage: 'generating', elapsed })
     await refresh()
     const done = ids.every(id => {
       const rec = findRec(id)
       return !!(rec?.image_url || rec?.imageUrl)
     })
-    if (done) { clearPending(); return }
+    if (done) {
+      for (const id of ids) setAssetProgress(kind, id, { stage: 'done', elapsed })
+      setTimeout(() => { for (const id of ids) clearAssetProgress(kind, id) }, 4000)
+      clearPending(); return true
+    }
     let failedMsg = ''
     for (const tid of taskIds) {
       try {
@@ -2934,119 +3200,60 @@ async function watchAssetImages(taskIds, ids, kind, attempts = 48, delay = 2500)
       } catch {}
     }
     if (failedMsg) {
+      for (const id of ids) setAssetProgress(kind, id, { stage: 'failed', error: failedMsg, elapsed })
       clearPending()
       toast.error(failedMsg)
-      return
+      return false
     }
   }
+  for (const id of ids) setAssetProgress(kind, id, { stage: 'failed', error: t('episode.image.genTimeout'), elapsed: Math.round((Date.now() - startedAt) / 1000) })
   clearPending()
   toast.info(t('episode.image.genTimeout'))
+  return false
 }
 
-async function genCharImg(id) {
-  try {
-    if (!isPendingCharImage(id)) pendingCharImageIds.value.push(id)
-    const char = chars.value.find(c => c.id === id)
-    if (char && !(char.final_prompt || char.finalPrompt)) {
-      toast.info(t('episode.asset.generatingPrompt'))
-      try {
-        await ensureAssetPrompt('character', id)
-      } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
-    }
-    const res = await characterAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
-    toast.success(t('episode.image.generatingChar'))
-    await refresh()
-    const taskIds = res?.image_generation_id ? [Number(res.image_generation_id)] : []
-    watchAssetImages(taskIds, [id], 'character')
-  } catch (e) {
-    pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
-    toastError(e)
-  }
+/** Tombol generate satuan: masuk antrean FIFO (diproses satu per satu) */
+function genCharImg(id) {
+  const added = enqueueAssetJobs('character', [id])
+  if (!added.length) { toast.info(t('episode.asset.alreadyQueued')); return }
+  if (added[0].pos > 1) toast.info(t('episode.asset.singleQueued', { pos: added[0].pos }))
+  else toast.success(t('episode.image.generatingChar'))
 }
 function batchCharImages() {
   const ids = visualChars.value.filter(c => !(c.image_url || c.imageUrl)).map(c => c.id)
   if (!ids.length) { toast.info(t('episode.image.allCharsDone')); return }
-  pendingCharImageIds.value = [...new Set([...pendingCharImageIds.value, ...ids])]
-  characterAPI.batchImages(ids, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(async (res) => {
-    toast.success(t('episode.image.batchGeneratingChar'))
-    await refresh()
-    const taskIds = Array.isArray(res?.ids) ? res.ids.map(Number) : []
-    watchAssetImages(taskIds, ids, 'character', 36)
-  }).catch(e => {
-    pendingCharImageIds.value = pendingCharImageIds.value.filter(item => !ids.includes(item))
-    toastError(e)
-  })
+  const added = enqueueAssetJobs('character', ids)
+  if (added.length) toast.success(t('episode.asset.batchQueued', { n: added.length }))
+  else toast.info(t('episode.asset.alreadyQueued'))
 }
-async function genSceneImg(id) {
-  try {
-    if (!isPendingSceneImage(id)) pendingSceneImageIds.value.push(id)
-    const scene = scenes.value.find(s => s.id === id)
-    if (scene && !(scene.final_prompt || scene.finalPrompt)) {
-      toast.info(t('episode.asset.generatingPrompt'))
-      try {
-        await ensureAssetPrompt('scene', id)
-      } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
-    }
-    const res = await sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
-    toast.success(t('episode.image.generatingScene'))
-    await refresh()
-    const taskIds = res?.image_generation_id ? [Number(res.image_generation_id)] : []
-    watchAssetImages(taskIds, [id], 'scene')
-  } catch (e) {
-    pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
-    toastError(e)
-  }
+function genSceneImg(id) {
+  const added = enqueueAssetJobs('scene', [id])
+  if (!added.length) { toast.info(t('episode.asset.alreadyQueued')); return }
+  if (added[0].pos > 1) toast.info(t('episode.asset.singleQueued', { pos: added[0].pos }))
+  else toast.success(t('episode.image.generatingScene'))
 }
 function isPendingPropImage(id) {
   return pendingPropImageIds.value.includes(id)
 }
-async function genPropImg(id) {
-  try {
-    if (!isPendingPropImage(id)) pendingPropImageIds.value.push(id)
-    const prop = propItems.value.find(p => p.id === id)
-    if (prop && !(prop.final_prompt || prop.finalPrompt)) {
-      toast.info(t('episode.asset.generatingPrompt'))
-      try {
-        await ensureAssetPrompt('prop', id)
-      } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
-    }
-    const res = await propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
-    toast.success(t('episode.image.generatingProp'))
-    await refresh()
-    const taskIds = res?.image_generation_id ? [Number(res.image_generation_id)] : []
-    watchAssetImages(taskIds, [id], 'prop')
-  } catch (e) {
-    pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
-    toastError(e)
-  }
+function genPropImg(id) {
+  const added = enqueueAssetJobs('prop', [id])
+  if (!added.length) { toast.info(t('episode.asset.alreadyQueued')); return }
+  if (added[0].pos > 1) toast.info(t('episode.asset.singleQueued', { pos: added[0].pos }))
+  else toast.success(t('episode.image.generatingProp'))
 }
 function batchSceneImages() {
   const ids = scenes.value.filter(s => !(s.image_url || s.imageUrl)).map(s => s.id)
   if (!ids.length) { toast.info(t('episode.image.allScenesDone')); return }
-  pendingSceneImageIds.value = [...new Set([...pendingSceneImageIds.value, ...ids])]
-  Promise.allSettled(ids.map(id => sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()))).then(async (results) => {
-    toast.success(t('episode.image.batchGeneratingScene'))
-    await refresh()
-    const taskIds = results.map(r => r.status === 'fulfilled' && r.value?.image_generation_id ? Number(r.value.image_generation_id) : 0).filter(Boolean)
-    watchAssetImages(taskIds, ids, 'scene', 36)
-  }).catch(e => {
-    pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => !ids.includes(item))
-    toastError(e)
-  })
+  const added = enqueueAssetJobs('scene', ids)
+  if (added.length) toast.success(t('episode.asset.batchQueued', { n: added.length }))
+  else toast.info(t('episode.asset.alreadyQueued'))
 }
 function batchPropImages() {
   const ids = propItems.value.filter(p => !(p.image_url || p.imageUrl)).map(p => p.id)
   if (!ids.length) { toast.info(t('episode.image.allPropsDone')); return }
-  pendingPropImageIds.value = [...new Set([...pendingPropImageIds.value, ...ids])]
-  Promise.allSettled(ids.map(id => propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()))).then(async (results) => {
-    toast.success(t('episode.image.batchGeneratingProp'))
-    await refresh()
-    const taskIds = results.map(r => r.status === 'fulfilled' && r.value?.image_generation_id ? Number(r.value.image_generation_id) : 0).filter(Boolean)
-    watchAssetImages(taskIds, ids, 'prop', 36)
-  }).catch(e => {
-    pendingPropImageIds.value = pendingPropImageIds.value.filter(item => !ids.includes(item))
-    toastError(e)
-  })
+  const added = enqueueAssetJobs('prop', ids)
+  if (added.length) toast.success(t('episode.asset.batchQueued', { n: added.length }))
+  else toast.info(t('episode.asset.alreadyQueued'))
 }
 function getVideoUrl(s) { return s?.video_url || s?.videoUrl || s?.composed_video_url || s?.composedVideoUrl || null }
 function hasVid(s) { return !!getVideoUrl(s) }
@@ -3323,60 +3530,197 @@ function uploadAssetImage(kind, id) {
   })
 }
 
+// ─── Antrean video: SATU PER SATU (FIFO) ─────────────────────────────────
+// Batch maupun tombol satuan masuk antrean ini; worker memproses satu shot
+// sampai selesai/gagal sebelum lanjut — tidak ada lagi N request video
+// serentak. Setiap item antre punya indikator (posisi antre / elapsed).
+const videoQueue = ref([]) // [{ id, silent }] menunggu giliran
+const videoQueueActive = ref(null) // storyboard id sedang diproses
+const videoProgressMap = ref({}) // sbId -> { stage, queuePos, queueTotal, startedAt, elapsed, error }
+function setVideoProgress(id, patch) {
+  const prev = videoProgressMap.value[id] || { stage: 'queued', startedAt: Date.now(), elapsed: 0, error: '' }
+  videoProgressMap.value = { ...videoProgressMap.value, [id]: { ...prev, ...patch } }
+}
+function clearVideoProgress(id) {
+  if (!(id in videoProgressMap.value)) return
+  const next = { ...videoProgressMap.value }
+  delete next[id]
+  videoProgressMap.value = next
+}
+function videoProgressOf(id) { return videoProgressMap.value[id] || null }
+function videoProgressPercent(id) {
+  const p = videoProgressOf(id)
+  if (!p) return 0
+  if (p.stage === 'done') return 100
+  if (p.stage === 'failed') return 100
+  if (p.stage === 'generating') {
+    // Estimasi: video biasanya 1–10 menit; naik mulus 5→95% lalu mentok.
+    const elapsed = Math.max(p.elapsed || 0, p.startedAt ? (Date.now() - p.startedAt) / 1000 : 0)
+    return Math.min(95, Math.round(5 + Math.min(elapsed / 600, 1) * 90))
+  }
+  return 8
+}
+function videoProgressLabel(id) {
+  const p = videoProgressOf(id)
+  if (!p) return ''
+  if (p.stage === 'queued') {
+    return (p.queuePos && p.queueTotal)
+      ? t('episode.vid.queuePos', { pos: p.queuePos, total: p.queueTotal })
+      : t('episode.asset.stageQueued')
+  }
+  if (p.stage === 'generating') return t('episode.vid.videoGenerating', { n: Math.round(Math.max(p.elapsed || 0, 0)) })
+  if (p.stage === 'done') return t('episode.asset.stageDone')
+  if (p.stage === 'failed') return p.error || t('episode.asset.stageFailed')
+  return ''
+}
+function refreshVideoQueueProgress() {
+  const activeCount = videoQueueActive.value ? 1 : 0
+  const total = videoQueue.value.length + activeCount
+  videoQueue.value.forEach((j, i) => {
+    setVideoProgress(j.id, { stage: 'queued', queuePos: i + 1 + activeCount, queueTotal: total, elapsed: 0, error: '' })
+  })
+}
+function enqueueVideoJobs(ids, silent = false) {
+  const added = []
+  for (const id of ids) {
+    if (videoQueueActive.value === id || videoQueue.value.some(j => j.id === id)) continue
+    videoQueue.value.push({ id, silent })
+    if (!pendingVideoIds.value.includes(id)) pendingVideoIds.value.push(id)
+    added.push(id)
+  }
+  refreshVideoQueueProgress()
+  const result = added.map(id => {
+    const idx = videoQueue.value.findIndex(j => j.id === id)
+    return { id, pos: idx + 1 + (videoQueueActive.value ? 1 : 0) }
+  })
+  pumpVideoQueue()
+  return result
+}
+let videoQueuePumping = false
+async function pumpVideoQueue() {
+  if (videoQueuePumping) return
+  videoQueuePumping = true
+  try {
+    while (videoQueue.value.length) {
+      const job = videoQueue.value.shift()
+      videoQueueActive.value = job.id
+      refreshVideoQueueProgress()
+      try {
+        await runVideoJob(job.id, job.silent)
+      } catch (e) { /* runVideoJob sudah mencatat failed + toast */ }
+      videoQueueActive.value = null
+      refreshVideoQueueProgress()
+    }
+  } finally {
+    videoQueuePumping = false
+  }
+}
+/** Satu job video: kirim request → tunggu selesai. Awaitable. */
+async function runVideoJob(sbId, silent = false) {
+  const startedAt = Date.now()
+  try {
+    const sb = sbs.value.find(s => s.id === sbId)
+    if (!sb) {
+      pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== sbId)
+      clearVideoProgress(sbId)
+      return false
+    }
+    if (hasVid(sb)) {
+      pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== sbId)
+      clearVideoProgress(sbId)
+      return true
+    }
+    const referenceImages = getShotReferenceImages(sb)
+    const params = {
+      storyboard_id: sb.id,
+      drama_id: dramaId,
+      prompt: resolveVideoPromptRefs(sb),
+      duration: Number(sb.duration || 10),
+      aspect_ratio: dramaAspectRatio.value,
+      generate_audio: true,
+      model: bareModelName(videoModel.value) || undefined,
+      config_id: ownerConfigId(videoModelOptions.value, videoModel.value),
+      reference_image_urls: referenceImages,
+    }
+    if (!params.prompt && !referenceImages.length) {
+      throw new Error(t('episode.vid.needRefOrPrompt'))
+    }
+    delete failedVideoMessages.value[sbId]
+    setVideoProgress(sbId, { stage: 'generating', startedAt, elapsed: 0, error: '' })
+    const generation = await taskAPI.generate({ type: 'video', ...params })
+    await refresh()
+    return await pollVideoGeneration(generation?.id, sbId, silent)
+  } catch (e) {
+    pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== sbId)
+    setVideoProgress(sbId, { stage: 'failed', error: e?.message || String(e || ''), elapsed: Math.round((Date.now() - startedAt) / 1000) })
+    failedVideoMessages.value = { ...failedVideoMessages.value, [sbId]: e.message || t('episode.vid.genFailed') }
+    toastError(e, { fallback: 'episode.vid.genFailed' })
+    return false
+  }
+}
+/** Batalkan video yang masih menunggu (yang sedang berjalan diselesaikan) */
+function cancelVideoQueue() {
+  const waiting = [...videoQueue.value]
+  if (!waiting.length) return
+  videoQueue.value = []
+  const ids = waiting.map(j => j.id)
+  pendingVideoIds.value = pendingVideoIds.value.filter(id => !ids.includes(id))
+  for (const id of ids) clearVideoProgress(id)
+  toast.info(t('episode.vid.queueCancelled', { n: waiting.length }))
+}
+const videoQueueStatusText = computed(() => {
+  const parts = []
+  if (videoQueueActive.value) {
+    const idx = sbs.value.findIndex(s => s.id === videoQueueActive.value)
+    const sb = sbs.value[idx]
+    parts.push(t('episode.vid.queueActive', { name: sb?.description || `#${idx >= 0 ? idx + 1 : videoQueueActive.value}` }))
+  }
+  if (videoQueue.value.length) parts.push(t('episode.vid.queueWaiting', { n: videoQueue.value.length }))
+  return parts.join(' · ')
+})
 async function genVid(sb, opts = {}) {
   const referenceImages = getShotReferenceImages(sb)
-  // 参考素材完全来自分镜绑定的角色/场景/道具图片
-  const params = {
-    storyboard_id: sb.id,
-    drama_id: dramaId,
-    prompt: resolveVideoPromptRefs(sb),
-    duration: Number(sb.duration || 10),
-    aspect_ratio: dramaAspectRatio.value,
-    generate_audio: true,
-    model: bareModelName(videoModel.value) || undefined,
-    config_id: ownerConfigId(videoModelOptions.value, videoModel.value),
-    reference_image_urls: referenceImages,
-  }
-  if (!params.prompt && !referenceImages.length) {
+  const prompt = resolveVideoPromptRefs(sb)
+  if (!prompt && !referenceImages.length) {
     toast.error(t('episode.vid.needRefOrPrompt'))
     return
   }
-  try {
-    delete failedVideoMessages.value[sb.id]
-    if (!isPendingVideo(sb.id)) pendingVideoIds.value.push(sb.id)
-    const generation = await taskAPI.generate({ type: 'video', ...params })
-    if (!opts.silent) toast.success(t('episode.vid.generating'))
-    await refresh()
-    pollVideoGeneration(generation?.id, sb.id)
-  } catch (e) {
-    pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== sb.id)
-    failedVideoMessages.value = {
-      ...failedVideoMessages.value,
-      [sb.id]: e.message || t('episode.vid.genFailed'),
-    }
-    toastError(e, { fallback: 'episode.vid.genFailed' })
+  const added = enqueueVideoJobs([sb.id], !!opts.silent)
+  if (!added.length) { toast.info(t('episode.vid.alreadyQueued')); return }
+  if (!opts.silent) {
+    if (added[0].pos > 1) toast.info(t('episode.vid.singleQueued', { pos: added[0].pos }))
+    else toast.success(t('episode.vid.generating'))
   }
 }
-async function pollVideoGeneration(generationId, storyboardId) {
+async function pollVideoGeneration(generationId, storyboardId, silent = false) {
+  const startedAt = Date.now()
+  const elapsed = () => Math.round((Date.now() - startedAt) / 1000)
   if (!generationId) {
     watchAsyncResult(() => {
       const target = sbs.value.find(s => s.id === storyboardId)
       const done = !!(target?.video_url || target?.videoUrl)
-      if (done) pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
+      if (done) {
+        pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
+        setVideoProgress(storyboardId, { stage: 'done', elapsed: elapsed() })
+        setTimeout(() => clearVideoProgress(storyboardId), 4000)
+      }
       return done
     }, 60, 4000)
-    return
+    return true
   }
   for (let i = 0; i < 120; i++) {
     await sleep(4000)
+    setVideoProgress(storyboardId, { stage: 'generating', elapsed: elapsed() })
     try {
       const res = await taskAPI.get(generationId)
       await refresh()
       if (res?.status === 'completed') {
         pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
         delete failedVideoMessages.value[storyboardId]
-        toast.success(t('episode.vid.genDone'))
-        return
+        setVideoProgress(storyboardId, { stage: 'done', elapsed: elapsed() })
+        setTimeout(() => clearVideoProgress(storyboardId), 4000)
+        if (!silent) toast.success(t('episode.vid.genDone'))
+        return true
       }
       if (res?.status === 'failed') {
         pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
@@ -3385,8 +3729,9 @@ async function pollVideoGeneration(generationId, storyboardId) {
           ...failedVideoMessages.value,
           [storyboardId]: errMsg,
         }
-        toastError(errMsg, { fallback: 'episode.vid.genFailed' })
-        return
+        setVideoProgress(storyboardId, { stage: 'failed', error: errMsg, elapsed: elapsed() })
+        if (!silent) toastError(errMsg, { fallback: 'episode.vid.genFailed' })
+        return false
       }
     } catch {}
   }
@@ -3395,7 +3740,9 @@ async function pollVideoGeneration(generationId, storyboardId) {
     ...failedVideoMessages.value,
     [storyboardId]: t('episode.vid.genTimeout'),
   }
-  toast.error(t('episode.vid.genTimeout'))
+  setVideoProgress(storyboardId, { stage: 'failed', error: t('episode.vid.genTimeout'), elapsed: elapsed() })
+  if (!silent) toast.error(t('episode.vid.genTimeout'))
+  return false
 }
 async function doMerge(ids) {
   const storyboardIds = Array.isArray(ids) ? ids : undefined
@@ -4291,6 +4638,51 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 .asset-del-btn:hover { background: var(--action-danger); }
 .character-asset-card:hover .asset-del-btn,
 .asset-click-card:hover .asset-del-btn { opacity: 1; }
+
+/* Progress realtime per-card aset */
+.asset-progress { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.asset-progress.is-dialog { flex: 1 1 100%; margin: 0 0 8px; }
+.asset-detail-foot { flex-wrap: wrap; }
+.asset-progress-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--text-2); }
+.asset-progress-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-progress-pct { font-variant-numeric: tabular-nums; color: var(--text-3); }
+.asset-progress-track { height: 6px; border-radius: 999px; background: var(--bg-2); border: 1px solid var(--surface-outline); overflow: hidden; }
+.asset-progress-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-text)); transition: width 0.8s linear; }
+.asset-progress.is-prompt .asset-progress-fill { background: linear-gradient(90deg, var(--warning, #d97706), var(--accent)); }
+.asset-progress.is-done .asset-progress-fill { background: var(--success); }
+.asset-progress.is-failed .asset-progress-fill { background: var(--action-danger); }
+.asset-progress.is-failed .asset-progress-label { color: var(--action-danger); }
+
+/* Antrean sequential aset: status bar di bawah section header */
+.asset-queue-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+  color: var(--text-1);
+  font-size: 12px;
+}
+.asset-queue-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Progress antrean video per baris */
+.video-task-queue { color: var(--accent-text); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.video-task-progress-track { height: 5px; margin-top: 5px; border-radius: 999px; background: var(--bg-2); border: 1px solid var(--surface-outline); overflow: hidden; }
+.video-task-progress-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-text)); transition: width 0.8s linear; }
+.video-queue-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 7px 10px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+  color: var(--text-1);
+  font-size: 12px;
+}
 
 /* 分镜勾选：选择后批量生成视频提示词 */
 .shot-check {
