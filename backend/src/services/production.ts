@@ -443,7 +443,10 @@ async function doStoryboards(jobId: number, job: ProductionJobRow, config: Produ
       `- Hanya shot lingkungan kosong murni yang boleh tidak mengikat karakter\n\n` +
       `Aturan sambungan (wajib, kecuali Episode 1): baca previous_episode_tail dari read_storyboard_context — ` +
       `shot pertama episode ini WAJIB menyambung akhir episode sebelumnya (adegan/emosi/status terakhir), ` +
-      `jangan mengulang kejadian yang sudah selesai di episode sebelumnya`
+      `jangan mengulang kejadian yang sudah selesai di episode sebelumnya\n\n` +
+      `Aturan gerak sambung antar shot (wajib): klip dilarang dibuka/ditutup dengan fade dari/ke hitam, layar hitam, atau transisi fade — ` +
+      `setiap segmen dibuka di tengah aksi dan diakhiri di tengah gerakan pada keadaan akhir yang jelas; ` +
+      `tulis keadaan akhir tiap segmen dan buka segmen berikutnya dengan keadaan tersebut (hard cut, bukan fade)`
 
     await runAgentSilent('storyboard_breaker', jobId, ep, { id: dramaId, title: '' } as DramaRow, config, message, 40)
 

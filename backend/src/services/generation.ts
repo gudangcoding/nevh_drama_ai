@@ -3,11 +3,11 @@
  * Membuat(processing) → adapter membangun request → selesai sinkron atau polling asinkron → mengunduh ke disk → menulis kembali ke tabel bisnis
  */
 import { db, getInsertId, schema } from '../db/index.js'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { getActiveConfig, getConfigById } from './ai.js'
 import { now } from '../utils/response.js'
 import { downloadFile, fetchImageAsCompressedDataUrl, generateImageThumb, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
-import { extractVideoPoster } from '../utils/video-poster.js'
+import { extractVideoLastFrame, extractVideoPoster } from '../utils/video-poster.js'
 import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import type { AIConfig } from './adapters/types'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
@@ -94,6 +94,28 @@ interface GenerateVideoParams {
   configId?: number
 }
 
+/** Provider yang mendukung first_frame berdampingan dengan gambar referensi */
+const CHAIN_FIRST_FRAME_PROVIDERS = new Set(['gemini', 'minimax'])
+
+/**
+ * Cari frame terakhir video shot sebelumnya (nomor storyboard lebih kecil dalam
+ * episode yang sama, yang sudah punya video). Mengembalikan path relatif frame
+ * (static/frames/...) atau null bila tidak ada/tidak bisa diekstrak.
+ */
+async function resolveChainFrame(storyboardId: number, _provider: string): Promise<string | null> {
+  const [sb] = await db.select().from(schema.storyboards).where(eq(schema.storyboards.id, storyboardId))
+  if (!sb?.episodeId || sb.storyboardNumber == null) return null
+  const siblings = await db.select().from(schema.storyboards)
+    .where(and(eq(schema.storyboards.episodeId, sb.episodeId), isNull(schema.storyboards.deletedAt)))
+  const prev = siblings
+    .filter(x => !x.deletedAt && (x.storyboardNumber || 0) < (sb.storyboardNumber || 0))
+    .sort((a, b) => (a.storyboardNumber || 0) - (b.storyboardNumber || 0))
+    .pop()
+  const videoRel = prev?.videoUrl || prev?.composedVideoUrl
+  if (!videoRel) return null
+  return extractVideoLastFrame(videoRel)
+}
+
 export async function generateImage(params: GenerateImageParams): Promise<number> {
   // Konfigurasi yang ditetapkan (dikunci per episode) mungkin telah dinonaktifkan/dihapus/dari penyedia yang sudah tidak tersedia, jika tidak valid fallback ke konfigurasi aktif saat ini agar generasi tidak terjebak oleh referensi lama
   const config = params.configId
@@ -139,6 +161,32 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     ? (await getConfigById(params.configId)) ?? await getActiveConfig('video')
     : await getActiveConfig('video')
   if (!config) throw new Error('Model video belum dikonfigurasi, silakan tambah dan aktifkan layanan AI di halaman "Pengaturan"')
+
+  // Chaining antar shot (aksi bersambung ala Pipit): frame terakhir video shot
+  // sebelumnya dalam episode yang sama dijadikan acuan shot ini, agar sambungan
+  // hard cut terlihat natural — bukan dua klip asing yang ditempel.
+  if (params.storyboardId && !params.firstFrameUrl) {
+    try {
+      const chainFrame = await resolveChainFrame(params.storyboardId, config.provider)
+      if (chainFrame) {
+        if (CHAIN_FIRST_FRAME_PROVIDERS.has(config.provider)) {
+          params.firstFrameUrl = chainFrame
+        } else if (config.provider !== 'aliyun') {
+          // Provider tanpa first_frame (mis. Seedance/volcengine): jadikan gambar
+          // referensi pertama. Aliyun/Wan dikecualikan — mode first_frame-nya
+          // eksklusif (tak boleh campur reference), jadi andalkan prompt + trim.
+          params.referenceImageUrls = [chainFrame, ...(params.referenceImageUrls || [])].slice(0, 9)
+        }
+        logTaskProgress('VideoTask', 'chain-frame', {
+          storyboardId: params.storyboardId,
+          provider: config.provider,
+          mode: CHAIN_FIRST_FRAME_PROVIDERS.has(config.provider) ? 'first_frame' : 'reference',
+        })
+      }
+    } catch (err: any) {
+      logTaskWarn('VideoTask', 'chain-frame-skipped', { storyboardId: params.storyboardId, error: String(err?.message || err) })
+    }
+  }
 
   const id = await createTask('video', config, {
     storyboardId: params.storyboardId,

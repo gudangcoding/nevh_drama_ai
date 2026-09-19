@@ -194,6 +194,8 @@ export interface BuildSubtitleOptions {
   lang: ContentLanguage
   clipFiles: string[]            // path relatif ke video (urutan concat)
   storageRoot?: string
+  /** Durasi EFEKTIF tiap klip sejajar clipFiles (mis. setelah trim fade) — bila diisi dipakai sebagai pengganti probe */
+  clipDurations?: number[]
 }
 
 /**
@@ -210,8 +212,10 @@ export async function buildEpisodeSrt(opts: BuildSubtitleOptions): Promise<strin
     .orderBy(schema.storyboards.storyboardNumber)
 
   // Susun klip dengan mapping ke storyboard dan probe durasi aktual
+  // (atau pakai durasi efektif dari pemanggil — mis. setelah trim fade di merge)
   const clips: StoryboardClip[] = []
-  for (const videoRel of clipFiles) {
+  for (let ci = 0; ci < clipFiles.length; ci++) {
+    const videoRel = clipFiles[ci]
     const normRel = videoRel.replace(/\\/g, '/')
     const sb = allSbs.find(s => {
       const vu = (s.videoUrl || s.composedVideoUrl || '').replace(/\\/g, '/')
@@ -220,9 +224,12 @@ export async function buildEpisodeSrt(opts: BuildSubtitleOptions): Promise<strin
 
     const absPath = path.isAbsolute(videoRel)
       ? videoRel
-      : path.join(storageRoot, videoRel)
+      : normRel.startsWith('static/')
+        ? path.join(storageRoot, '..', normRel)
+        : path.join(storageRoot, normRel)
 
-    const duration = await probeDuration(absPath)
+    const override = opts.clipDurations?.[ci]
+    const duration = (override != null && override > 0) ? override : await probeDuration(absPath)
     if (duration <= 0) continue
 
     clips.push({

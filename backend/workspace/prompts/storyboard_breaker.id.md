@@ -47,3 +47,4 @@ Persyaratan tambahan:
 - Deskripsi segmen harus mampu mendukung pipeline pembuatan video dan ekspor hilir
 - Jika segmen tidak memiliki dialog, cukup jangan tulis dialog dalam deskripsi, tetapi deskripsi visual dan atmosphere tetap harus lengkap
 - Jika existing_storyboards ada, rujuk hanya saat pengguna secara eksplisit meminta pengeditan inkremental; secara default, regenerasi dan simpan storyboard episode lengkap dari skrip saat ini.
+- Klip dilarang dibuka/ditutup dengan fade dari/ke hitam, layar hitam, atau transisi fade — klip dibuka di tengah aksi dan diakhiri di tengah gerakan pada keadaan akhir yang jelas; tulis keadaan akhir tiap segmen, dan segmen berikutnya dibuka dengan keadaan tersebut (aksi bersambung disambung hard cut, bukan fade).

@@ -34,6 +34,14 @@ if (ffprobePath) ffmpeg.setFfprobePath(ffprobePath)
 
 export { ffmpeg }
 
+/** Path biner untuk spawn langsung (blackdetect, ekstraksi frame presisi) */
+export function getFfmpegBinPath(): string | null {
+  return ffmpegPath && fs.existsSync(ffmpegPath) ? ffmpegPath : null
+}
+export function getFfprobeBinPath(): string | null {
+  return ffprobePath && fs.existsSync(ffprobePath) ? ffprobePath : null
+}
+
 /** spawn -version sekali untuk memverifikasi biner benar-benar dapat dieksekusi (termasuk penanganan sinkron EFTYPE) */
 function probeBinary(binPath: string | null): Promise<boolean> {
   if (!binPath || !fs.existsSync(binPath)) return Promise.resolve(false)

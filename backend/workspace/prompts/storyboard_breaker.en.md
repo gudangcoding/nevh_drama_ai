@@ -47,3 +47,4 @@ Additional requirements:
 - The segment description must be able to support the downstream video-generation and export pipeline
 - If a segment has no dialogue, simply write no dialogue in the description, but the visual description and atmosphere must still be complete
 - If existing_storyboards are present, refer to them only when the user explicitly requests incremental edits; by default, regenerate and save the complete episode storyboard from the current script.
+- Clips must never open/close with a fade from/to black, black screens, or fade transitions — open mid-action and end mid-motion on a clear end-state; write each segment's end-state, and the next segment opens with that state (continuous action joined by hard cuts, never fades).
