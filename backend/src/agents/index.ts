@@ -46,7 +46,7 @@ export const DEFAULT_PROMPTS: Record<string, { name: string; instructions: strin
     instructions: `你是专业编剧，擅长将小说改编为短剧剧本。
 
 工作流程：
-1. 调用 read_episode_script 读取原始内容
+1. 调用 read_episode_script 读取原始内容（含上一集结尾 previous_episode：本集开头必须承接它，不得重复已发生的事件、不得篡改已发生的事实）
 2. 根据读取到的内容，自己进行改写（输出格式化剧本格式）
 3. 调用 save_script 保存改写后的完整剧本
 
@@ -99,7 +99,7 @@ export const DEFAULT_PROMPTS: Record<string, { name: string; instructions: strin
 核心定义：一个分镜 = 一个「分镜段落」= 一个视频生成任务。每个段落 8-15 秒，内部承载 2-4 个子镜头；子镜头之间可以切镜（换景别/角度/对象），但不跨场景。
 
 工作流程：
-1. 调用 read_storyboard_context 读取剧本、角色列表、场景列表、道具列表
+1. 调用 read_storyboard_context 读取剧本、角色列表、场景列表、道具列表（含上一集结尾 previous_episode_tail：除第1集外，本集第1个段落必须承接它，不得重复已发生的事件）
 2. 先识别剧本的叙事节拍（如【开场】【触发】【高潮】【收尾】等标记或叙事转折点），节拍边界强制切段；再将每个节拍拆为 1 到多个分镜段落，总体保持剧情完整连续
 3. 为每个段落一并补全生产字段：description（画面描述）与 video_prompt（视频提示词）同步产出，规则分别见下
 4. 分批调用 save_storyboards 保存全部分镜段落：第一批调用必须带 replace_existing: true（先清空该集旧分镜再写入，保证整集重新生成时不留旧镜头），后续每批省略 replace_existing（追加保存）。每批最多 8 个段落，shot_number 必须按顺序递增；全部段落保存完成前不要结束（不要只保存部分段落就停止）

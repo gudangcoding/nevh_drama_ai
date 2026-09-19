@@ -6,7 +6,7 @@ import { createTool } from '@mastra/core/tools'
 import type { ToolExecutionContext } from '@mastra/core/tools'
 import { z } from 'zod'
 import { db, getInsertId, schema } from '../../db/index.js'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { now } from '../../utils/response.js'
 import { logTaskProgress, logTaskSuccess } from '../../utils/task-logger.js'
 import { getDramaId, getEpisodeId } from '../context.js'
@@ -97,6 +97,38 @@ async function validateStoryboardBindings(episodeId: number, dramaId: number, sc
 
 type ToolContext = ToolExecutionContext | undefined
 
+/**
+ * Ekor episode sebelumnya untuk kontinuitas: 2 shot terakhir episode N-1
+ * (atau ekor skripnya bila storyboard belum ada), agar shot pertama episode
+ * ini menyambung — tidak ada cerita yang hilang/terulang antar episode.
+ */
+async function readPreviousEpisodeTail(dramaId: number, episodeNumber: number) {
+  const all = await db.select().from(schema.episodes)
+    .where(and(eq(schema.episodes.dramaId, dramaId), isNull(schema.episodes.deletedAt)))
+  const prev = all
+    .filter(x => x.episodeNumber === episodeNumber - 1)
+    .sort((a, b) => a.episodeNumber - b.episodeNumber)
+    .pop()
+  if (!prev) return null
+  const sbs = await db.select().from(schema.storyboards)
+    .where(and(eq(schema.storyboards.episodeId, prev.id), isNull(schema.storyboards.deletedAt)))
+  const tail = sbs
+    .sort((a, b) => (a.storyboardNumber || 0) - (b.storyboardNumber || 0))
+    .slice(-2)
+    .map(sb => ({
+      shot_number: sb.storyboardNumber,
+      description: String(sb.description || '').slice(0, 1500),
+    }))
+    .filter(x => x.description)
+  const script = String(prev.scriptContent || prev.content || '')
+  return {
+    episode_number: prev.episodeNumber,
+    title: prev.title || '',
+    ending_shots: tail,
+    script_tail: tail.length ? '' : script.slice(-2000),
+  }
+}
+
 function requireIds(context: ToolContext): { episodeId: number; dramaId: number } | { error: string } {
   const episodeId = getEpisodeId(context?.requestContext)
   const dramaId = getDramaId(context?.requestContext)
@@ -106,7 +138,7 @@ function requireIds(context: ToolContext): { episodeId: number; dramaId: number 
 
 const readStoryboardContext = createTool({
   id: 'read_storyboard_context',
-  description: 'Read the screenplay, characters, scenes, and props for storyboard breakdown.',
+  description: 'Read the screenplay, characters, scenes, and props for storyboard breakdown, plus the previous episode ending (previous_episode_tail) so the first shots continue the story.',
   inputSchema: z.object({}),
   execute: async (_input, context) => {
     const ids = requireIds(context)
@@ -210,6 +242,7 @@ const readStoryboardContext = createTool({
       scenes,
       props,
       existing_storyboards: existingStoryboardPayload,
+      previous_episode_tail: await readPreviousEpisodeTail(dramaId, ep.episodeNumber),
     }
     logTaskSuccess('StoryboardTool', 'read-context', {
       episodeId,

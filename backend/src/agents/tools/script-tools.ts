@@ -5,13 +5,38 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { db, schema } from '../../db/index.js'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { now } from '../../utils/response.js'
-import { getEpisodeId } from '../context.js'
+import { getDramaId, getEpisodeId } from '../context.js'
+
+/**
+ * Ekor skrip episode sebelumnya: agar penulisan ulang episode ini menyambung
+ * (belajar dari episode sebelumnya + sinopsis), bukan mengulang kejadian yang
+ * sudah selesai. 3000 char terakhir cukup untuk jangkar kontinuitas.
+ */
+async function readPreviousEpisodeTail(episodeId: number, dramaId: number | null) {
+  if (!dramaId) return null
+  const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
+  if (!ep) return null
+  const prev = await db.select().from(schema.episodes)
+    .where(and(eq(schema.episodes.dramaId, dramaId), isNull(schema.episodes.deletedAt)))
+  const p = prev
+    .filter(x => x.episodeNumber < ep.episodeNumber)
+    .sort((a, b) => a.episodeNumber - b.episodeNumber)
+    .pop()
+  if (!p) return null
+  const script = String(p.scriptContent || p.content || '')
+  if (!script.trim()) return null
+  return {
+    episode_number: p.episodeNumber,
+    title: p.title || '',
+    ending: script.slice(-3000),
+  }
+}
 
 const readEpisodeScript = createTool({
   id: 'read_episode_script',
-  description: 'Read the script content of the current episode.',
+  description: 'Read the script content of the current episode, plus the previous episode ending (previous_episode) for continuity.',
   inputSchema: z.object({}),
   execute: async (_input, context) => {
     const episodeId = getEpisodeId(context?.requestContext)
@@ -21,7 +46,9 @@ const readEpisodeScript = createTool({
     if (!ep) return { error: `Episode not found (id=${episodeId})` }
     const content = ep.content || ep.scriptContent
     if (!content) return { error: `Episode has no content (id=${episodeId})` }
-    return { content, word_count: content.length, episode_id: episodeId }
+    const dramaId = getDramaId(context?.requestContext)
+    const previous_episode = await readPreviousEpisodeTail(episodeId, dramaId)
+    return { content, word_count: content.length, episode_id: episodeId, previous_episode }
   },
 })
 

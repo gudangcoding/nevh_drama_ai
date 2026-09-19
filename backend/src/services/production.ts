@@ -7,7 +7,11 @@
  *   sehingga proses backend restart / lanjutkan kembali tidak akan mengulang kerja yang sudah selesai.
  * - Status job: running | waiting_approval | completed | failed | cancelled | interrupted.
  * - Fase "videos" hanya dijalankan setelah pengguna menyetujui alur cerita & adegan (manual approval gate).
- * - Konkurensi: 2 paralel untuk tugas generasi gambar/video; ekstraksi dan agent dijalankan serial.
+ * - Sequential ketat: episode dikerjakan SATU PER SATU dari Episode 1 sampai akhir
+ *   (skrip → storyboard → gambar → video), setiap episode membaca & melanjutkan
+ *   episode sebelumnya + sinopsis agar cerita bersambung tanpa ada yang hilang.
+ *   Di dalam episode pun item gambar/video dikerjakan satu per satu (limit 1) —
+ *   tidak ada request serentak yang memicu timeout.
  */
 import { and, eq, isNull } from 'drizzle-orm'
 import { db, getInsertId, schema } from '../db/index.js'
@@ -128,10 +132,13 @@ async function mapLimit<T>(items: T[], limit: number, worker: (item: T, index: n
  * mematikan seluruh fase. Satu shot gagal (timeout/API reject) TIDAK membatalkan
  * shot lain yang masih antre — hasil yang berhasil tetap tersimpan, sisanya mudah
  * dilanjutkan via resume tanpa mengulang pekerjaan yang sudah selesai.
+ *
+ * Pipeline memakai limit 1 (satu per satu, episode demi episode) agar tidak ada
+ * request serentak dan setiap episode dapat melanjutkan episode sebelumnya.
  */
-async function collectPhaseErrors<T>(items: T[], jobId: number, worker: (item: T, index: number) => Promise<void>): Promise<string[]> {
+async function collectPhaseErrors<T>(items: T[], jobId: number, worker: (item: T, index: number) => Promise<void>, limit = 2): Promise<string[]> {
   const errors: string[] = []
-  await mapLimit(items, 2, async (item, index) => {
+  await mapLimit(items, limit, async (item, index) => {
     try {
       await worker(item, index)
     } catch (err: any) {
@@ -260,7 +267,10 @@ async function doScripts(jobId: number, job: ProductionJobRow, drama: DramaRow, 
     if (!(ep.content || '').trim()) {
       const ctxMessage =
         `Tulis alur cerita untuk Episode ${ep.episodeNumber} dari ${job.totalEpisodes} episode drama "${drama.title}". ` +
-        `Panggil read_synopsis_context terlebih dahulu untuk membaca sinopsis dan ringkasan episode sebelumnya, lalu simpan dengan save_episode_content. Bahasa konten: ${getContentLanguage()}.`
+        `Panggil read_synopsis_context terlebih dahulu untuk membaca sinopsis dan ringkasan episode sebelumnya, lalu simpan dengan save_episode_content. Bahasa konten: ${getContentLanguage()}. ` +
+        `Aturan sambungan (wajib): baca SEMUA ringkasan previous_episodes + sinopsis. Episode 1 dimulai dari sinopsis. ` +
+        `Episode ${ep.episodeNumber} (>1) WAJIB membuka cerita dengan melanjutkan akhir episode sebelumnya (adegan/emosi/hook yang menggantung), ` +
+        `dilarang mengulangi kejadian yang sudah selesai di episode sebelumnya, dan dilarang mengubah fakta yang sudah terjadi.`
       await runAgentSilent('episode_expander', jobId, ep, drama, config, ctxMessage, 12)
     }
 
@@ -270,7 +280,10 @@ async function doScripts(jobId: number, job: ProductionJobRow, drama: DramaRow, 
 
     setStage(jobId, `Menulis ulang skrip — Episode ${ep.episodeNumber}/${job.totalEpisodes}`)
     if (!(fresh.scriptContent || '').trim()) {
-      await runAgentSilent('script_rewriter', jobId, ep, drama, config, 'Baca skrip episode ini, tulis ulang menjadi skrip berformat, lalu simpan', 20)
+      await runAgentSilent('script_rewriter', jobId, ep, drama, config,
+        'Panggil read_episode_script (perhatikan previous_episode bila ada): tulis ulang menjadi skrip berformat yang pembukanya ' +
+        'menyambung akhir episode sebelumnya, jangan mengubah fakta/kejadian yang sudah terjadi, jangan mengulangi kejadian yang sudah selesai, ' +
+        'lalu simpan dengan save_script', 20)
     }
     await ensureActive(jobId)
     const [again] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, ep.id))
@@ -373,6 +386,8 @@ async function doAssetImages(jobId: number, job: ProductionJobRow, config: Produ
 
     let done = 0
     const total = items.length
+    // SATU PER SATU: gambar aset dikerjakan berurutan (karakter → adegan → properti),
+    // bukan 2 paralel — setiap gambar menunggu yang sebelumnya selesai.
     const errors = await collectPhaseErrors(items, jobId, async (item) => {
       done++
       await ensureActive(jobId)
@@ -388,7 +403,7 @@ async function doAssetImages(jobId: number, job: ProductionJobRow, config: Produ
         configId: config.image_config_id || undefined,
       })
       await waitTaskDone(taskId, jobId)
-    })
+    }, 1)
 
     if (errors.length) {
       const detail = errors.length === total
@@ -425,7 +440,10 @@ async function doStoryboards(jobId: number, job: ProductionJobRow, config: Produ
       `- Setiap shot harus mengikat character_ids hanya dari daftar karakter pada read_storyboard_context (ID wajib dari daftar; karakter yang muncul pasti diikat, jangan ada yang terlewat)\n` +
       `- Setiap shot sebaiknya mengisi scene_id dari daftar adegan (ID wajib dari daftar), jangan menciptakan adegan baru dari imajinasi\n` +
       `- Jika ada properti kunci yang muncul di shot, ikat prop_ids dari daftar properti (ID wajib dari daftar); jika tidak ada kirim array kosong\n` +
-      `- Hanya shot lingkungan kosong murni yang boleh tidak mengikat karakter`
+      `- Hanya shot lingkungan kosong murni yang boleh tidak mengikat karakter\n\n` +
+      `Aturan sambungan (wajib, kecuali Episode 1): baca previous_episode_tail dari read_storyboard_context — ` +
+      `shot pertama episode ini WAJIB menyambung akhir episode sebelumnya (adegan/emosi/status terakhir), ` +
+      `jangan mengulang kejadian yang sudah selesai di episode sebelumnya`
 
     await runAgentSilent('storyboard_breaker', jobId, ep, { id: dramaId, title: '' } as DramaRow, config, message, 40)
 
@@ -461,29 +479,37 @@ async function doComposedImages(jobId: number, job: ProductionJobRow, config: Pr
     .orderBy(schema.episodes.episodeNumber)
 
   let done = 0
-  const tasks: { sb: typeof schema.storyboards.$inferSelect; ep: EpisodeRow }[] = []
+  // Rencana per episode: Episode 1 diselesaikan dulu (semua shot-nya satu per satu),
+  // baru lanjut Episode 2 — tidak ada gambar komposisi lintas episode yang serentak.
+  const plan: { sb: typeof schema.storyboards.$inferSelect; ep: EpisodeRow }[][] = []
   for (const ep of episodes) {
     const sbs = await db.select().from(schema.storyboards)
       .where(and(eq(schema.storyboards.episodeId, ep.id), isNull(schema.storyboards.deletedAt)))
-    for (const sb of sbs) if (!sb.composedImage) tasks.push({ sb, ep })
+    const pending = sbs.filter(sb => !sb.composedImage).map(sb => ({ sb, ep }))
+    if (pending.length) plan.push(pending)
   }
-  const total = tasks.length
+  const total = plan.reduce((n, g) => n + g.length, 0)
 
-  const errors = await collectPhaseErrors(tasks, jobId, async ({ sb, ep }) => {
-    done++
-    await ensureActive(jobId)
-    setStage(jobId, `Buat gambar komposisi S${sb.storyboardNumber} — Episode ${ep.episodeNumber} (${done}/${total})`)
-    const prompt = (sb.imagePrompt || sb.description || '').trim()
-    if (!prompt) throw new Error(`Storyboard S${sb.storyboardNumber} tidak memiliki deskripsi gambar untuk dikomposisikan`)
-    await ensureActive(jobId)
-    const taskId = await generateImage({
-      storyboardId: sb.id,
-      dramaId,
-      prompt,
-      configId: config.image_config_id || undefined,
-    })
-    await waitTaskDone(taskId, jobId)
-  })
+  const errors: string[] = []
+  for (const group of plan) {
+    const ep = group[0].ep
+    const groupErrors = await collectPhaseErrors(group, jobId, async ({ sb }) => {
+      done++
+      await ensureActive(jobId)
+      setStage(jobId, `Buat gambar komposisi S${sb.storyboardNumber} — Episode ${ep.episodeNumber} (${done}/${total})`)
+      const prompt = (sb.imagePrompt || sb.description || '').trim()
+      if (!prompt) throw new Error(`Storyboard S${sb.storyboardNumber} tidak memiliki deskripsi gambar untuk dikomposisikan`)
+      await ensureActive(jobId)
+      const taskId = await generateImage({
+        storyboardId: sb.id,
+        dramaId,
+        prompt,
+        configId: config.image_config_id || undefined,
+      })
+      await waitTaskDone(taskId, jobId)
+    }, 1)
+    errors.push(...groupErrors)
+  }
 
   if (errors.length) {
     const detail = errors.length === total
@@ -502,10 +528,14 @@ async function doVideos(jobId: number, job: ProductionJobRow, config: Production
     .orderBy(schema.episodes.episodeNumber)
 
   let done = 0
-  const tasks: { sb: typeof schema.storyboards.$inferSelect; ep: EpisodeRow }[] = []
+  // Rencana per episode: video Episode 1 diselesaikan dulu (shot demi shot satu
+  // per satu), baru lanjut Episode 2 — tidak ada generasi video lintas episode
+  // yang serentak, dan setiap episode melanjutkan episode sebelumnya.
+  const plan: { sb: typeof schema.storyboards.$inferSelect; ep: EpisodeRow }[][] = []
   for (const ep of episodes) {
     const sbs = await db.select().from(schema.storyboards)
       .where(and(eq(schema.storyboards.episodeId, ep.id), isNull(schema.storyboards.deletedAt)))
+    const pending: { sb: typeof schema.storyboards.$inferSelect; ep: EpisodeRow }[] = []
     for (const sb of sbs) {
       const emptyPrompt = !(sb.videoPrompt || '').trim()
       const hasVideo = !!(sb.videoUrl || sb.composedVideoUrl)
@@ -514,30 +544,36 @@ async function doVideos(jobId: number, job: ProductionJobRow, config: Production
           logTaskProgress('Production', 'skip-video-no-prompt', { jobId, storyboardId: sb.id })
           continue
         }
-        tasks.push({ sb, ep })
+        pending.push({ sb, ep })
       }
     }
+    if (pending.length) plan.push(pending)
   }
-  const total = tasks.length
+  const total = plan.reduce((n, g) => n + g.length, 0)
 
-  const errors = await collectPhaseErrors(tasks, jobId, async ({ sb, ep }) => {
-    done++
-    await ensureActive(jobId)
-    setStage(jobId, `Buat video S${sb.storyboardNumber} — Episode ${ep.episodeNumber} (${done}/${total})`)
-    const prompt = (sb.videoPrompt || '').trim()
-    const referenceImageUrls = [sb.composedImage].filter((v): v is string => !!(v && String(v).trim()))
-    const taskId = await generateVideo({
-      storyboardId: sb.id,
-      dramaId,
-      prompt,
-      referenceImageUrls,
-      duration: sb.duration || 8,
-      aspectRatio: ((await getDramaRow(dramaId) as DramaRow | null)?.aspectRatio) || '9:16',
-      resolution: ep.resolution || '720p',
-      configId: config.video_config_id || ep.videoConfigId || undefined,
-    })
-    await waitTaskDone(taskId, jobId)
-  })
+  const errors: string[] = []
+  for (const group of plan) {
+    const ep = group[0].ep
+    const groupErrors = await collectPhaseErrors(group, jobId, async ({ sb }) => {
+      done++
+      await ensureActive(jobId)
+      setStage(jobId, `Buat video S${sb.storyboardNumber} — Episode ${ep.episodeNumber} (${done}/${total})`)
+      const prompt = (sb.videoPrompt || '').trim()
+      const referenceImageUrls = [sb.composedImage].filter((v): v is string => !!(v && String(v).trim()))
+      const taskId = await generateVideo({
+        storyboardId: sb.id,
+        dramaId,
+        prompt,
+        referenceImageUrls,
+        duration: sb.duration || 8,
+        aspectRatio: ((await getDramaRow(dramaId) as DramaRow | null)?.aspectRatio) || '9:16',
+        resolution: ep.resolution || '720p',
+        configId: config.video_config_id || ep.videoConfigId || undefined,
+      })
+      await waitTaskDone(taskId, jobId)
+    }, 1)
+    errors.push(...groupErrors)
+  }
 
   if (errors.length) {
     const detail = errors.length === total

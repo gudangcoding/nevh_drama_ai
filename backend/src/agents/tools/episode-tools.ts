@@ -28,10 +28,13 @@ const readSynopsisContext = createTool({
     const prior = previous
       .filter(p => p.episodeNumber < ep.episodeNumber)
       .sort((a, b) => a.episodeNumber - b.episodeNumber)
+      // Ringkasan penuh per episode (bukan potongan 400 char): episode berikutnya
+      // harus benar-benar "belajar" dari isi episode sebelumnya + sinopsis agar
+      // cerita bersambung tanpa ada kejadian yang hilang/terulang.
       .map(p => ({
         episode_number: p.episodeNumber,
         title: p.title,
-        summary: String(p.content || '').slice(0, 400),
+        summary: String(p.content || p.scriptContent || '').slice(0, 2000),
       }))
 
     return {

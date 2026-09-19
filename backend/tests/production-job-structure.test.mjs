@@ -26,11 +26,16 @@ test('production orchestrator exists with approval-gated phases and idempotent r
   assert.match(svc, /!hasVideo/)
   assert.match(svc, /status: 'failed', errorMsg/)
 
-  // Konkurensi terbatas (2 paralel) untuk tugas generasi; fase tahan banting
-  // mengumpulkan error per item agar satu shot gagal tidak mematikan seluruh fase
+  // Sequential ketat satu-per-satu per episode: gambar aset, gambar komposisi & video
+  // dikerjakan episode demi episode (limit 1) agar cerita bersambung dan tidak ada
+  // request serentak; error per item dikumpulkan agar satu shot gagal tidak
+  // mematikan seluruh fase
   assert.match(svc, /collectPhaseErrors\(items, jobId,/)
-  assert.match(svc, /collectPhaseErrors\(tasks, jobId,/)
-  assert.match(svc, /mapLimit\(items, 2,/)
+  assert.match(svc, /collectPhaseErrors\(group, jobId,/)
+  assert.match(svc, /mapLimit\(items, limit,/)
+  assert.match(svc, /Rencana per episode/)
+  assert.match(svc, /previous_episode_tail/)
+  assert.match(svc, /Aturan sambungan \(wajib\)/)
 
   // Koneksi ulang service yang sudah ada
   assert.match(svc, /startExtraction/)
@@ -81,6 +86,8 @@ test('sqlite schema persists production_jobs and auto-migrates dramas.synopsis',
 test('episode_expander agent is registered with tools and prompts', () => {
   const agents = read('src/agents/index.ts')
   const tools = read('src/agents/tools/episode-tools.ts')
+  const scriptTools = read('src/agents/tools/script-tools.ts')
+  const storyboardTools = read('src/agents/tools/storyboard-tools.ts')
 
   assert.match(agents, /episode_expander:/)
   assert.match(agents, /storyboard_breaker: storyboardTools/)
@@ -90,6 +97,10 @@ test('episode_expander agent is registered with tools and prompts', () => {
   assert.match(tools, /id: 'save_episode_content'/)
   assert.match(tools, /previous_episodes/)
   assert.match(tools, /drama\.synopsis \|\| drama\.description/)
+  // Kontinuitas antar episode: ringkasan penuh + ekor episode sebelumnya
+  assert.match(tools, /slice\(0, 2000\)/)
+  assert.match(scriptTools, /previous_episode/)
+  assert.match(storyboardTools, /previous_episode_tail/)
 })
 
 test('app restart marks running production jobs as interrupted, keeps waiting_approval', () => {
