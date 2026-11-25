@@ -1,56 +1,56 @@
 ---
 name: script-rewriter
-description: 小说改写为格式化剧本的方法论和规范
+description: Metodologi dan aturan untuk menulis ulang novel menjadi skrip terformat
 ---
 
-# 剧本改写指南
+# Panduan Penulisan Ulang Skrip
 
-## 改写原则
+## Prinsip Penulisan Ulang
 
-1. **保留核心情节**：不改变主线故事和角色关系
-2. **增强画面感**：将叙述性文字转化为可视化的场景描写
-3. **对话驱动**：用对白推动情节，减少旁白
-4. **节奏把控**：每场戏控制在 30-60 秒，适合短视频
-5. **不写镜头语言**：不涉及景别、角度、运镜，这些属于分镜拆解步骤
+1. **Pertahankan plot inti**: jangan ubah alur cerita utama atau hubungan antar karakter
+2. **Perkuat kualitas visual**: ubah prosa naratif menjadi deskripsi adegan yang dapat divisualisasikan
+3. **Digerakkan dialog**: gunakan dialog untuk memajukan plot dan kurangi narasi
+4. **Kontrol pacing**: jaga setiap adegan di 30-60 detik, cocok untuk video pendek
+5. **Tanpa bahasa kamera**: tidak ada ukuran shot, sudut, atau gerakan kamera — itu milik langkah breakdown storyboard
 
-## 格式化剧本格式
+## Format Skrip Terformat
 
 ```
-## S01 | 内景 · 咖啡厅 | 黄昏
+## S01 | INT · Kedai Kopi | Senja
 
-黄昏的光线透过落地窗洒进咖啡厅，吧台上咖啡杯热气升腾。
+Cahaya senja mengalir melalui jendela lantai-ke-langit-langit ke dalam kedai kopi; uap mengepul dari cangkir kopi di konter.
 
-小明独自坐在角落卡座，低头看手机，神情有些焦虑。
+Xiaoming duduk sendirian di pojok, kepala menunduk menatap ponselnya, terlihat agak cemas.
 
-门铃响起，小红推门而入。她看到小明，微笑着走过去。
+Bel pintu berbunyi saat Xiaohong mendorong pintu masuk. Dia melihat Xiaoming dan berjalan mendekat dengan senyuman.
 
-小红：（微笑）等很久了吗？
-小明：（抬头）还好，刚到。
+Xiaohong: (tersenyum) Sudah lama menunggu?
+Xiaoming: (mendongak) Tidak, baru sampai.
 ```
 
-### 格式规则
+### Aturan Format
 
-- `## S编号 | 内景/外景 · 地点 | 时间段` — 场景头
-- 动作描写自然段 — 不包含任何镜头语言
-- `角色名：（状态/表情）台词内容` — 对白格式
+- `## S<nomor> | INT/EXT · Lokasi | Periode waktu` — heading adegan
+- Deskripsi aksi dalam paragraf alami — tanpa bahasa kamera jenis apa pun
+- `NamaKarakter: (kondisi/ekspresi) isi dialog` — format dialog
 
-### 内容量参考
+### Referensi Volume Konten
 
-格式化剧本相比原始内容增加约 20-30%，主要增量是场景头标记和对白格式化，不是扩写。
+Skrip terformat sekitar 20-30% lebih panjang dari konten asli; peningkatan terutama berasal dari penanda heading adegan dan format dialog, bukan dari penulisan ekspansi.
 
-## 改写步骤
+## Langkah Penulisan Ulang
 
-1. 先调用 `read_episode_script` 读取原始内容
-2. 分析内容结构（对话、叙述、心理描写的比例）
-3. 调用 `rewrite_to_screenplay` 执行改写
-4. 检查改写结果，确认符合格式化剧本格式
-5. 调用 `save_script` 保存最终结果
+1. Pertama panggil `read_episode_script` untuk membaca konten asli
+2. Analisis struktur konten (proporsi dialog, narasi, dan monolog batin)
+3. Panggil `rewrite_to_screenplay` untuk melakukan penulisan ulang
+4. Periksa hasil penulisan ulang dan konfirmasi sesuai dengan format skrip terformat
+5. Panggil `save_script` untuk menyimpan hasil akhir
 
-## 注意事项
+## Catatan
 
-- 心理描写可转化为角色表情/动作或画外音
-- 长段叙述拆分为多个短场景
-- 确保每个场景有明确的情绪转折点
-- 保持角色语言风格一致性
-- 场景编号连续递增（S01, S02, S03...）
-- 时间段要具体（黄昏、深夜、清晨），不要笼统写"白天"
+- Monolog batin dapat diubah menjadi ekspresi/tindakan karakter atau voice-over
+- Pecah bagian narasi panjang menjadi beberapa adegan pendek
+- Pastikan setiap adegan memiliki titik balik emosi yang jelas
+- Jaga konsistensi gaya bahasa setiap karakter
+- Nomor adegan meningkat secara berurutan (S01, S02, S03...)
+- Periode waktu harus spesifik (senja, larut malam, dini hari) — jangan tulis "siang hari" yang samar

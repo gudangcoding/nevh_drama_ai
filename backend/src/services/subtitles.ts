@@ -35,11 +35,11 @@ const PATTERNS: Record<ContentLanguage, DialoguePattern> = {
     narration: /Narration\s*:\s*(.+?)$/g,
   },
   zh: {
-    dialog: /([^：【】\n:：]+?)[说]\s*[:：]\s*[「"]([^「"]+)[」"]/g,
-    narration: /旁白\s*[:：]\s*(.+?)$/g,
+    dialog: /([^：【】\n:：]+?)[\u8bf4]\s*[:：]\s*[「"]([^「"]+)[」"]/g,
+    narration: /\u65c1\u767d\s*[:：]\s*(.+?)$/g,
   },
   ja: {
-    dialog: /([^：【】\n:：]+?)は言う[：:]\s*[「"]([^「"]+)[」"]/g,
+    dialog: /([^：【】\n:：]+?)は\u8a00う[：:]\s*[「"]([^「"]+)[」"]/g,
     narration: /ナレーション[：:]\s*(.+?)$/g,
   },
   ko: {
@@ -49,8 +49,8 @@ const PATTERNS: Record<ContentLanguage, DialoguePattern> = {
 }
 
 // Fallback: tangkap garis yang mengandung kata kunci dialog universal
-const FALLBACK_DIALOG = /([^\n:：【】]+?)\s*(?:says|said|berkata|说|は言う|말한다)\s*[:：]\s*["「「]([^"」」]+)["」」"]/g
-const FALLBACK_NARRATION = /(?:Narasi|Narration|旁白|ナレーション|내레이션)\s*[:：]\s*(.+?)$/g
+const FALLBACK_DIALOG = /([^\n:：【】]+?)\s*(?:says|said|berkata|\u8bf4|は\u8a00う|말한다)\s*[:：]\s*["「「]([^"」」]+)["」」"]/g
+const FALLBACK_NARRATION = /(?:Narasi|Narration|\u65c1\u767d|ナレーション|내레이션)\s*[:：]\s*(.+?)$/g
 
 // ── Parsing dialog dari deskripsi ──────────────────────────────────────────
 

@@ -7,9 +7,9 @@
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-[![다운로드](https://img.shields.io/github/v/release/chatfire-AI/huobao-drama?style=flat&logo=github&label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C)](https://github.com/chatfire-AI/huobao-drama/releases/latest)
+[![다운로드](https://img.shields.io/github/v/release/gudangcoding/nevh_drama_ai?style=flat&logo=github&label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C)](https://github.com/gudangcoding/nevh_drama_ai/releases/latest)
 
-[English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | **한국어**
+[English](README.md) | **한국어**
 
 [기능](#-기능) • [빠른 시작](#-빠른-시작) • [튜토리얼](#-그림-튜토리얼) • [데스크톱 앱](#-데스크톱-앱-권장) • [배포](#-배포)
 
@@ -17,9 +17,9 @@
 
 **텍스트 · 이미지 · 영상 모든 AI 기능, Key 하나로 활성화**
 
-배포 후 「설정 → 火宝快捷 설정」에 Key 를 붙여넣으면 추천 설정 3개가 한 번에 입력됩니다
+배포 후 "설정 → Huobao Quick Setup"에 Key 를 붙여넣으면 추천 설정 3개가 한 번에 입력됩니다
 
-<h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">데스크톱 앱 다운로드 (macOS / Windows)</a></h3>
+<h3>📥 <a href="https://github.com/gudangcoding/nevh_drama_ai/releases/latest">데스크톱 앱 다운로드 (macOS / Windows)</a></h3>
 
 </div>
 
@@ -87,7 +87,7 @@ data/       — 생성된 에셋과 SQLite 데이터베이스
 
 ### 🌐 다국어 UI
 
-인터페이스는 **中文 / English / 日本語 / 한국어** 4개 언어를 내장하고, AI 생성 콘텐츠의 언어를 전역으로 설정할 수 있습니다.
+인터페이스는 **중국어 / English / 일본어 / 한국어** 4개 언어를 내장하고, AI 생성 콘텐츠의 언어를 전역으로 설정할 수 있습니다.
 
 ### 🔌 멀티 프로바이더 지원
 
@@ -126,13 +126,13 @@ data/       — 생성된 에셋과 SQLite 데이터베이스
 | `FFMPEG_BIN` / `FFPROBE_BIN` | npm 내장 바이너리 | 사용자 지정 ffmpeg/ffprobe 실행 파일 경로 |
 | `PUBLIC_BASE_URL` | — | Seedance가 로컬 참조 리소스를 사용할 때 필요한 공개 주소(서버 배포용) |
 
-> **설명**：AI 서비스의 API Key, Base URL, 모델 파라미터는 모두 웹 UI의 「설정」 페이지에서 설정하여 데이터베이스에 저장합니다. 설정 파일이나 환경 변수로 관리하지 않습니다.
+> **설명**：AI 서비스의 API Key, Base URL, 모델 파라미터는 모두 웹 UI의 "설정" 페이지에서 설정하여 데이터베이스에 저장합니다. 설정 파일이나 환경 변수로 관리하지 않습니다.
 
 ### 📥 설치
 
 ```bash
 # 저장소 클론
-git clone https://github.com/chatfire-AI/huobao-drama.git
+git clone https://github.com/gudangcoding/nevh_drama_ai.git
 cd huobao-drama
 
 # 백엔드 의존성 설치
@@ -199,9 +199,9 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 시작 후 모든 AI 기능(텍스트/이미지/영상)을 사용하려면 먼저 모델 서비스를 설정해야 합니다. 미설정 시 페이지 상단에 배너로 안내합니다:
 
-1. 「설정」 페이지 열기
-2. 「火宝快捷 설정」에 Huobao API Key 붙여넣기([api.firemux.com에서 발급](https://api.firemux.com)). 텍스트, 이미지, 영상 추천 설정 3개가 한 번에 입력됩니다
-3. 또는 「수동 템플릿」으로 프로바이더별 추가. 연결 테스트 지원
+1. "설정" 페이지 열기
+2. "Huobao Quick Setup"에 Huobao API Key 붙여넣기([api.firemux.com에서 발급](https://api.firemux.com)). 텍스트, 이미지, 영상 추천 설정 3개가 한 번에 입력됩니다
+3. 또는 "수동 템플릿"으로 프로바이더별 추가. 연결 테스트 지원
 
 설정이 완료되면 배너가 자동으로 사라지고 에피소드 제작을 시작할 수 있습니다.
 
@@ -283,7 +283,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🖥️ 데스크톱 앱(권장)
 
-**⬇️ 빌드된 설치 파일: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+**⬇️ 빌드된 설치 파일: [GitHub Releases](https://github.com/gudangcoding/nevh_drama_ai/releases/latest)**
 
 | 플랫폼 | 다운로드 파일 |
 |---|---|
@@ -309,11 +309,11 @@ npm run dist:win    # Windows NSIS 설치 프로그램(win-x64, macOS에서 크�
 설치 안내:
 
 - macOS 미서명 패키지는 첫 실행 시 우클릭 → 열기, 또는 `xattr -cr /Applications/HuobaoDrama.app` 실행
-- Windows 미서명 패키지는 SmartScreen에서 「추가 정보 → 실행」 선택
+- Windows 미서명 패키지는 SmartScreen에서 "추가 정보 → 실행" 선택
 - 사용자 데이터 디렉터리: `~/Library/Application Support/HuobaoDrama/`(데이터베이스, 생성된 미디어, 온라인 편집한 스킬 복사본)
 - FFmpeg/FFprobe 바이너리 내장, 시스템 설치 불필요
 - Electron은 37.x로 고정: better-sqlite3의 win32 프리빌드가 해당 ABI까지만 지원(크로스 패키징 시 컴파일 불필요의 핵심)
-- 앱 내 외부 링크(「api.firemux.com에서 Key 받기」 등)는 시스템 브라우저로 바로 열립니다
+- 앱 내 외부 링크("api.firemux.com에서 Key 받기" 등)는 시스템 브라우저로 바로 열립니다
 
 #### 🔄 앱 내 업데이트(Apple 서명 불필요)
 
@@ -330,7 +330,7 @@ cd desktop && npm run feed
 # 3. 릴리스: latest.json + 설치 패키지 + zip을 GitHub Release에 업로드(태그는 v1.0.1 형식)
 ```
 
-설치된 클라이언트는 시작 후 매니페스트를 자동으로 확인하고(「설정 → 정보 및 업데이트」에서 수동 확인도 가능), 새 버전을 발견하면 다운로드 및 설치를 안내합니다. 매니페스트 주소는 `HUOBAO_UPDATE_FEED` 환경 변수로 변경할 수 있습니다.
+설치된 클라이언트는 시작 후 매니페스트를 자동으로 확인하고("설정 → 정보 및 업데이트"에서 수동 확인도 가능), 새 버전을 발견하면 다운로드 및 설치를 안내합니다. 매니페스트 주소는 `HUOBAO_UPDATE_FEED` 환경 변수로 변경할 수 있습니다.
 
 데스크톱 버전 개발 디버깅:
 
@@ -419,15 +419,15 @@ docker run -d \
 # 1. 환경 설정(Watchtower 토큰, app과 watchtower 양쪽이 일치해야 함)
 cp .env.example .env   # WATCHTOWER_TOKEN 수정
 
-# 2. 빌드 및 시작(릴리스 시 버전을 주입하여 「정보 및 업데이트」 비교에 사용)
+# 2. 빌드 및 시작(릴리스 시 버전을 주입하여 "정보 및 업데이트" 비교에 사용)
 HUOBAO_VERSION=4.0.0 docker compose up -d --build
 
 # 3. http://localhost:5679 접속
 ```
 
 - **데이터 영속화**: 네임드 볼륨 `huobao-data`를 `/app/data`에 마운트(SQLite + 생성된 이미지/영상 + workspace/skills). 이미지 업데이트 시에도 데이터 유지
-- **앱 내 업데이트**: compose에 [Watchtower](https://containrrr.dev/watchtower/) 사이드카 포함(`--label-enable`로 라벨이 지정된 컨테이너만 업데이트, `--cleanup`으로 구 이미지 정리, 매일 자체 점검). 「설정 → 정보 및 업데이트」에서 새 버전 확인 및 「지금 업데이트」 가능 — 백엔드가 Watchtower HTTP API를 통해 트리거하여 새 이미지를 가져와 컨테이너를 재생성합니다. 몇 분 후 페이지를 새로고침하면 완료
-- **수동 모드**: `docker-compose.yml`에서 app의 `HUOBAO_WATCHTOWER_*` 환경 변수 2개(또는 watchtower 서비스 전체)를 삭제하면 「정보 및 업데이트」는 새 버전 알림 + 수동 명령 `docker compose pull && docker compose up -d`으로 전환됩니다
+- **앱 내 업데이트**: compose에 [Watchtower](https://containrrr.dev/watchtower/) 사이드카 포함(`--label-enable`로 라벨이 지정된 컨테이너만 업데이트, `--cleanup`으로 구 이미지 정리, 매일 자체 점검). "설정 → 정보 및 업데이트"에서 새 버전 확인 및 "지금 업데이트" 가능 — 백엔드가 Watchtower HTTP API를 통해 트리거하여 새 이미지를 가져와 컨테이너를 재생성합니다. 몇 분 후 페이지를 새로고침하면 완료
+- **수동 모드**: `docker-compose.yml`에서 app의 `HUOBAO_WATCHTOWER_*` 환경 변수 2개(또는 watchtower 서비스 전체)를 삭제하면 "정보 및 업데이트"는 새 버전 알림 + 수동 명령 `docker compose pull && docker compose up -d`으로 전환됩니다
 - **이미지 릴리스**: `docker buildx build --platform linux/amd64,linux/arm64 --build-arg HUOBAO_VERSION=x.y.z -t huobao/huobao-drama:x.y.z -t huobao/huobao-drama:latest --push .`. 버전 매니페스트는 데스크톱 버전과 GitHub Releases의 `latest.json`을 공유(`HUOBAO_UPDATE_FEED`로 재정의 가능)
 
 ---
@@ -455,7 +455,7 @@ HUOBAO_VERSION=4.0.0 docker compose up -d --build
 - **라우팅**: 파일 라우팅(Vue Router 4)
 - **스타일**: 순수 CSS + CSS Variables
 - **아이콘**: Lucide Vue
-- **i18n**: vue-i18n(中文 / English / 日本語 / 한국어)
+- **i18n**: vue-i18n(중국어 / English / 일본어 / 한국어)
 
 ---
 
@@ -473,9 +473,9 @@ A: MySQL에 연결 가능한 상태(환경 변수 또는 `backend/.env`)를 유�
 
 A: 설치할 필요가 없습니다. 프로젝트에 `ffmpeg-static` / `ffprobe-static` 바이너리가 내장되어 있습니다(데스크톱 버전에도 포함). 시스템 `PATH`의 FFmpeg와 충돌하지 않으며, `FFMPEG_BIN`/`FFPROBE_BIN`으로 명시적으로 지정할 수도 있습니다.
 
-### Q: 페이지 상단에 「모델 미설정」이 표시됩니다?
+### Q: 페이지 상단에 "모델 미설정"이 표시됩니다?
 
-A: 정상적인 첫 배포 안내입니다. 「설정」 페이지에서 「火宝快捷 설정」에 API Key를 붙여넣어 한 번에 입력하거나, 「수동 템플릿」으로 프로바이더를 추가하세요. 텍스트, 이미지, 영상 3가지 모두에 활성화된 설정이 있으면 배너가 자동으로 사라집니다.
+A: 정상적인 첫 배포 안내입니다. "설정" 페이지에서 "Huobao Quick Setup"에 API Key를 붙여넣어 한 번에 입력하거나, "수동 템플릿"으로 프로바이더를 추가하세요. 텍스트, 이미지, 영상 3가지 모두에 활성화된 설정이 있으면 배너가 자동으로 사라집니다.
 
 ### Q: 프런트엔드가 백엔드 API에 연결되지 않습니다?
 
@@ -526,7 +526,7 @@ A: 백엔드는 최초 시작 시 모든 테이블을 자동으로 생성합니�
   - `docker/init.sql` 및 납출 스크립트 추가(DBA 검토 / 사전 테이블 생성)
 - 첫 사용 가이드
   - AI 서비스 미설정 시 사이트 상단 배너로 설정 페이지 안내
-  - 설정 페이지에 「火宝快捷 설정」 추가: Key 하나로 텍스트/이미지/영상 추천 설정 3개 입력
+   - 설정 페이지에 "Huobao Quick Setup" 추가: Key 하나로 텍스트/이미지/영상 추천 설정 3개 입력
   - 모델 미설정 오류의 중국어화 및 설정 페이지 안내
 - 영상 모델 기본값을 Seedance 2.0 Fast로 조정
 - 프로바이더 통합: OpenAI / Gemini / Volcano Engine만 유지

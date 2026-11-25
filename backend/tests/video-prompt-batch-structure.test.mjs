@@ -8,18 +8,18 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8')
 test('video prompt batch service runs per-shot async agent loop', () => {
   const svc = read('src/services/video-prompts.ts')
 
-  // 默认只处理缺少 video_prompt 的分镜；指定 storyboardIds 时只处理所选（已有提示词也重新生成）
+  // \u9ed8\u8ba4\u53ea\u5904\u7406\u7f3a\u5c11 video_prompt \u7684\u5206\u955c；\u6307\u5b9a storyboardIds \u65f6\u53ea\u5904\u7406\u6240\u9009（\u5df2\u6709\u63d0\u793a\u8bcd\u4e5f\u91cd\u65b0\u751f\u6210）
   assert.match(svc, /filter\(sb => !\(sb\.videoPrompt \|\| ''\)\.trim\(\)\)/)
   assert.match(svc, /storyboardIds\?\.length/)
   assert.match(svc, /storyboardIds\.includes\(sb\.id\)/)
-  // 运行中不重复启动
+  // \u8fd0\u884c\u4e2d\u4e0d\u91cd\u590d\u542f\u52a8
   assert.match(svc, /status === 'running'\) return \{ started: false, total: -1 \}/)
-  // 逐个分镜调用 prompt_generator，以落库结果判定成败
+  // \u9010\u4e2a\u5206\u955c\u8c03\u7528 prompt_generator，\u4ee5\u843d\u5e93\u7ed3\u679c\u5224\u5b9a\u6210\u8d25
   assert.match(svc, /mastra\.getAgent\('prompt_generator'\)/)
   assert.match(svc, /read_storyboard_context/)
   assert.match(svc, /update_storyboard/)
   assert.match(svc, /fresh\?\.videoPrompt/)
-  // 进度跟踪与文本模型覆盖
+  // \u8fdb\u5ea6\u8ddf\u8e2a\u4e0e\u6587\u672c\u6a21\u578b\u8986\u76d6
   assert.match(svc, /current_storyboard_id/)
   assert.match(svc, /modelOverride: opts\.model/)
 })

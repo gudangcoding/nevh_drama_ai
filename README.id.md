@@ -1,5 +1,7 @@
+> **Catatan:** Repositori ini adalah modifikasi dari repositori Huobao Drama versi China yang disesuaikan dengan nuansa kearifan lokal Indonesia.
+
 # 🎬 Huobao Drama - Platform Produksi Drama Pendek AI
-sk-B57zaUc8uFOFnkkkoM8WUlKt8Xohu6fAuPtBokKYlc9dJWX2
+
 <div align="center">
 
 **Platform produksi drama pendek AI bertenaga penuh berbasis TypeScript**
@@ -7,9 +9,9 @@ sk-B57zaUc8uFOFnkkkoM8WUlKt8Xohu6fAuPtBokKYlc9dJWX2
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-[![Unduh](https://img.shields.io/github/v/release/chatfire-AI/huobao-drama?style=flat&logo=github&label=Unduh)](https://github.com/chatfire-AI/huobao-drama/releases/latest)
+[![Unduh](https://img.shields.io/github/v/release/gudangcoding/nevh_drama_ai?style=flat&logo=github&label=Unduh)](https://github.com/gudangcoding/nevh_drama_ai/releases/latest)
 
-[English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | **Bahasa Indonesia**
+[English](README.md) | [한국어](README.ko.md) | **Bahasa Indonesia**
 
 [Fitur](#-fitur) • [Mulai Cepat](#-mulai-cepat) • [Panduan Visual](#-panduan-visual) • [Aplikasi Desktop](#-aplikasi-desktop-direkomendasikan) • [Deployment](#-deployment)
 
@@ -19,7 +21,7 @@ sk-B57zaUc8uFOFnkkkoM8WUlKt8Xohu6fAuPtBokKYlc9dJWX2
 
 Setelah deployment, tempel kunci di "Pengaturan → Konfigurasi Cepat Huobao" untuk menulis tiga konfigurasi yang direkomendasikan dalam satu klik
 
-<h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">Unduh Aplikasi Desktop (macOS / Windows)</a></h3>
+<h3>📥 <a href="https://github.com/gudangcoding/nevh_drama_ai/releases/latest">Unduh Aplikasi Desktop (macOS / Windows)</a></h3>
 
 </div>
 
@@ -87,7 +89,7 @@ Empat agen Mastra bawaan dengan konfigurasi berbasis database dan ekstensi Skill
 
 ### 🌐 Antarmuka Multi-Bahasa
 
-Antarmuka tersedia dalam **中文 / English / 日本語 / 한국어 / Bahasa Indonesia**, dengan pengaturan global untuk bahasa konten yang dihasilkan AI.
+Antarmuka tersedia dalam **Mandarin / English / Jepang / Korea / Bahasa Indonesia**, dengan pengaturan global untuk bahasa konten yang dihasilkan AI.
 
 ### 🔌 Dukungan Multi-Penyedia
 
@@ -132,7 +134,7 @@ Tidak ada file konfigurasi — semuanya diatur melalui variabel lingkungan (semu
 
 ```bash
 # Klon repositori
-git clone https://github.com/chatfire-AI/huobao-drama.git
+git clone https://github.com/gudangcoding/nevh_drama_ai.git
 cd huobao-drama
 
 # Instal dependensi backend
@@ -229,7 +231,7 @@ Pilih shot (arahkan kursor untuk mempratinjau setiap klip), klik "Mulai Menggabu
 
 ### 🖥️ Aplikasi Desktop (direkomendasikan)
 
-**⬇️ Installer siap pakai: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+**⬇️ Installer siap pakai: [GitHub Releases](https://github.com/gudangcoding/nevh_drama_ai/releases/latest)**
 
 | Platform | File untuk diunduh |
 |---|---|
@@ -304,7 +306,7 @@ HUOBAO_VERSION=4.0.0 docker compose up -d --build
 - **Routing**: Routing berbasis file (Vue Router 4)
 - **Styling**: CSS murni + CSS Variables
 - **Ikon**: Lucide Vue
-- **i18n**: vue-i18n (中文 / English / 日本語 / 한국어 / Bahasa Indonesia)
+- **i18n**: vue-i18n (Mandarin / English / Jepang / Korea / Bahasa Indonesia)
 
 ---
 

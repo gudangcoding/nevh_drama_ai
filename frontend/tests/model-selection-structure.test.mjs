@@ -10,13 +10,13 @@ const useAgent = read('app/composables/useAgent.ts')
 const useApi = read('app/composables/useApi.ts')
 
 test('workbench offers model selectors for rewrite, image and video generation', () => {
-  // 三个选择器（自定义 ModelSelect 弹窗组件，非原生 select）
+  // three selectors (custom ModelSelect popover, not native select)
   assert.match(page, /<ModelSelect/)
   assert.match(page, /v-model="chatModel"/)
   assert.match(page, /v-model="imageModel"/)
   assert.match(page, /v-model="videoModel"/)
   assert.doesNotMatch(page, /<select v-model="chatModel"/)
-  // 选项汇总该类型全部启用配置的模型（去重、按优先级），API 返回的 model 可能已是数组
+  // options aggregate models from all active configs (deduped, by priority); API may return an array
   assert.match(page, /function collectModelOptions\(cfgs\)/)
   assert.match(page, /if \(Array\.isArray\(raw\)\) return raw\.filter\(Boolean\)/)
   assert.match(page, /collectModelOptions\(textConfigs\.value\)/)
@@ -34,28 +34,28 @@ test('model select dropdown is a custom designed popover', () => {
   assert.match(component, /Check :size="12"/)
   assert.match(component, /model-select-backdrop/)
   assert.match(component, /emit\('update:modelValue', model\)/)
-  // 多配置时展示来源配置名
+  // show the source config name with multiple configs
   assert.match(component, /showConfig/)
   assert.match(component, /opt-config/)
 })
 
 test('selected models are sent with rewrite, image and video generation requests', () => {
-  // 选中模型时连同其所属配置一起调用
+  // call with the owning config when a model is selected
   assert.match(page, /function ownerConfigId\(options, model\)/)
-  // 改写（Agent）透传模型与配置
+  // rewrite (Agent) passes model and config through
   assert.match(useAgent, /model: model \|\| undefined/)
   assert.match(useAgent, /config_id: configId \|\| undefined/)
   assert.match(page, /runAgent\('script_rewriter'[\s\S]*?chatModelOverride\(\), chatConfigId\(\)\)/)
-  // 图片生成透传模型与配置
+  // image generation passes model and config through
   assert.match(useApi, /generateImage: \(id: number, episodeId: number, model\?: string, configId\?: number, textModel\?: string, textConfigId\?: number\)/)
-  // 文本模型覆盖随生图/提取请求透传（缺提示词时后端触发提示词 Agent）
+  // text model override is passed with image/extraction requests (backend triggers the prompt Agent when a prompt is missing)
   assert.match(useApi, /text_model: textModel \|\| undefined/)
   assert.match(useApi, /text_config_id: textConfigId \|\| undefined/)
   assert.match(useApi, /config_id: configId \|\| undefined/)
   assert.match(page, /characterAPI\.generateImage\(id, epId\.value, imageModel\.value \|\| undefined, ownerConfigId\(imageModelOptions\.value, imageModel\.value\), chatModelOverride\(\), chatConfigId\(\)\)/)
   assert.match(page, /sceneAPI\.generateImage\(id, epId\.value, imageModel\.value \|\| undefined, ownerConfigId\(imageModelOptions\.value, imageModel\.value\), chatModelOverride\(\), chatConfigId\(\)\)/)
   assert.match(page, /characterAPI\.batchImages\(ids, epId\.value, imageModel\.value \|\| undefined, ownerConfigId\(imageModelOptions\.value, imageModel\.value\), chatModelOverride\(\), chatConfigId\(\)\)/)
-  // 视频生成透传模型与配置
+  // video generation passes model and config through
   assert.match(page, /model: videoModel\.value \|\| undefined/)
   assert.match(page, /config_id: ownerConfigId\(videoModelOptions\.value, videoModel\.value\)/)
 })

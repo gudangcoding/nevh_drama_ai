@@ -1,3 +1,5 @@
+> **Catatan:** Repositori ini adalah modifikasi dari repositori Huobao Drama versi China yang disesuaikan dengan nuansa kearifan lokal Indonesia.
+
 # 🎬 Huobao Drama - AI Short Drama Generation Platform
 
 <div align="center">
@@ -7,9 +9,9 @@
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-[![Download](https://img.shields.io/github/v/release/chatfire-AI/huobao-drama?style=flat&logo=github&label=Download)](https://github.com/chatfire-AI/huobao-drama/releases/latest)
+[![Download](https://img.shields.io/github/v/release/gudangcoding/nevh_drama_ai?style=flat&logo=github&label=Download)](https://github.com/gudangcoding/nevh_drama_ai/releases/latest)
 
-**English** | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+**English** | [한국어](README.ko.md)
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Walkthrough](#-visual-walkthrough) • [Desktop App](#-desktop-app-recommended) • [Deployment](#-deployment)
 
@@ -19,7 +21,7 @@
 
 After deploying, paste the key in "Settings → Huobao Quick Setup" to write three recommended configs in one click
 
-<h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">Download Desktop App (macOS / Windows)</a></h3>
+<h3>📥 <a href="https://github.com/gudangcoding/nevh_drama_ai/releases/latest">Download Desktop App (macOS / Windows)</a></h3>
 
 </div>
 
@@ -87,7 +89,7 @@ Four built-in Mastra agents with database-backed configuration and Skill extensi
 
 ### 🌐 Multi-Language UI
 
-The interface ships in **中文 / English / 日本語 / 한국어**, with a global setting for AI-generated content language.
+The interface ships in **Chinese / English / Japanese / Korean**, with a global setting for AI-generated content language.
 
 ### 🔌 Multi-Provider Support
 
@@ -132,7 +134,7 @@ No config files — everything is set via environment variables (all have defaul
 
 ```bash
 # Clone the repository
-git clone https://github.com/chatfire-AI/huobao-drama.git
+git clone https://github.com/gudangcoding/nevh_drama_ai.git
 cd huobao-drama
 
 # Install backend dependencies
@@ -283,7 +285,7 @@ The episode list shows the production status of every episode — click "Enter S
 
 ### 🖥️ Desktop App (recommended)
 
-**⬇️ Prebuilt installers: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+**⬇️ Prebuilt installers: [GitHub Releases](https://github.com/gudangcoding/nevh_drama_ai/releases/latest)**
 
 | Platform | File to download |
 |---|---|
@@ -455,7 +457,7 @@ HUOBAO_VERSION=4.0.0 docker compose up -d --build
 - **Routing**: File-based routing (Vue Router 4)
 - **Styling**: Pure CSS + CSS Variables
 - **Icons**: Lucide Vue
-- **i18n**: vue-i18n (中文 / English / 日本語 / 한국어)
+- **i18n**: vue-i18n (Chinese / English / Japanese / Korean)
 
 ---
 

@@ -65,6 +65,15 @@ test('auth routes expose register/login/logout/me + profile/password update', ()
   assert.match(route, /requireAuth/)
 })
 
+test('device session allows login-free desktop use without weakening server auth', () => {
+  const route = read('src/routes/auth.ts')
+  // Endpoint sesi perangkat khusus desktop (akun tertua agar data lama tetap terbuka)
+  assert.match(route, /app\.post\('\/device'/)
+  assert.match(route, /HUOBAO_DESKTOP/)
+  assert.match(route, /orderBy\(asc\(schema\.users\.id\)\)/)
+  assert.match(route, /createSession\(user\.id\)/)
+})
+
 test('index.ts mounts public auth + requires auth for the rest of the API', () => {
   const idx = read('src/index.ts')
   assert.match(idx, /api\.route\('\/auth', auth\)/)

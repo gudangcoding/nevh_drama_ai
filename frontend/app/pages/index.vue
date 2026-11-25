@@ -12,9 +12,6 @@
         <span class="tag tag-accent">{{ t('index.hero.styleCount', { n: stylePresets.length }) }}</span>
       </div>
       <div class="head-actions">
-        <button class="btn btn-icon tour-help-btn" :title="t('tour.helpTitle')" @click="startTour('index', INDEX_TOUR, t)">
-          <CircleHelp :size="15" :stroke-width="1.8" />
-        </button>
         <button class="btn btn-ghost" @click="openSynopsisDialog" :title="t('index.synopsis.buttonHint')">
           <Wand2 :size="14" :stroke-width="2" />
           {{ t('index.synopsis.button') }}
@@ -52,7 +49,7 @@
       </div>
     </div>
 
-    <!-- 加载骨架：卡片 -->
+    <!-- Loading skeleton: cards -->
     <div v-if="loading" class="project-grid">
       <div v-for="i in 8" :key="i" class="card skeleton-card">
         <div class="skeleton-cover"></div>
@@ -63,7 +60,7 @@
       </div>
     </div>
 
-    <!-- 项目卡片网格 -->
+    <!-- project card grid -->
     <div v-else-if="filteredDramas.length" class="project-grid">
       <article
         v-for="(d, i) in filteredDramas"
@@ -292,10 +289,9 @@
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { Clock, CircleHelp, Loader2, Sparkles, Wand2 } from 'lucide-vue-next'
+import { Clock, Loader2, Sparkles, Wand2 } from 'lucide-vue-next'
 import { dramaAPI, stylePresetAPI, synopsisAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
-import { startTour, autoTour } from '~/composables/useTour'
 import { useStylePresetLocale } from '~/composables/useStylePresetLocale'
 
 const { t, locale } = useI18n()
@@ -521,18 +517,10 @@ function fmtDate(s) {
   if (diff < 3600000) return t('index.time.minutesAgo', { n: Math.floor(diff / 60000) })
   if (diff < 86400000) return t('index.time.hoursAgo', { n: Math.floor(diff / 3600000) })
   if (diff < 604800000) return t('index.time.daysAgo', { n: Math.floor(diff / 86400000) })
-  return d.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : locale.value, { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
 }
 
 onMounted(load)
-
-// ===== Panduan dalam aplikasi (beranda): 3 langkah — selamat datang / buat proyek / pengingat konfigurasi AI =====
-const INDEX_TOUR = [
-  { element: '#__nuxt', titleKey: 'tour.index.welcome.title', descKey: 'tour.index.welcome.desc' },
-  { element: '.nav-link[href="/settings"]', titleKey: 'tour.index.settings.title', descKey: 'tour.index.settings.desc', popoverSide: 'bottom' },
-  { element: '.head-actions .btn-primary', titleKey: 'tour.index.create.title', descKey: 'tour.index.create.desc', popoverSide: 'bottom', popoverAlign: 'end' },
-]
-onMounted(() => setTimeout(() => autoTour('index', INDEX_TOUR, t), 600))
 </script>
 
 <style scoped>
@@ -610,7 +598,7 @@ onMounted(() => setTimeout(() => autoTour('index', INDEX_TOUR, t), 600))
 .filter-chip.on { background: var(--inverse-surface); color: var(--on-inverse); }
 .sort-select-wrap { margin-left: auto; width: 132px; flex-shrink: 0; }
 
-/* 项目卡片网格 */
+/* project card grid */
 .project-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

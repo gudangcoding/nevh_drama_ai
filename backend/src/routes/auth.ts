@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, badRequest } from '../utils/response.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -8,6 +8,7 @@ import {
   isUsernameValid,
   loginUser,
   registerUser,
+  createSession,
   deleteSessionByToken,
   hashPassword,
   verifyPassword,
@@ -17,6 +18,19 @@ import {
 import { now } from '../utils/response.js'
 
 const app = new Hono()
+
+// POST /auth/device — sesi otomatis tanpa login (KHUSUS aplikasi desktop).
+// Mengembalikan token untuk akun tertua di perangkat ini (instalasi lama tetap
+// membuka data miliknya; instalasi baru memakai akun admin default). Di luar
+// desktop (HUOBAO_DESKTOP!=1) endpoint ini mati agar tidak menjadi celah.
+app.post('/device', async (c) => {
+  if (process.env.HUOBAO_DESKTOP !== '1') return badRequest(c, 'Mode tanpa login hanya tersedia di aplikasi desktop')
+  const users = await db.select().from(schema.users).orderBy(asc(schema.users.id))
+  const user = users[0]
+  if (!user) return badRequest(c, 'Belum ada akun di perangkat ini')
+  const token = await createSession(user.id)
+  return success(c, { token, user: { id: user.id, username: user.username, role: user.role } })
+})
 
 // POST /auth/register — mendaftar akun user biasa (role 'user'), langsung auto-login
 app.post('/register', async (c) => {

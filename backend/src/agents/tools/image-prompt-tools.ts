@@ -1,12 +1,12 @@
 /**
- * Tool Agent Pembuat Prompt
- * Singleton tingkat modul — dramaId disuntikkan per permintaan melalui RequestContext
+ * Prompt Generator Agent tools
+ * Module-level singleton - dramaId injected per request via RequestContext
  *
- * Agent bertanggung jawab membuat prompt final:
- * 1. Karakter → Tiga tampilan (character turnaround: depan/samping/belakang)
- * 2. Adegan → Sudut tetap + komposisi berlapis latar depan/latar tengah/latar belakang
- * 3. Prop → Objek statis latar putih (single product shot on pure white background)
- * Tool bertanggung jawab membaca informasi aset dan menyimpan prompt final yang dihasilkan Agent (saat menyimpan, gaya visual proyek disuntikkan)
+ * Agent is responsible for creating final prompts:
+ * 1. Character -> Three-view turnaround (front/side/back)
+ * 2. Scene -> Fixed angle + layered foreground/midground/background composition
+ * 3. Prop -> Static object on pure white background (single product shot)
+ * Tools read asset info and save Agent-generated final prompts (project visual style injected on save)
  */
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
@@ -16,11 +16,11 @@ import { now } from '../../utils/response.js'
 import { getDramaStylePrompt } from '../../services/style-preset.js'
 import { getDramaId } from '../context.js'
 
-// ─── Prompt Karakter ───────────────────────────────────────
+// -- Character Prompts --
 
 const readCharacters = createTool({
   id: 'read_characters',
-  description: '读取当前剧集中的所有角色信息，用于生成角色三视图最终提示词。',
+  description: 'Read all character info in the current drama for generating character three-view final prompts.',
   inputSchema: z.object({}),
   execute: async (_input, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -44,10 +44,10 @@ const readCharacters = createTool({
 
 const saveCharacterFinalPrompt = createTool({
   id: 'save_character_final_prompt',
-  description: '保存为角色创作的三视图最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
+  description: 'Save the character three-view final prompt. Project visual style is auto-appended by the tool; do not include style words in prompt.',
   inputSchema: z.object({
     character_id: z.number(),
-    prompt: z.string().describe('角色三视图最终提示词（使用会话语言指令指定的目标语言，不含风格词）'),
+    prompt: z.string().describe('Character three-view final prompt (in session target language, without style words)'),
   }),
   execute: async ({ character_id, prompt }, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -71,11 +71,11 @@ const saveCharacterFinalPrompt = createTool({
   },
 })
 
-// ─── Prompt Adegan ───────────────────────────────────────
+// -- Scene Prompts --
 
 const readScenes = createTool({
   id: 'read_scenes',
-  description: '读取当前剧集中的所有场景信息，用于生成场景固定视角最终提示词。',
+  description: 'Read all scene info in the current drama for generating scene fixed-angle final prompts.',
   inputSchema: z.object({}),
   execute: async (_input, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -98,10 +98,10 @@ const readScenes = createTool({
 
 const saveSceneFinalPrompt = createTool({
   id: 'save_scene_final_prompt',
-  description: '保存为场景创作的固定视角（前景/中景/后景）最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
+  description: 'Save the scene fixed-angle (foreground/midground/background) final prompt. Project visual style is auto-appended by the tool; do not include style words in prompt.',
   inputSchema: z.object({
     scene_id: z.number(),
-    prompt: z.string().describe('场景固定视角最终提示词（使用会话语言指令指定的目标语言，不含风格词）'),
+    prompt: z.string().describe('Scene fixed-angle final prompt (in session target language, without style words)'),
   }),
   execute: async ({ scene_id, prompt }, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -125,11 +125,11 @@ const saveSceneFinalPrompt = createTool({
   },
 })
 
-// ─── Prompt Prop ───────────────────────────────────────
+// -- Prop Prompts --
 
 const readProps = createTool({
   id: 'read_props',
-  description: '读取当前剧集项目中的所有道具信息，用于生成道具白底单品最终提示词。',
+  description: 'Read all prop info in the current drama for generating prop white-background product final prompts.',
   inputSchema: z.object({}),
   execute: async (_input, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -151,10 +151,10 @@ const readProps = createTool({
 
 const savePropFinalPrompt = createTool({
   id: 'save_prop_final_prompt',
-  description: '保存为道具创作的白底单品最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
+  description: 'Save the prop white-background single-product final prompt. Project visual style is auto-appended by the tool; do not include style words in prompt.',
   inputSchema: z.object({
     prop_id: z.number(),
-    prompt: z.string().describe('道具白底单品最终提示词（使用会话语言指令指定的目标语言，不含风格词）'),
+    prompt: z.string().describe('Prop white-background single-product final prompt (in session target language, without style words)'),
   }),
   execute: async ({ prop_id, prompt }, context) => {
     const dramaId = getDramaId(context?.requestContext)

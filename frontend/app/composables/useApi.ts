@@ -1,8 +1,25 @@
 const BASE = '/api/v1'
 
-import { getAuthToken, clearAuthToken } from './useAuthToken'
+import { getAuthToken, setAuthToken, clearAuthToken } from './useAuthToken'
 
-async function req<T = any>(method: string, path: string, body?: any): Promise<T> {
+/** Minta sesi perangkat baru (tanpa login) — dipakai sekali saat token ditolak */
+async function refreshDeviceSession(): Promise<boolean> {
+  try {
+    const resp = await fetch(`${BASE}/auth/device`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const json = await resp.json().catch(() => null)
+    const token = json?.data?.token || json?.token
+    if (resp.ok && token) {
+      setAuthToken(token)
+      return true
+    }
+  } catch { /* abaikan, fallback ke beranda */ }
+  return false
+}
+
+async function req<T = any>(method: string, path: string, body?: any, retried = false): Promise<T> {
   const token = getAuthToken()
   const opts: RequestInit = {
     method,
@@ -21,13 +38,14 @@ async function req<T = any>(method: string, path: string, body?: any): Promise<T
     const json = await resp.json()
     const ms = Math.round(performance.now() - start)
 
-    // Sesi tidak valid/kedaluwarsa: bersihkan token lalu arahkan ke halaman masuk
-    if (resp.status === 401 && !path.startsWith('/auth/login') && !path.startsWith('/auth/register')) {
+    // Token ditolak: coba sesi perangkat sekali lalu ulangi request; bila tetap
+    // gagal muat ulang beranda (tanpa halaman login — sudah dihapus)
+    if (resp.status === 401 && !path.startsWith('/auth/') && !retried) {
       clearAuthToken()
-      if (typeof window !== 'undefined') {
-        const loc = window.location.pathname
-        if (!loc.startsWith('/login') && !loc.startsWith('/register')) window.location.assign('/login')
+      if (await refreshDeviceSession()) {
+        return req<T>(method, path, body, true)
       }
+      if (typeof window !== 'undefined') window.location.assign('/')
     }
 
     if (!resp.ok || (json.code && json.code >= 400)) {

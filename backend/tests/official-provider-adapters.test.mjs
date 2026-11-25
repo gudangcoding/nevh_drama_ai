@@ -181,13 +181,13 @@ test('new image and video models use their current API shapes', () => {
   assert.match(geminiImage, /response_format/)
   assert.doesNotMatch(geminiImage, /Authorization': `Bearer/)
   assert.match(volcVideo, /doubao-seedance-2-0-mini-260615/)
-  // Seedance 2.0 多模态能力
+  // Seedance 2.0 \u591a\u6a21\u6001\u80fd\u529b
   assert.match(volcVideo, /SEEDANCE2_MODEL_PREFIX/)
   assert.match(volcVideo, /startsWith\(SEEDANCE2_MODEL_PREFIX\)/)
   assert.match(volcVideo, /reference_video/)
   assert.match(volcVideo, /reference_audio/)
   assert.match(volcVideo, /generate_audio:\s*record\.generateAudio/)
-  // Wan 3.0 使用阿里云百炼官方异步视频生成协议
+  // Wan 3.0 \u4f7f\u7528\u963f\u91cc\u4e91\u767e\u70bc\u5b98\u65b9\u5f02\u6b65\u89c6\u9891\u751f\u6210\u534f\u8bae
   assert.match(wanVideo, /wan3\.0-video-prime/)
   assert.match(wanVideo, /wan3\.0-video/)
   assert.match(wanVideo, /\/services\/aigc\/video-generation\/video-synthesis/)

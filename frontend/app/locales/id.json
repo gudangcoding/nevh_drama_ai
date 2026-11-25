@@ -968,58 +968,6 @@
     "requestFailed": "Permintaan gagal ({status})",
     "unknown": "Operasi gagal. Harap coba lagi."
   },
-  "tour": {
-    "next": "Berikutnya",
-    "prev": "Kembali",
-    "done": "Selesai",
-    "helpTitle": "Panduan",
-    "index": {
-      "welcome": {
-        "title": "👋 Selamat datang di Nevh Drama",
-        "desc": "Novel → skrip → aset → storyboard → video → final cut, semua dalam satu tempat. Konfigurasi layanan AI terlebih dahulu, lalu buat proyek pertama Anda."
-      },
-      "create": {
-        "title": "Langkah 2 · Buat proyek",
-        "desc": "Klik \"Proyek Baru\": beri nama, pilih rasio aspek (lanskap/potret) dan gaya visual."
-      },
-      "settings": {
-        "title": "Langkah 1 · Konfigurasi layanan AI",
-        "desc": "Setiap fitur AI membutuhkan ini terlebih dahulu. Buka Pengaturan dan tempel Kunci API Nevh untuk mengatur teks/gambar/video dalam satu klik."
-      }
-    },
-    "settings": {
-      "quick": {
-        "title": "Pengaturan tercepat: Pengaturan Cepat",
-        "desc": "Tempel Kunci API Nevh untuk menulis tiga konfigurasi yang direkomendasikan (teks/gambar/video) sekaligus, dengan pengujian konektivitas."
-      },
-      "nav": {
-        "title": "Segalanya ada di sini",
-        "desc": "Ganti bagian di kiri: layanan AI, umum (bahasa UI & konten), preset gaya, prompt & skill agen, penyimpanan, tentang."
-      }
-    },
-    "episode": {
-      "topbar": {
-        "title": "Bilah atas: model & status",
-        "desc": "Ganti model teks/gambar/video untuk sesi ini kapan saja; resolusi dan durasi mengikuti model."
-      },
-      "script": {
-        "title": "Langkah 1 · Skrip",
-        "desc": "(Prasyarat: layanan AI dikonfigurasi di Pengaturan.) Tempel novel sumber dan jalankan \"Tulis Ulang AI\" untuk mendapatkan skrip syuting."
-      },
-      "assets": {
-        "title": "Langkah 2 · Aset",
-        "desc": "Ekstrak karakter/adegan/properti dan buat gambar referensi yang konsisten, disuntikkan sebagai materi referensi untuk video."
-      },
-      "videos": {
-        "title": "Langkah 3 · Produksi video",
-        "desc": "Pecah storyboard → tinjau prompt → buat video secara massal; coba ulang kegagalan dalam satu klik. Lalu gabung & ekspor."
-      },
-      "help": {
-        "title": "Putar ulang kapan saja",
-        "desc": "Klik tombol \"?\" ini untuk memutar ulang panduan halaman ini. Selamat berkreasi!"
-      }
-    }
-  },
   "auth": {
     "subtitle": "Produser Drama AI",
     "registerTitle": "Buat Akun Baru",

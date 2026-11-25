@@ -1,11 +1,11 @@
 /**
- * Tool Agent Ekstrak Karakter/Adegan
- * Singleton tingkat modul — episodeId + dramaId disuntikkan per permintaan melalui RequestContext
+ * Character/Scene Extraction Agent tools
+ * Module-level singleton - episodeId + dramaId injected per request via RequestContext
  *
- * Alur satu langkah untuk satu Agent:
- * 1. Membaca konten scenario
- * 2. Membaca karakter/adegan yang sudah ada dalam proyek (untuk deduplikasi)
- * 3. Mengekstrak karakter/adegan dan menyimpan langsung dengan deduplikasi cerdas
+ * Single-pass flow for one Agent:
+ * 1. Read scenario content
+ * 2. Read existing characters/scenes in project (for deduplication)
+ * 3. Extract characters/scenes and save directly with smart deduplication
  */
 import { createTool } from '@mastra/core/tools'
 import type { ToolExecutionContext } from '@mastra/core/tools'
@@ -16,7 +16,7 @@ import { now } from '../../utils/response.js'
 import { logTaskProgress, logTaskSuccess } from '../../utils/task-logger.js'
 import { getDramaId, getEpisodeId } from '../context.js'
 
-// ─── Bantuan Penghubung ────────────────────────────────────────────────
+// -- Linking helpers --
 async function linkCharToEpisode(episodeId: number, characterId: number) {
   const ts = now()
   const existing = await db.select().from(schema.episodeCharacters)
@@ -47,19 +47,19 @@ async function linkPropToEpisode(episodeId: number, propId: number) {
   }
 }
 
-// ─── Normalisasi Nama (Deduplikasi Nama Mirip) ───────────────────────────────────
-// Saat ekstraksi, karakter/prop yang sama mungkin muncul dalam bentuk penulisan berbeda (misalnya "林小雨" dan "林小雨（主角）",
-// "林小雨(女主)", "林小雨 "). Setelah dinormalisasi, dilakukan perbandingan tepat, jika cocok maka menggunakan yang sudah ada, tidak membuat duplikat.
+// -- Name normalization (similar-name dedup) --
+// During extraction, the same character/prop may appear in different forms (e.g. "Lin Xiaoyu" and "Lin Xiaoyu (protagonist)",
+// "Lin Xiaoyu (lead)"). After normalization, exact comparison is used; if matched, reuse existing, do not create duplicates.
 function normalizeName(name: string): string {
   return (name || '')
-    .replace(/[（(][^（()）]*[）)]/g, '') // Menghapus isi kurung Tiongkok/Inggris yang berpasangan (posisi karakter/alias)
-    .replace(/[（(].*$/, '')              // Cadangan: memotong dari kurung pertama jika tidak tertutup
-    .replace(/[\s　]+/g, '')          // Menghapus spasi dan spasi full-width
+    .replace(/[\uff08(][^\uff08()\uff09]*[\uff09)]/g, '') // Remove paired CN/EN parentheses content (role/alias)
+    .replace(/[\uff08(].*$/, '')              // Fallback: cut from first unclosed parenthesis
+    .replace(/[\s　]+/g, '')          // Remove spaces and full-width spaces
     .toLowerCase()
     .trim()
 }
 
-// Lokasi adegan hanya dinormalisasi spasi (tidak menghapus kurung: misalnya "火车站（候车厅）" dan "火车站（站台）" adalah adegan berbeda)
+// Scene location only normalizes whitespace (does not remove parentheses: e.g. "Station (Hall)" and "Station (Platform)" are different scenes)
 function normalizeLocation(loc: string): string {
   return (loc || '').replace(/[\s　]+/g, '').toLowerCase().trim()
 }
@@ -73,7 +73,7 @@ function requireIds(context: ToolContext): { episodeId: number; dramaId: number 
   return { episodeId, dramaId }
 }
 
-// 1. Membaca konten scenario
+// 1. Read scenario content
 const readScriptForExtraction = createTool({
   id: 'read_script_for_extraction',
   description: 'Read the formatted screenplay for character/scene extraction.',
@@ -92,7 +92,7 @@ const readScriptForExtraction = createTool({
   },
 })
 
-// 2. Membaca karakter yang sudah ada dalam proyek (untuk penilaian deduplikasi)
+// 2. Read existing project characters (for dedup judgment)
 const readExistingCharacters = createTool({
   id: 'read_existing_characters',
   description: 'Read all characters already existing in this drama project (for deduplication).',
@@ -113,7 +113,7 @@ const readExistingCharacters = createTool({
       role: c.role || '',
       appearance: c.appearance || '',
       styling: c.styling || '',
-      normalized_name: normalizeName(c.name), // Untuk menentukan penggunaan nama mirip: kurung posisi/alias dianggap sebagai nama yang sama
+      normalized_name: normalizeName(c.name), // For similar-name matching: role/alias in parentheses treated as same name
     }))
     const payload = {
       count: visibleChars.length,
@@ -130,7 +130,7 @@ const readExistingCharacters = createTool({
   },
 })
 
-// 3. Membaca adegan yang sudah ada dalam proyek (untuk penilaian deduplikasi)
+// 3. Read existing project scenes (for dedup judgment)
 const readExistingScenes = createTool({
   id: 'read_existing_scenes',
   description: 'Read all scenes already existing in this drama project (for deduplication).',
@@ -151,7 +151,7 @@ const readExistingScenes = createTool({
       time: s.time || '',
       prompt: s.prompt || '',
       lighting: s.lighting || '',
-      normalized_location: normalizeLocation(s.location), // Untuk menentukan penggunaan nama mirip (hanya spasi/huruf besar-kecil)
+      normalized_location: normalizeLocation(s.location), // For similar-name matching (whitespace/case only)
     }))
     const payload = {
       count: visibleScenes.length,
@@ -168,7 +168,7 @@ const readExistingScenes = createTool({
   },
 })
 
-// 4. Menyimpan karakter secara cerdas (deduplikasi berdasarkan nama, menggabungkan dengan data yang ada)
+// 4. Save characters smartly (dedup by name, merge with existing)
 const saveDedupCharacters = createTool({
   id: 'save_dedup_characters',
   description: 'Save extracted characters with deduplication. Existing characters (same name) are merged/updated; new ones are created. All are linked to the current episode.',
@@ -203,9 +203,9 @@ const saveDedupCharacters = createTool({
       const matchedViaNorm = !!existing && existing !== exact
 
       if (existing) {
-        // Normalisasi cocok: nama mirip seperti kurung posisi/alias dianggap sebagai karakter yang sama untuk digunakan kembali, menghindari pembuatan duplikat
+        // Normalization match: similar names like role/alias in parentheses treated as same character to reuse, avoiding duplicates
         if (matchedViaNorm) logTaskProgress('ExtractTool', 'save-characters-reuse', { episodeId, dramaId, extracted: char.name, reused: existing.name })
-        // Sudah ada: menggabungkan informasi, mempertahankan ID
+        // Already exists: merge info, keep ID
         await db.update(schema.characters).set({
           role: char.role || existing.role,
           description: char.description || existing.description,
@@ -216,7 +216,7 @@ const saveDedupCharacters = createTool({
         await linkCharToEpisode(episodeId, existing.id)
         results.merged++
       } else {
-        // Karakter baru
+        // New character
         const res = await db.insert(schema.characters).values({
           name: char.name,
           role: char.role || '',
@@ -234,7 +234,7 @@ const saveDedupCharacters = createTool({
     }
 
     const payload = {
-      message: `角色保存完成：新增 ${results.created}，合并更新 ${results.merged}`,
+      message: `Characters saved: created ${results.created}, merged/updated ${results.merged}`,
       ...results,
     }
     logTaskSuccess('ExtractTool', 'save-characters-complete', { episodeId, ...results })
@@ -242,7 +242,7 @@ const saveDedupCharacters = createTool({
   },
 })
 
-// 5. Menyimpan adegan secara cerdas (deduplikasi berdasarkan lokasi+waktu, menggabungkan dengan data yang ada)
+// 5. Save scenes smartly (dedup by location+time, merge with existing)
 const saveDedupScenes = createTool({
   id: 'save_dedup_scenes',
   description: 'Save extracted scenes with deduplication. Existing scenes (same location+time) are reused; new ones are created. All are linked to the current episode.',
@@ -268,7 +268,7 @@ const saveDedupScenes = createTool({
     })
 
     for (const scene of scenes) {
-      // Pencocokan tepat berdasarkan lokasi+waktu; lokasi hanya dinormalisasi spasi/huruf besar-kecil (tidak menghapus kurung, menghindari penggabungan yang salah)
+      // Exact match by location+time; location normalizes whitespace/case only (no parenthesis removal, avoids wrong merge)
       const scenesInProject = (await db.select().from(schema.scenes)
         .where(eq(schema.scenes.dramaId, dramaId)))
         .filter(s => !s.deletedAt)
@@ -277,7 +277,7 @@ const saveDedupScenes = createTool({
         || (normLocation ? scenesInProject.find(s => normalizeLocation(s.location) === normLocation && s.time === (scene.time || '')) : undefined)
 
       if (existing) {
-        // Adegan dengan pencocokan lengkap sudah ada: menghubungkan dan melengkapi deskripsi/pencahayaan
+        // Fully matched scene exists: link and fill description/lighting
         await db.update(schema.scenes).set({
           prompt: scene.prompt || scene.description || existing.prompt,
           lighting: scene.lighting || existing.lighting,
@@ -302,7 +302,7 @@ const saveDedupScenes = createTool({
     }
 
     const payload = {
-      message: `场景保存完成：新增 ${results.created}，复用已有 ${results.reused}`,
+      message: `Scenes saved: created ${results.created}, reused existing ${results.reused}`,
       ...results,
     }
     logTaskSuccess('ExtractTool', 'save-scenes-complete', { episodeId, ...results })
@@ -310,7 +310,7 @@ const saveDedupScenes = createTool({
   },
 })
 
-// 6. Membaca prop yang sudah ada dalam proyek (untuk penilaian deduplikasi)
+// 6. Read existing project props (for dedup judgment)
 const readExistingProps = createTool({
   id: 'read_existing_props',
   description: 'Read all props already existing in this drama project (for deduplication).',
@@ -330,7 +330,7 @@ const readExistingProps = createTool({
       name: p.name,
       type: p.type || '',
       description: p.description || '',
-      normalized_name: normalizeName(p.name), // Untuk menentukan penggunaan nama mirip: kurung posisi/alias dianggap sebagai nama yang sama
+      normalized_name: normalizeName(p.name), // For similar-name matching: role/alias in parentheses treated as same name
     }))
     const payload = {
       count: visibleProps.length,
@@ -347,7 +347,7 @@ const readExistingProps = createTool({
   },
 })
 
-// 7. Menyimpan prop secara cerdas (deduplikasi berdasarkan nama, menggabungkan dengan data yang ada)
+// 7. Save props smartly (dedup by name, merge with existing)
 const saveDedupProps = createTool({
   id: 'save_dedup_props',
   description: 'Save extracted props with deduplication. Existing props (same name) are merged/updated; new ones are created. All are linked to the current episode.',
@@ -380,9 +380,9 @@ const saveDedupProps = createTool({
       const matchedViaNorm = !!existing && existing !== exact
 
       if (existing) {
-        // Normalisasi cocok: nama mirip seperti kurung posisi/alias dianggap sebagai prop yang sama untuk digunakan kembali
+        // Normalization match: similar names like role/alias in parentheses treated as same prop to reuse
         if (matchedViaNorm) logTaskProgress('ExtractTool', 'save-props-reuse', { episodeId, dramaId, extracted: prop.name, reused: existing.name })
-        // Sudah ada: menggabungkan informasi, mempertahankan ID; prompt final lama menjadi tidak valid setelah penampilan objek berubah
+        // Already exists: merge info, keep ID; prompt final lama menjadi tidak valid setelah penampilan objek berubah
         await db.update(schema.props).set({
           type: prop.type || existing.type,
           description: prop.description || existing.description,
@@ -407,7 +407,7 @@ const saveDedupProps = createTool({
     }
 
     const payload = {
-      message: `道具保存完成：新增 ${results.created}，合并更新 ${results.merged}`,
+      message: `Props saved: created ${results.created}, merged/updated ${results.merged}`,
       ...results,
     }
     logTaskSuccess('ExtractTool', 'save-props-complete', { episodeId, ...results })

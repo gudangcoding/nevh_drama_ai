@@ -1,16 +1,16 @@
 /**
- * 生成应用内更新器使用的版本清单 latest.json
+ * Generate latest.json, the version manifest used by the in-app updater.
  *
- * 用法：npm run dist / dist:win 完成后执行 `node scripts/make-update-feed.mjs`
- *   --base-url <url>  下载基址，默认 GitHub Releases 直链
- *                     （https://github.com/<owner>/<repo>/releases/download/v<version>）
- *   --notes "文本"    本次更新说明
+ * Usage: after `npm run dist` / `npm run dist:win`, run `node scripts/make-update-feed.mjs`
+ *   --base-url <url>  Download base URL; defaults to the direct GitHub Releases link
+ *                     (https://github.com/<owner>/<repo>/releases/download/v<version>)
+ *   --notes "text"    Release notes for this update
  *
- * 产物 release/latest.json 结构：
+ * Output release/latest.json structure:
  * { version, notes, platforms: { "<platform>-<arch>": { url, sha256, size } } }
  *
- * 发布：把 latest.json 与安装包一起上传到 GitHub Release（tag 形如 v1.0.1），
- * 更新器默认拉 releases/latest/download/latest.json 即完成推送。
+ * Publishing: upload latest.json together with the installers to a GitHub Release (tag like v1.0.1);
+ * the updater fetches releases/latest/download/latest.json by default, which completes the rollout.
  */
 import fs from 'fs'
 import path from 'path'
@@ -29,7 +29,7 @@ function argOf(flag) {
 
 const pkg = JSON.parse(fs.readFileSync(path.join(DESKTOP, 'package.json'), 'utf8'))
 const version = pkg.version
-const repo = process.env.GITHUB_REPO || 'chatfire-AI/huobao-drama'
+const repo = process.env.GITHUB_REPO || 'gudangcoding/nevh_drama_ai'
 const baseUrl = argOf('--base-url')
   || process.env.UPDATE_BASE_URL
   || `https://github.com/${repo}/releases/download/v${version}`
@@ -45,8 +45,8 @@ function sha256(file) {
   })
 }
 
-// 平台键（与更新器 process.platform-process.arch 一致）→ 产物文件名
-// （electron-builder 的 mac zip 命名带 -mac 后缀）
+// Platform keys (matching updater process.platform-process.arch) -> artifact file names
+// (electron-builder adds a -mac suffix to mac zip names)
 const targets = [
   { key: 'darwin-arm64', file: `Nevh Drama-${version}-arm64-mac.zip` },
   { key: 'darwin-x64', file: `Nevh Drama-${version}-mac.zip` },
@@ -62,8 +62,8 @@ for (const t of targets) {
     continue
   }
   platforms[t.key] = {
-    // GitHub 上传资产时会把空格规范化为点号(gh CLI 与 API 均如此,无法保留空格),
-    // URL 必须按服务端实际资产名生成,否则下载 404
+    // GitHub normalizes spaces in asset names to dots (both gh CLI and API do this; spaces cannot be kept),
+    // so URLs must use the server's actual asset name or downloads return 404
     url: `${baseUrl}/${encodeURIComponent(t.file.replace(/ /g, '.'))}`,
     sha256: await sha256(file),
     size: fs.statSync(file).size,
@@ -71,13 +71,13 @@ for (const t of targets) {
 }
 
 if (missing.length === targets.length) {
-  console.error('release/ 下没有任何更新产物，请先运行 npm run dist / dist:win')
+  console.error('No update artifacts found under release/; run npm run dist / dist:win first')
   process.exit(1)
 }
 
 const feed = { version, notes, platforms }
 const out = path.join(RELEASE, 'latest.json')
 fs.writeFileSync(out, JSON.stringify(feed, null, 2))
-console.log(`latest.json ✓ (${Object.keys(platforms).length} 平台)`)
-if (missing.length) console.warn(`缺失产物（未纳入清单）: ${missing.join(', ')}`)
+console.log(`latest.json ✓ (${Object.keys(platforms).length} platforms)`)
+if (missing.length) console.warn(`Missing artifacts (not included in the manifest): ${missing.join(', ')}`)
 console.log(out)

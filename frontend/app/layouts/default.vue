@@ -29,7 +29,7 @@
       <div class="header-right">
         <a
           class="github-link"
-          href="https://github.com/chatfire-AI/huobao-drama"
+          href="https://github.com/gudangcoding/nevh_drama_ai"
           target="_blank"
           rel="noopener"
           aria-label="GitHub"
@@ -43,9 +43,6 @@
             <span class="user-name">{{ user.username }}</span>
             <span class="user-role" :class="isAdmin ? 'is-admin' : ''">{{ isAdmin ? t('auth.roleAdmin') : t('auth.roleUser') }}</span>
           </span>
-          <button class="user-logout" :title="t('auth.logout')" @click.stop="onLogout">
-            <LogOut :size="14" :stroke-width="1.8" />
-          </button>
         </div>
         <ThemeToggle />
         <LocaleSwitcher />
@@ -68,7 +65,7 @@
 </template>
 
 <script setup>
-import { LayoutGrid, Settings, TriangleAlert, Github, LogOut } from 'lucide-vue-next'
+import { LayoutGrid, Settings, TriangleAlert, Github } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { aiConfigAPI } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
@@ -77,13 +74,8 @@ import brandLogo from '~/assets/nevh-logo.png'
 const { t, locale } = useI18n()
 const route = useRoute()
 const showBrandImage = ref(true)
-const { user, isAdmin, logout } = useAuth()
+const { user, isAdmin } = useAuth()
 const profileOpen = ref(false)
-
-async function onLogout() {
-  await logout()
-  await navigateTo('/login')
-}
 
 // Dievaluasi saat render, peralihan bahasa berlaku secara instan (tidak dapat dierasikan sebagai konstanta level modul)
 const SERVICE_TYPE_LABELS = computed(() => ({
@@ -104,7 +96,7 @@ async function checkAiConfigs() {
 }
 
 onMounted(checkAiConfigs)
-// Setelah menyimpan konfigurasi di halaman pengaturan dan kembali, periksa ulang (layout digunakan di多个 halaman, onMounted hanya dipicu sekali)
+// Setelah menyimpan konfigurasi di halaman pengaturan dan kembali, periksa ulang (layout dipakai di banyak halaman, onMounted hanya dipicu sekali)
 watch(() => route.path, checkAiConfigs)
 // Saat mengganti bahasa antarmuka, teks tipe yang sudah disusun di banner perlu dihitung ulang
 watch(locale, checkAiConfigs)
@@ -208,7 +200,7 @@ watch(locale, checkAiConfigs)
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 
-/* Chip pengguna (username + role + logout) */
+/* Chip pengguna (username + role) */
 .user-chip {
   display: flex;
   align-items: center;
@@ -246,20 +238,6 @@ watch(locale, checkAiConfigs)
   color: var(--text-3);
 }
 .user-role.is-admin { color: var(--accent, #f04a24); }
-.user-logout {
-  display: flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px;
-  border: none; border-radius: 50%;
-  background: transparent;
-  color: var(--text-2);
-  cursor: pointer;
-  transition: all 0.18s var(--ease-out);
-}
-.user-logout:hover { color: var(--danger, #ef4444); background: var(--bg-hover); }
-.user-logout:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3.5px var(--button-focus);
-}
 .nav-link {
   display: flex; align-items: center; gap: 6px;
   min-height: 32px;

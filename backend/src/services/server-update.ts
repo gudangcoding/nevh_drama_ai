@@ -12,7 +12,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const FEED_URL = process.env.HUOBAO_UPDATE_FEED
-  || 'https://github.com/chatfire-AI/huobao-drama/releases/latest/download/latest.json'
+  || 'https://github.com/gudangcoding/nevh_drama_ai/releases/latest/download/latest.json'
 
 const WATCHTOWER_URL = process.env.HUOBAO_WATCHTOWER_URL?.replace(/\/+$/, '')
 const WATCHTOWER_TOKEN = process.env.HUOBAO_WATCHTOWER_TOKEN || ''

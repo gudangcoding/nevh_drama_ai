@@ -920,58 +920,6 @@
     "requestFailed": "Request failed ({status})",
     "unknown": "Operation failed. Please try again."
   },
-  "tour": {
-    "next": "Next",
-    "prev": "Back",
-    "done": "Done",
-    "helpTitle": "Guide",
-    "index": {
-      "welcome": {
-        "title": "👋 Welcome to Nevh Drama",
-        "desc": "Novel → script → assets → storyboard → video → final cut, all in one place. Configure AI services first, then create your first project."
-      },
-      "create": {
-        "title": "Step 2 · Create a project",
-        "desc": "Click \"New Project\": name it, pick an aspect ratio (landscape/portrait) and a visual style."
-      },
-      "settings": {
-        "title": "Step 1 · Configure AI services",
-        "desc": "Every AI feature needs this first. Open Settings and paste a Nevh API Key to set up text/image/video in one click."
-      }
-    },
-    "settings": {
-      "quick": {
-        "title": "Fastest setup: Quick Setup",
-        "desc": "Paste a Nevh API Key to write the three recommended configs (text/image/video) at once, with connectivity testing."
-      },
-      "nav": {
-        "title": "Everything lives here",
-        "desc": "Switch sections on the left: AI services, general (UI & content language), style presets, agent prompts & skills, storage, about."
-      }
-    },
-    "episode": {
-      "topbar": {
-        "title": "Top bar: models & status",
-        "desc": "Switch the text/image/video model for this session any time; resolution and duration tiers follow the model."
-      },
-      "script": {
-        "title": "Step 1 · Script",
-        "desc": "(Prerequisite: AI services configured in Settings.) Paste the source novel and run \"AI Rewrite\" to get a shooting script."
-      },
-      "assets": {
-        "title": "Step 2 · Assets",
-        "desc": "Extract characters/scenes/props and generate consistent reference images, injected as reference material for videos."
-      },
-      "videos": {
-        "title": "Step 3 · Video production",
-        "desc": "Break down the storyboard → review prompts → batch-generate videos; retry failures in one click. Then merge & export."
-      },
-      "help": {
-        "title": "Replay anytime",
-        "desc": "Click this \"?\" button to replay this page's guide. Happy creating!"
-      }
-    }
-  },
   "auth": {
     "subtitle": "AI Drama Producer",
     "registerTitle": "Create New Account",

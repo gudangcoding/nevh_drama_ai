@@ -1,28 +1,28 @@
 # syntax=docker/dockerfile:1
 
-# ===== 前端构建：Nuxt generate 产出静态站点 =====
+# ===== Frontend build: Nuxt generate produces a static site =====
 FROM node:20-bookworm-slim AS frontend-build
 WORKDIR /build/frontend
 COPY frontend/package.json frontend/package-lock.json ./
-# lockfile 的 resolved 可能指向带鉴权的私有 registry（开发者本机 .npmrc），镜像内会 401。
-# 构建期删除 resolved 字段（integrity 校验不受影响），让 npm 统一走公共 registry
+# The lockfile's "resolved" URLs may point to an authenticated private registry (developer's local .npmrc), which returns 401 inside the image.
+# Remove "resolved" during the build (integrity checks are unaffected) so npm uses the public registry consistently
 RUN node -e "const fs=require('fs');const l=JSON.parse(fs.readFileSync('package-lock.json'));for(const p of Object.values(l.packages||{}))delete p.resolved;fs.writeFileSync('package-lock.json',JSON.stringify(l,null,2))" \
   && npm ci --no-audit --no-fund --registry=https://registry.npmjs.org
 COPY frontend/ ./
 RUN npm run generate
 
-# ===== 后端构建：安装依赖（含原生模块编译） =====
+# ===== Backend build: install dependencies (including native module compilation) =====
 FROM node:20-bookworm AS backend-build
 WORKDIR /build/backend
 COPY backend/package.json backend/package-lock.json ./
 RUN node -e "const fs=require('fs');const l=JSON.parse(fs.readFileSync('package-lock.json'));for(const p of Object.values(l.packages||{}))delete p.resolved;fs.writeFileSync('package-lock.json',JSON.stringify(l,null,2))" \
   && npm ci --no-audit --no-fund --registry=https://registry.npmjs.org
 COPY backend/ ./
-# 运行时与既有服务器部署一致走 tsx（源码存在 bundler 风格无扩展名 import，tsc 产物 node 直跑不可行）；
-# tsx 是 devDependency，prune 后单独补装
+# Runtime uses tsx like existing server deployments (the source uses bundler-style extensionless imports, so tsc output cannot run directly under node);
+# tsx is a devDependency, so reinstall it after pruning
 RUN npm prune --omit=dev && npm i tsx@^4.21.0 --no-save --no-audit --no-fund --registry=https://registry.npmjs.org
 
-# ===== 运行时 =====
+# ===== Runtime =====
 FROM node:20-bookworm-slim
 ARG HUOBAO_VERSION=dev
 ENV NODE_ENV=production \
@@ -38,13 +38,13 @@ COPY --from=backend-build /build/backend/src ./backend/src
 COPY --from=backend-build /build/backend/node_modules ./backend/node_modules
 COPY --from=backend-build /build/backend/package.json ./backend/package.json
 COPY --from=backend-build /build/backend/tsconfig.json ./backend/tsconfig.json
-# workspace 模板（skills/prompts），entrypoint copy-once 到数据卷后可在线编辑
+# Workspace templates (skills/prompts); entrypoint copies them once to the data volume, where they can be edited online
 COPY backend/workspace ./workspace-template
 COPY --from=frontend-build /build/frontend/.output/public ./frontend-dist
 COPY docker/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh && mkdir -p /app/data
 
-# 数据卷：SQLite + 生成的静态文件 + 可编辑 workspace
+# Data volume: SQLite + generated static files + editable workspace
 VOLUME ["/app/data"]
 EXPOSE 5679
 

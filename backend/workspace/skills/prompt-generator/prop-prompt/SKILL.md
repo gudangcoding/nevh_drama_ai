@@ -1,43 +1,45 @@
 ---
 name: prop-prompt
-description: 道具最终提示词规范 — 白底单品静物，标准产品摄影视角：比例准确、边缘完整、背景不承载叙事
+description: Spesifikasi prompt properti akhir — still life item tunggal berlatar belakang putih, sudut pandang fotografi produk standar: proporsi akurat, tepi lengkap, latar belakang tidak memuat narasi
 ---
 
-# 道具最终提示词（白底单品 · 标准产品摄影）
+# Prompt Properti Akhir (item tunggal berlatar belakang putih · fotografi produk standar)
 
-生成的是一张白底单品图（product shot）：**采用标准产品摄影视角**，画面中只有道具本身，孤立放置在纯白背景上，**不掺杂任何其他元素**——没有其他物品、没有人物、没有场景环境、没有手部持握。
+Yang dihasilkan adalah foto produk berlatar belakang putih: **menggunakan sudut pandang fotografi produk standar**, frame hanya berisi properti itu sendiri, ditempatkan secara terisolasi di atas latar belakang putih bersih, **tanpa elemen lain yang tercampur** — tanpa objek lain, tanpa orang, tanpa lingkungan adegan, tanpa tangan yang memegangnya.
 
-三条硬性要求：
-1. **物品各部分比例准确**——不要夸张、变形或风格化拉伸，道具的相对尺寸关系必须真实
-2. **边缘完整**——道具整体完整入镜，四周留白，任何部分都不得被画面边缘裁切
-3. **背景不承载任何叙事内容**——纯白背景只是衬底，不带场景感、不带情节暗示、不带装饰元素
+Tiga persyaratan keras:
+1. **Proporsi akurat semua bagian item** — tanpa berlebihan, distorsi, atau peregangan bergaya; hubungan ukuran relatif properti harus benar
+2. **Tepi lengkap** — properti sepenuhnya dalam frame secara utuh, dengan margin di semua sisi; tidak ada bagian yang dipotong oleh tepi frame
+3. **Latar belakang tidak memuat konten naratif** — latar belakang putih bersih hanya sebagai pelapis, tanpa rasa tempat, tanpa petunjuk plot, tanpa elemen dekoratif
 
-## 输出结构（按此顺序组装单段连贯描述，语言跟随会话语言指令）
+## Struktur Output (susun satu bagian koheren dalam urutan ini, mengikuti direktif bahasa sesi)
 
 ```
-单品产品图，标准产品摄影视角，[道具名 + 材质/颜色/形状/大小 + 新旧程度与磨损细节]，
-物品各部分比例准确，孤立放置在纯白背景上，居中完整入镜，边缘完整无裁切，
-背景纯净不承载任何叙事内容，无其他物品、无人物、无场景，
-柔和均匀的影棚光，轻淡阴影，高细节
+Foto produk item tunggal, sudut pandang fotografi produk standar,
+[nama properti + material/warna/bentuk/ukuran + detail keausan dan kerusakan];
+proporsi akurat semua bagian, ditempatkan secara terisolasi di atas latar belakang putih bersih,
+terpusat dan sepenuhnya dalam frame, tepi lengkap tanpa pemotongan;
+latar belakang bersih dan tidak memuat konten naratif, tanpa objek lain, tanpa orang, tanpa adegan;
+cahaya studio merata lembut, bayangan samar, detail tinggi
 ```
 
-## 生成规则
+## Aturan Pembuatan
 
-- 以道具 `name`（名称）与 `description`（物品外貌）为核心：材质、颜色、形状、大小、新旧程度、磨损痕迹等物理细节**逐项落地**，这是道具辨识度的来源
-- 标准产品摄影视角：微俯视 3/4 视角（同时看清顶面与侧面，最有立体感）；扁平道具（纸张、证件、照片）用正俯视平铺
-- 单品居中完整呈现，四周留白，比例准确、边缘完整，不要裁切道具主体
-- 柔和均匀的影棚光，阴影轻淡，高细节
-- 只描写物品本身，不要提及剧情、角色或用途（背景与画面都不承载叙事内容）
-- 输出使用会话语言指令指定的目标语言，不要混入无关词汇；**不要**"电影质感"类词汇（道具图是产品图不是剧照）
+- Bangun di sekitar `name` dan `description` (penampilan fisik) properti: material, warna, bentuk, ukuran, tingkat keausan, tanda kerusakan, dan detail fisik lainnya harus **dibawa serta satu per satu** — itulah sumber keterbacaan properti
+- Sudut pandang fotografi produk standar: tampilan 3/4 sudut sedikit tinggi (menampilkan bagian atas dan sisi untuk dimensionalitas maksimal); properti datar (kertas, kartu identitas, foto) menggunakan flat lay lurus dari atas
+- Sajikan item tunggal terpusat dan lengkap, dengan margin di semua sisi, proporsi akurat, tepi lengkap — jangan memotong badan properti
+- Cahaya studio merata lembut, bayangan samar, detail tinggi
+- Deskripsikan hanya item itu sendiri; jangan menyebut plot, karakter, atau penggunaan (baik latar belakang maupun frame tidak memuat konten naratif)
+- Jangan mencampur kata-kata yang tidak relevan ke dalam output; **jangan** menggunakan kata-kata bergaya "kualitas sinematik" (gambar properti adalah foto produk, bukan still film)
 
-## 禁止事项
+## Larangan
 
-- 手部持握、人物、其他物品、场景环境入镜
-- 包装、底座、展示架（除非它就是道具本体的一部分）
-- 文字、水印、签名（道具本体上印刷的文字图案可以保留并描述）
-- 环境反光、彩色光
-- 夸张透视、变形、比例失真、边缘裁切
+- Tangan yang memegangnya, orang, objek lain, atau lingkungan adegan dalam frame
+- Kemasan, alas, stand display (kecuali itu adalah bagian dari properti itu sendiri)
+- Teks, tanda air, tanda tangan (teks dan grafik yang dicetak pada properti itu sendiri boleh disimpan dan dideskripsikan)
+- Refleksi lingkungan, cahaya berwarna
+- Perspektif berlebihan, distorsi, kesalahan proporsi, pemotongan tepi
 
-## 保存
+## Menyimpan
 
-调用 `save_prop_final_prompt`：prompt 参数不含风格词，**项目视觉风格由工具自动注入到最终提示词的最前方**。
+Panggil `save_prop_final_prompt`: parameter prompt tidak mengandung kata-kata gaya — **gaya visual proyek secara otomatis disuntikkan oleh tool di bagian paling depan prompt akhir**.

@@ -45,6 +45,33 @@ export function useAuth() {
     }
   }
 
+  let devicePromise: Promise<boolean> | null = null
+  /**
+   * Sesi otomatis tanpa login: pakai token tersimpan bila valid, sonst minta
+   * sesi perangkat ke backend (POST /auth/device, khusus desktop — memakai akun
+   * tertua agar data instalasi lama tetap terbuka). Promise digabung agar
+   * panggilan serentak (middleware + layout) hanya menembak sekali.
+   */
+  async function ensureDeviceSession(): Promise<boolean> {
+    if (user.value) return true
+    if (await restoreSession()) return true
+    if (!devicePromise) {
+      devicePromise = (async () => {
+        try {
+          const res = await api.post<{ token: string; user: AuthUser }>('/auth/device')
+          setAuthToken(res.token)
+          user.value = res.user
+          return true
+        } catch {
+          return false
+        } finally {
+          devicePromise = null
+        }
+      })()
+    }
+    return devicePromise
+  }
+
   /** Perbarui profil (username) akun yang sedang masuk */
   async function updateProfile(username: string): Promise<AuthUser> {
     const updated = await api.put<AuthUser>('/auth/me', { username })
@@ -57,5 +84,5 @@ export function useAuth() {
     await api.put('/auth/password', { old_password: oldPassword, new_password: newPassword })
   }
 
-  return { user, isAdmin, isLoggedIn, login, register, logout, restoreSession, updateProfile, changePassword }
+  return { user, isAdmin, isLoggedIn, login, register, logout, restoreSession, ensureDeviceSession, updateProfile, changePassword }
 }

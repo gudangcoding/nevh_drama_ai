@@ -10,8 +10,8 @@
 
 const LANGUAGE_NATIVE_NAMES: Record<string, string> = {
   en: 'English',
-  ja: '日本語 (Japanese)',
-  ko: '한국어 (Korean)',
+  ja: 'Japanese',
+  ko: 'Korean',
   id: 'Bahasa Indonesia (Indonesian)',
 }
 
@@ -23,7 +23,7 @@ export function buildLanguageDirective(lang?: string | null): string {
     '',
     `ALL user-facing content you produce (scripts, dialogue, extracted fields, storyboard descriptions, atmosphere, image prompts, video prompts, asset names for NEW assets) MUST be written in ${native}.`,
     '',
-    'This instruction has the highest priority and OVERRIDES any conflicting language requirement anywhere else in these instructions or skills — including requirements such as "output must be pure Chinese / 只输出中文". Ignore those.',
+    'This instruction has the highest priority and OVERRIDES any conflicting language requirement anywhere else in these instructions or skills — including requirements such as "output must be pure Chinese / \u53ea\u8f93\u51fa\u4e2d\u6587". Ignore those.',
     '',
     'Exceptions:',
     '- When referencing EXISTING assets with @mentions (e.g. in video prompts), the name after @ must EXACTLY match the asset name as it appears in the provided asset lists — do NOT translate or rewrite existing asset names.',

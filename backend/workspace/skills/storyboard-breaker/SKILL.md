@@ -1,83 +1,83 @@
 ---
 name: storyboard-breaker
-description: 分镜拆解专业规范 — 将剧本拆分为可承载多个子镜头的分镜段落
+description: Aturan profesional untuk breakdown storyboard — memecah skrip menjadi segmen storyboard yang masing-masing memuat beberapa sub-shot
 ---
 
-# 分镜拆解指南
+# Panduan Breakdown Storyboard
 
-## 核心定义：分镜段落
+## Definisi Inti: Segmen Storyboard
 
-一个分镜 = 一个 **分镜段落**（segment）= 一个视频生成任务。
+Satu storyboard = satu **segmen storyboard** = satu tugas pembuatan video.
 
-- 每个段落时长 **8-15 秒**，内部承载 **2-4 个子镜头**
-- 子镜头之间**可以切镜**：换景别、换角度、换拍摄对象，用硬切衔接
-- 子镜头之间**不跨场景**：一个段落只发生在一个场景内（`scene_id` 是段落级绑定）
-- 每个子镜头 2-6 秒，聚焦一个画面单元（一个动作、一个反应、一个特写）
+- Setiap segmen berdurasi **8-15 detik** dan secara internal memiliki **2-4 sub-shot**
+- Pemotongan antar sub-shot **diperbolehkan**: ganti ukuran shot, sudut, atau subjek, disambung dengan hard cut
+- Sub-shot **tidak pernah melintasi adegan**: satu segmen berlangsung di satu adegan (`scene_id` adalah ikatan tingkat segmen)
+- Setiap sub-shot berdurasi 2-6 detik, fokus pada satu unit visual (satu tindakan, satu reaksi, satu close-up)
 
-## 拆分流程（四步）
+## Proses Breakdown (Empat Langkah)
 
-1. 调用 `read_storyboard_context` 读取剧本、角色、场景、道具、已有分镜摘要
-2. **节拍识别**：先识别剧本的叙事节拍——剧本中的【开场】【触发】【高潮】【收尾】等标记，或叙事转折点（地点转移、规则揭示、情绪爆发、反转）。**节拍边界强制切段**，同一节拍内的子镜头优先归入同一段落，不把一条因果链（铺垫-发生-反应）切散到不同段落
-3. **总量锚定**：目标总时长 = 剧本字数 ÷ 500字/分钟；段落数 ≈ 目标总时长 ÷ 12秒，允许 ±20% 浮动。不要明显超出或不足
-4. **段落内拆子镜头**：按动作切换点、视角切换点、对象切换点切分子镜头，为每个段落补全完整字段后调用 `save_storyboards` 一次性保存
+1. Panggil `read_storyboard_context` untuk membaca skrip, karakter, adegan, properti, dan ringkasan storyboard yang sudah ada
+2. **Identifikasi beat**: pertama identifikasi beat naratif skrip — penanda seperti [Pembuka] [Pemicu] [Klimaks] [Resolusi], atau titik balik naratif (perubahan lokasi, pengungkapan aturan, ledakan emosi, pembalikan). **Batas beat memaksa pemotongan segmen**; kelompokkan sub-shot dalam beat yang sama ke segmen yang sama jika memungkinkan, dan jangan menyebarkan rantai kausal (setup-kejadian-reaksi) ke segmen berbeda
+3. **Penahan volume total**: target total durasi = jumlah karakter skrip ÷ 500 karakter/menit; jumlah segmen ≈ target total durasi ÷ 12 detik, dengan toleransi ±20%. Jangan secara signifikan melebihi atau kekurangan
+4. **Pecah sub-shot dalam setiap segmen**: potong sub-shot di titik perubahan aksi, titik perubahan sudut pandang, dan titik perubahan subjek; setelah mengisi semua bidang untuk setiap segmen, panggil `save_storyboards` untuk menyimpannya sekaligus
 
-## 节奏分层时长
+## Durasi Tingkatan Pacing
 
-按段落功能确定时长，不要一刀切：
+Tentukan durasi berdasarkan fungsi segmen — jangan gunakan satu ukuran untuk semua:
 
-| 段落类型 | 时长 | 说明 |
+| Jenis segmen | Durasi | Catatan |
 |---|---|---|
-| 过渡段 | 8-10 秒 | 赶路、空镜、环境建立、转场 |
-| 叙事段 | 10-15 秒 | 常规剧情推进、对话 |
-| 爆点段 | 12-15 秒 | 特写、规则揭示、情感爆发、反转；子镜头节奏放慢，单个子镜头可停留 4-6 秒 |
+| Segmen transisi | 8-10 d | Perjalanan, empty shot, penetapan lingkungan, transisi |
+| Segmen naratif | 10-15 d | Kemajuan plot reguler, dialog |
+| Segmen payoff | 12-15 d | Close-up, pengungkapan aturan, ledakan emosi, pembalikan; pacing sub-shot lebih lambat, satu sub-shot bisa bertahan 4-6 d |
 
-## 台词时长下限（硬规则）
+## Lantai Durasi Dialog (Aturan Keras)
 
-**段落时长 ≥ 段内台词与旁白总字数（写在 description 中的部分）÷ 4.5字/秒 + 2秒表演余量**
+**Durasi segmen ≥ jumlah total karakter dialog dan narasi dalam segmen (bagian yang ditulis dalam deskripsi) ÷ 4,5 karakter/detik + 2 detik ruang performa**
 
-装不下的台词必须拆到下一个段落，不允许把演不完的台词塞进一个段落。
+Dialog yang tidak muat harus dipindahkan ke segmen berikutnya; menjejalkan dialog yang tidak dapat dilakukan ke dalam satu segmen tidak diperbolehkan.
 
-## 镜头要素
+## Elemen Shot
 
-1. **镜头标题**：3-5字概括段落核心内容（如"噩梦惊醒"）
-2. **时间**：具体时分 + 光线描述
-3. **地点**：场景完整描述 + 空间布局 + 环境细节
-4. **景别**：段落内主导景别；多景别段落写组合，如"中景+特写"
-5. **角度**：平视/仰视/俯视/侧面/背面
-6. **运镜**：固定/推镜/拉镜/摇镜/跟镜/移镜（段落内不同子镜头可不同）
-7. **画面描述** `description`：按 `【镜头1】…【镜头2】…` 逐子镜头描述观众实际看到和听到的内容——画面（谁 + 具体动作 + 肢体细节 + 表情）写在前；该子镜头有台词时以「角色名说：「台词」」写在对应 `【镜头N】` 内，旁白写「旁白：内容」
-8. **画面结果** `result`：段落结尾的即时后果 + 视觉细节
-9. **氛围** `atmosphere`：光线 + 色调 + 声音 + 整体氛围
-10. **时长** `duration`：段落总时长 8-15 秒，且满足台词时长下限
-11. **场景关联**：若能匹配已有场景，必须填写 `scene_id`
-12. **角色关联**：填写 `character_ids`，绑定当前段落涉及的 0 到多个角色
-13. **道具关联**：填写 `prop_ids`，绑定当前段落出现的关键道具（0 到多个）
+1. **Judul shot**: ringkasan 3-5 karakter dari konten inti segmen (misalnya "Mimpi Buruk Terbangun")
+2. **Waktu**: waktu spesifik dalam sehari + deskripsi pencahayaan
+3. **Lokasi**: deskripsi adegan lengkap + tata ruang + detail lingkungan
+4. **Ukuran shot**: ukuran shot dominan dari segmen; untuk segmen multi-ukuran tulis kombinasi, misalnya "medium shot + close-up"
+5. **Sudut**: setinggi mata / sudut rendah / sudut tinggi / samping / belakang
+6. **Gerakan kamera**: statis / push-in / pull-back / pan / tracking / dolly (sub-shot berbeda dalam satu segmen boleh berbeda)
+7. **Deskripsi visual** `description`: jelaskan sub-shot demi sub-shot sebagai `【Shot1】…【Shot2】…` apa yang benar-benar dilihat dan didengar penonton — visual (siapa + tindakan spesifik + detail bahasa tubuh + ekspresi) didahulukan; ketika sub-shot memiliki dialog, tulis di dalam `【ShotN】` yang sesuai sebagai "NamaKarakter berkata: "dialog"", dan narasi sebagai "Narasi: konten"
+8. **Hasil visual** `result`: konsekuensi langsung di akhir segmen + detail visual
+9. **Atmosphere** `atmosphere`: pencahayaan + nada warna + suara + suasana keseluruhan
+10. **Durasi** `duration`: total durasi segmen 8-15 detik, dan harus memenuhi lantai durasi dialog
+11. **Ikatan adegan**: jika bisa dicocokkan dengan adegan yang ada, `scene_id` harus diisi
+12. **Ikatan karakter**: isi `character_ids`, mengikat 0 hingga beberapa karakter yang terlibat dalam segmen ini
+13. **Ikatan properti**: isi `prop_ids`, mengikat 0 hingga beberapa properti kunci yang muncul dalam segmen ini
 
-## 场景关联规则
+## Aturan Ikatan Adegan
 
-- 优先使用 `read_storyboard_context` 返回的 `scenes`
-- `location + time` 可明确匹配时，必须回填正确 `scene_id`
-- 不要凭空生成不存在的场景 ID
-- 如果剧本内容明显落在已有场景中，不要重复创造新场景描述
+- Utamakan `scenes` yang dikembalikan oleh `read_storyboard_context`
+- Ketika `lokasi + waktu` dapat dicocokkan dengan jelas, `scene_id` yang benar harus diisi
+- Jangan membuat ID adegan yang tidak ada
+- Jika konten skrip jelas berada dalam adegan yang sudah ada, jangan membuat deskripsi adegan baru yang duplikat
 
-## 角色绑定规则
+## Aturan Ikatan Karakter
 
-- `character_ids` 必须从 `read_storyboard_context` 返回的角色列表中选择
-- 一个段落可以没有角色，也可以绑定多个角色
-- 只要段落里有明确出场、被看见、发生动作或说话的角色，都应绑定进去
-- 纯环境段落、空镜、物件特写可以传空数组
+- `character_ids` harus dipilih dari daftar karakter yang dikembalikan oleh `read_storyboard_context`
+- Satu segmen boleh tidak memiliki karakter, atau mengikat beberapa karakter
+- Karakter mana pun yang memiliki kemunculan jelas dalam segmen — terlihat, beraksi, atau berbicara — harus diikat
+- Segmen lingkungan murni, empty shot, dan close-up objek boleh mengirimkan array kosong
 
-## 道具绑定规则
+## Aturan Ikatan Properti
 
-- `prop_ids` 必须从 `read_storyboard_context` 返回的道具列表（`props`）中选择
-- 道具被角色使用、交接、特写，或在画面中明显可见且对叙事有意义时，必须绑定到该段落
-- 道具特写段落（无角色）也应绑定道具，`character_ids` 可为空
-- 与剧情无关的背景物品、场景陈设不要绑定；没有道具出现的段落传空数组
-- 绑定的道具会作为视频生成的参考图（白底单品图），保证道具外观跨段落一致
+- `prop_ids` harus dipilih dari daftar properti (`props`) yang dikembalikan oleh `read_storyboard_context`
+- Saat properti digunakan oleh karakter, diserahterimakan, ditampilkan dalam close-up, atau terlihat jelas dalam frame dan bermakna bagi narasi, properti tersebut harus diikat ke segmen tersebut
+- Segmen close-up properti (tanpa karakter) juga harus mengikat properti; `character_ids` boleh kosong
+- Jangan mengikat item latar belakang atau set dressing yang tidak relevan dengan plot; segmen tanpa properti kirimkan array kosong
+- Properti yang diikat berfungsi sebagai gambar referensi untuk pembuatan video (foto produk berlatar belakang putih), menjaga penampilan properti tetap konsisten di seluruh segmen
 
-## 质量要求
+## Persyaratan Kualitas
 
-- `description` 要适合人读，按子镜头详细描述观众实际看到和听到的内容；台词/旁白直接写在对应 `【镜头N】` 内
-- `image_prompt` 要突出单帧构图、角色外观、环境和光线（对应段落第一个子镜头）
-- `bgm_prompt` 和 `sound_effect` 用简洁短语即可，但不能空泛到只有“紧张”“悲伤”
-- 如需调整，调用 `update_storyboard` 修改具体段落
+- `description` harus dapat dibaca manusia, menjelaskan sub-shot demi sub-shot apa yang benar-benar dilihat dan didengar penonton; dialog/narasi ditulis langsung di dalam `【ShotN】` yang sesuai
+- `image_prompt` harus menyoroti komposisi single-frame, penampilan karakter, lingkungan, dan pencahayaan (sesuai dengan sub-shot pertama segmen)
+- `bgm_prompt` dan `sound_effect` boleh berupa frasa singkat, tetapi tidak boleh samar seperti hanya "tegang" atau "sedih"
+- Untuk melakukan penyesuaian, panggil `update_storyboard` untuk memodifikasi segmen tertentu

@@ -1,4 +1,4 @@
-# 版本控制与产物
+# Version control and build artifacts
 .git
 **/node_modules
 **/.nuxt
@@ -10,10 +10,10 @@ desktop/dist
 desktop/release
 release
 
-# 运行时数据（绝不能进镜像：SQLite + 生成的媒体文件）
+# Runtime data (never include in the image: SQLite + generated media files)
 data
 
-# 本地环境
+# Local environment
 .env
 *.log
 .DS_Store

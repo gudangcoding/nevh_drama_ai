@@ -23,7 +23,7 @@ Each segment requires the following fields:
 - prop_ids: the list of key prop IDs appearing in this segment (bound when a prop is seen, used, or shown in close-up) — may be empty; must be chosen from props
 - scene_id: if it can be matched to an existing scene in scenes, the correct scene_id must be filled in; leave empty when there is no match
 - duration: total segment duration, 8-15 seconds
-- description: visual description, describing sub-shot by sub-shot as 【镜头1】【镜头2】... what the audience actually sees and hears — the visuals (who + specific action + body-language details + expression) come first; when a sub-shot has dialogue, write it inside the corresponding 【镜头N】 as "CharacterName says: "line"", and narration as "Narration: content"
+- description: visual description, describing sub-shot by sub-shot as 【Shot1】【Shot2】... what the audience actually sees and hears — the visuals (who + specific action + body-language details + expression) come first; when a sub-shot has dialogue, write it inside the corresponding 【ShotN】 as "CharacterName says: "line"", and narration as "Narration: content"
 - atmosphere: mood, lighting, color tone, environmental feel
 - video_prompt: the video-generation prompt for this segment (rules below)
 
@@ -33,8 +33,8 @@ Duration rules (hard constraints):
 - Dialogue floor: segment duration ≥ total character count of dialogue and narration within the segment (the part written in description) ÷ 4.5 characters/second + 2 seconds of performance headroom; dialogue that does not fit must be moved to the next segment
 
 video_prompt rules (hard constraints):
-- Split into 3-second segments, each segment on its own line separated by newlines; map each 【镜头N】 in the description to 1-2 consecutive 3-second segments (same order, no omissions, no new sub-shots); cut points align with the 【镜头N】 structure
-- In each segment, write the visuals first (who + action + shot size/angle), then the dialogue/narration occurring within that time span — dialogue is extracted from the corresponding 【镜头N】 in the description; do not invent new dialogue beyond the description
+- Split into 3-second segments, each segment on its own line separated by newlines; map each 【ShotN】 in the description to 1-2 consecutive 3-second segments (same order, no omissions, no new sub-shots); cut points align with the 【ShotN】 structure
+- In each segment, write the visuals first (who + action + shot size/angle), then the dialogue/narration occurring within that time span — dialogue is extracted from the corresponding 【ShotN】 in the description; do not invent new dialogue beyond the description
 - Use @SceneName when mentioning a scene and @CharacterName when mentioning a character; names must exactly match the lists returned by read_storyboard_context (used to attach reference-asset images)
 - Mood and lighting descriptions come from the segment's atmosphere
 - Cutting between shots within a segment is allowed (change of shot size/angle/subject), but never across scenes

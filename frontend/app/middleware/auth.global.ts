@@ -1,18 +1,14 @@
-import { getAuthToken } from '~/composables/useAuthToken'
+import { useAuth } from '~/composables/useAuth'
 
 /**
- * Pengawal global autentikasi:
- * - belum login → redirect ke /login (kecuali /login & /register)
- * - sudah login → tidak boleh membuka /login & /register (kembali ke beranda)
+ * Tanpa halaman login: setiap navigasi memastikan ada sesi perangkat
+ * (token lama divalidasi, sonst dibuat otomatis via /auth/device).
+ * Rute /login & /register sudah dihapus — yang masih mengaksesnya diarahkan pulang.
  */
-export default defineNuxtRouteMiddleware((to) => {
-  const publicPages = ['/login', '/register']
-  const hasToken = !!getAuthToken()
-
-  if (!hasToken && !publicPages.includes(to.path)) {
-    return navigateTo('/login')
-  }
-  if (hasToken && publicPages.includes(to.path)) {
+export default defineNuxtRouteMiddleware(async (to) => {
+  const { ensureDeviceSession } = useAuth()
+  await ensureDeviceSession().catch(() => false)
+  if (to.path === '/login' || to.path === '/register') {
     return navigateTo('/')
   }
 })

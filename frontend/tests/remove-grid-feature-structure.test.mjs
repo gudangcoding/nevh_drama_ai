@@ -18,7 +18,7 @@ test('frontend API client no longer exposes grid image endpoints', () => {
 })
 
 test('episode workbench removes the grid image tool and history UI', () => {
-  assert.doesNotMatch(episodePage, /宫格图/)
+  assert.doesNotMatch(episodePage, /Grid image/)
   assert.doesNotMatch(episodePage, /openGridTool/)
   assert.doesNotMatch(episodePage, /gridDialog/)
   assert.doesNotMatch(episodePage, /gridAPI/)
@@ -31,9 +31,9 @@ test('episode workbench removes the grid image tool and history UI', () => {
 
 test('settings image prompt agent copy only describes role and scene prompts', () => {
   assert.match(settingsPage, /prompt_generator/)
-  assert.doesNotMatch(settingsPage, /宫格图/)
+  assert.doesNotMatch(settingsPage, /Grid image/)
   assert.doesNotMatch(settingsPage, /read_shots_for_grid/)
   assert.doesNotMatch(settingsPage, /generate_grid_prompt/)
-  assert.doesNotMatch(settingsPage, /grid_prompt（/)
+  assert.doesNotMatch(settingsPage, /grid_prompt\(/)
   assert.doesNotMatch(settingsPage, /cell_prompts/)
 })

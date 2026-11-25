@@ -1113,7 +1113,7 @@ const visibleAssets = computed(() =>
   assetTab.value === 'all' ? materials.value : materials.value.filter(m => m.kindKey === assetTab.value),
 )
 const assetTotal = computed(() => materials.value.length)
-// Berdasarkan type: mode semua dibagi menjadi tiga area 角色 / 场景 / 道具; ketika memfilter satu kategori, hanya mempertahankan kategori tersebut
+// By type: mode is split into three areas characters / scenes / props; when filtering one category, keep only that category
 const assetGroups = computed(() => {
   const groups = [
     { kindKey: 'character', label: t('common.role'), items: materials.value.filter(m => m.kindKey === 'character') },
@@ -1230,7 +1230,7 @@ function fmtDate(s) {
   if (!s) return ''
   const d = new Date(s)
   if (isNaN(d.getTime())) return ''
-  return d.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : locale.value, { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
 }
 
 /* ===== Edit informasi bahan ===== */
@@ -1652,7 +1652,7 @@ onMounted(async () => {
   justify-content: start;
   gap: 10px;
 }
-/* 分组标题：角色 / 场景 / 道具，彩色左条 + 图标 + 数量 */
+/* group heading: characters / scenes / props, colored left bar + icon + count */
 .asset-group-head {
   display: flex;
   align-items: center;
@@ -1929,7 +1929,7 @@ onMounted(async () => {
 .viewer-title { font-size: 13px; font-weight: 600; color: var(--text-1); }
 .viewer-img { width: 100%; max-height: 76vh; object-fit: contain; border-radius: var(--radius); background: var(--bg-2); display: block; }
 
-/* ===== 素材详情 / 编辑对话框（与工作台资产卡片同款布局） ===== */
+/* ===== asset detail / edit dialog (same layout as workbench asset cards) ===== */
 .mat-detail-overlay { z-index: 118; padding: 28px; }
 .mat-detail-dialog {
   width: min(1040px, calc(100vw - 56px));
@@ -1973,7 +1973,7 @@ onMounted(async () => {
   font-size: 11px; font-weight: 560; letter-spacing: 0; text-align: right;
 }
 
-/* 最终提示词面板 */
+/* final prompt panel */
 .mat-detail-prompt-panel {
   margin-top: 18px;
   border-top: 1px solid var(--border);
@@ -2006,7 +2006,7 @@ onMounted(async () => {
 .switch-row { display: flex; align-items: center; gap: 10px; cursor: pointer; min-height: 27px; }
 .switch-hint { margin: 0; }
 
-/* 状态标签 */
+/* status badge */
 .mat-detail-state {
   min-height: 20px; display: inline-flex; align-items: center;
   padding: 0 7px; border-radius: 999px;
@@ -2015,7 +2015,7 @@ onMounted(async () => {
 }
 .mat-detail-state.is-ready { color: var(--success); background: var(--success-bg); }
 
-/* 图片预览框 */
+/* image preview box */
 .mat-detail-media-frame {
   position: relative; width: 100%; aspect-ratio: 16/9;
   display: block; padding: 0;
@@ -2035,7 +2035,7 @@ onMounted(async () => {
   color: var(--text-3);
 }
 
-/* 元数据行（类型 + 定位） */
+/* metadata row (type + role) */
 .mat-detail-meta-row {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
 }
@@ -2054,7 +2054,7 @@ onMounted(async () => {
   line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* 编辑区域 */
+/* edit area */
 .mat-detail-edit-grid {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
 }
@@ -2072,7 +2072,7 @@ onMounted(async () => {
 .mat-detail-edit-grid--character .mat-detail-textarea,
 .mat-detail-edit-grid--scene .mat-detail-textarea { min-height: 164px; }
 
-/* 底部操作栏 */
+/* bottom action bar */
 .mat-detail-foot {
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; padding: 12px 16px;
@@ -2085,7 +2085,7 @@ onMounted(async () => {
   .page { padding: 16px 16px 32px; }
   .page-head { flex-wrap: wrap; }
   .ep-grid { grid-template-columns: 1fr; }
-  .ep-actions { opacity: 1; } /* 移动端始终显示操作按钮 */
+  .ep-actions { opacity: 1; } /* always show action buttons on mobile */
   .dialog-foot { flex-wrap: wrap; gap: 10px; }
   .dialog-foot-copy { display: none; }
 }

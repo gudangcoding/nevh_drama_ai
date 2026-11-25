@@ -13,18 +13,18 @@ import { i18n } from '~/composables/i18n'
 const t = (key: string, params?: Record<string, unknown>) => i18n.global.t(key, params)
 
 /** Ciri konten moderasi (dipindahkan dari episode.vue's videoModerationHint, digunakan di seluruh situs) */
-export const MODERATION_RE = /sensitive|moderation|真人|人脸|real[\s_-]?person|审核|内容.*(违规|不合规|未通过)|content[\s_-]?policy|risk[\s_-]?control|violation|blocked/i
+export const MODERATION_RE = /sensitive|moderation|real[\s_-]?person|content[\s_-]?policy|risk[\s_-]?control|violation|blocked|content.*(violat|non.?compliant|rejected|failed)|konten.*(ditolak|gagal|tidak lolos)/i
 
 const NETWORK_RE = /failed to fetch|network ?error|load failed|network request failed|fetch failed/i
 const NONJSON_RE = /unexpected token|not valid json|failed to parse/i
-const SERVER5XX_RE = /(^|\D)5\d{2}(\D|$)|internal server error|服务器内部错误/i
-const AUTH_RE = /(^|\D)40[13](\D|$)|unauthorized|forbidden|invalid[\s_-]?api[\s_-]?key|authentication|鉴权/i
-const RATELIMIT_RE = /(^|\D)429(\D|$)|rate[\s_-]?limit|too many requests|quota|额度不足|insufficient/i
-const TIMEOUT_RE = /timeout|timed out|polling exceeded|超时/i
+const SERVER5XX_RE = /(^|\D)5\d{2}(\D|$)|internal server error|kesalahan server internal/i
+const AUTH_RE = /(^|\D)40[13](\D|$)|unauthorized|forbidden|invalid[\s_-]?api[\s_-]?key|authentication|autentikasi/i
+const RATELIMIT_RE = /(^|\D)429(\D|$)|rate[\s_-]?limit|too many requests|quota|kuota tidak cukup|insufficient/i
+const TIMEOUT_RE = /timeout|timed out|polling exceeded|waktu habis/i
 /** Ciri teknis: muncul berarti tidak dapat diteruskan langsung ke pengguna */
 const TECHY_RE = /[{}\[\]<>]|https?:\/\/|\b(error|errno|exception|code|stack|undefined|null)\b|[a-z]+_[a-z]+/i
 /** Ciri teks ramah pengguna: mengandung bahasa alami (Cina/Jepang/Korea/Latin), dianggap dapat dibaca oleh pengguna */
-const NATURAL_LANG_RE = /[一-鿿\u3040-\u30ff\uac00-\ud7afa-zA-Z]/
+const NATURAL_LANG_RE = /[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7afa-zA-Z]/
 
 function messageOf(err: unknown): string {
   if (err == null) return ''
