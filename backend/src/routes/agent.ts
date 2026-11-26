@@ -7,6 +7,8 @@ import { buildAgentRequestContext } from '../agents/context.js'
 import { mastra } from '../mastra/index.js'
 import { success, badRequest } from '../utils/response.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { agentAbortSignal } from '../utils/agent-timeout.js'
+import { generateWithRetry } from '../utils/agent-retry.js'
 
 const app = new Hono()
 
@@ -66,9 +68,12 @@ app.post('/:type/chat', async (c) => {
   const startTime = performance.now()
 
   try {
-    const result = await agent.generate(
+    const result = await generateWithRetry(
+      agent,
       [{ role: 'user', content: message }],
-      { maxSteps: 20, requestContext },
+      { maxSteps: 20, requestContext, abortSignal: agentAbortSignal(20) },
+      'agent-chat',
+      { agentType },
     )
 
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)

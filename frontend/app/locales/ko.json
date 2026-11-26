@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "화바오 숏드라마",
+    "title": "Nevh Drama",
     "updateAvailable": "새 버전 v{version}을 사용할 수 있습니다. 「설정 → 업데이트 정보」에서 업그레이드하세요"
   },
   "common": {
@@ -102,6 +102,24 @@
       "styleCount": "비주얼 스타일 {n}종"
     },
     "create": "새 프로젝트",
+    "synopsis": {
+      "button": "시놉시스 만들기",
+      "buttonHint": "짧은 아이디어를 작성하면 AI가 프로젝트 프로필을 완성",
+      "title": "AI로 시놉시스 만들기",
+      "desc": "짧은 스토리 아이디어를 작성하면 제목·시놉시스·태그·표지 프롬프트를 AI가 작성",
+      "idea": "스토리 아이디어",
+      "ideaPlaceholder": "예: 직장인이 사고로 길고양이와 몸이 바뀌어 일주일 동안 서로의 삶을 살아야 한다…",
+      "ideaHint": "배경·주인공·갈등·결말 등 자세할수록 좋습니다",
+      "style": "비주얼 스타일",
+      "aspectRatio": "화면 비율",
+      "generate": "시놉시스 만들기",
+      "generating": "AI가 프로젝트 프로필을 만드는 중…",
+      "generatingHint": "보통 10~30초 안에 완료됩니다",
+      "untitled": "제목 없는 프로젝트",
+      "useDraft": "새 프로젝트에 사용",
+      "drafted": "시놉시스를 새 프로젝트 양식에 불러왔습니다",
+      "errorEmpty": "AI가 시놉시스를 생성하지 못했습니다. 다시 시도해 주세요"
+    },
     "searchPlaceholder": "프로젝트 검색",
     "sortAria": "프로젝트 정렬",
     "sortUpdated": "최근 업데이트",
@@ -140,6 +158,8 @@
       "aspectRatio": "화면 비율",
       "aspectRatioPlaceholder": "화면 비율 선택",
       "aspectRatioHint": "생성 후 고정되며, 영상 생성은 이 비율로 통일됩니다",
+      "autoVideo": "영상 바로 생성",
+      "autoVideoHint": "켜짐: 대본, 에셋, 씬 완료 후 수동 승인 없이 영상을 자동 생성합니다",
       "submit": "프로젝트 생성"
     },
     "deleteDialog": {
@@ -158,7 +178,9 @@
       "charCount": "캐릭터 {n}",
       "sceneCount": "장면 {n}",
       "epCount": "{n}화",
-      "addEpisode": "화 추가"
+      "addEpisode": "화 추가",
+      "exportPrompts": "전체 프롬프트 내보내기",
+      "exportPromptsTitle": "모든 프롬프트(줄거리·캐릭터·장면·스토리보드/비디오)를 다운로드하여 Google Flow 등 다른 플랫폼에서 재사용"
     },
     "tabs": {
       "episodes": "에피소드 목록",
@@ -221,6 +243,7 @@
       "saving": "저장 중…",
       "generating": "{kind} 「{name}」 이미지 생성 중",
       "genTimeout": "{kind} 「{name}」 생성 시간이 초과되었습니다. 나중에 새로고침해 확인하세요",
+      "genFailed": "{kind} 「{name}」 생성 실패",
       "uploaded": "{kind} 「{name}」 이미지를 업로드했습니다",
       "needEpisodeForImage": "에셋 이미지를 생성하려면 먼저 「에피소드 목록」에서 1화 이상을 생성하세요",
       "needEpisodeForPrompt": "최종 프롬프트를 생성하려면 먼저 「에피소드 목록」에서 1화 이상을 생성하세요",
@@ -269,11 +292,11 @@
     "ai": {
       "title": "AI 서비스 설정",
       "desc": "먼저 추천 템플릿으로 설정을 만들고, 서비스 유형별로 미세 조정합니다. 워크벤치에서 화를 생성할 때 선택한 이미지·영상 기능이 고정됩니다.",
-      "quickTitle": "화바오 빠른 설정",
+      "quickTitle": "Nevh 빠른 설정",
       "recommended": "추천",
-      "quickDesc": "Huobao API Key를 입력하면 텍스트·이미지·영상 세 개의 추천 설정을 한 번에 작성합니다.",
+      "quickDesc": "Nevh API Key를 입력하면 텍스트·이미지·영상 세 개의 추천 설정을 한 번에 작성합니다.",
       "getKey": "api.firemux.com에서 Key 받기",
-      "applyQuick": "화바오 설정 작성",
+      "applyQuick": "Nevh 설정 작성",
       "manualTitle": "수동 템플릿",
       "manualDesc": "서비스 유형을 선택하면 추천 `provider / base URL / model`이 템플릿에서 입력됩니다.",
       "activeCount": "{n}개 활성화됨",
@@ -283,8 +306,8 @@
       "setDefault": "이 유형의 기본 모델로 설정",
       "noBaseUrl": "Base URL 미설정",
       "test": "테스트",
-      "apiKeyRequired": "Huobao API Key를 입력하세요",
-      "quickApplied": "화바오 빠른 설정이 작성되었습니다",
+      "apiKeyRequired": "Nevh API Key를 입력하세요",
+      "quickApplied": "Nevh 빠른 설정이 작성되었습니다",
       "defaultModelSwitched": "기본 {type} 모델이 {model}(으)로 변경되었습니다",
       "meta": {
         "text": "대본 재작성, 캐릭터·장면 추출, 스토리보드 분해 등 Agent 텍스트 기능",
@@ -388,7 +411,7 @@
       "addTitle": "{type} 서비스 추가",
       "sub": "먼저 템플릿을 선택하면 적절한 `Base URL`과 기본 모델이 자동으로 입력됩니다.",
       "name": "설정 이름",
-      "namePlaceholder": "예: 화바오 기본 이미지 서비스",
+      "namePlaceholder": "예: Nevh 기본 이미지 서비스",
       "provider": "제공업체",
       "providerPlaceholder": "제공업체 선택",
       "priority": "우선순위",
@@ -595,7 +618,22 @@
       "promptHintChar": "프롬프트는 직접 편집할 수 있으며 저장 후 적용됩니다. 외모나 스타일링을 변경하고 저장하면 최종 프롬프트가 지워지며, 다음 이미지 생성 시 프롬프트 Agent가 다시 생성합니다.",
       "promptHintScene": "프롬프트는 직접 편집할 수 있으며 저장 후 적용됩니다. 장면 설명이나 조명을 변경하고 저장하면 최종 프롬프트가 지워지며, 다음 장면 이미지 생성 시 프롬프트 Agent가 다시 생성합니다.",
       "promptHintProp": "프롬프트는 직접 편집할 수 있으며 저장 후 적용됩니다. 물품 외형을 변경하고 저장하면 최종 프롬프트가 지워지며, 다음 소품 이미지 생성 시 프롬프트 Agent가 다시 생성합니다.",
+      "autoImageLabel": "이미지도 자동 생성",
+      "autoImageHint": "프롬프트 생성이 완료되면 해당 자산의 이미지도 자동으로 생성합니다",
       "generatingPrompt": "최종 프롬프트 생성 중…",
+      "stagePrompt": "최종 프롬프트 생성 중…",
+      "stageQueued": "대기 중…",
+      "stageGenerating": "이미지 생성 중…{n}초",
+      "stageDone": "완료",
+      "stageFailed": "실패",
+      "queuePos": "대기 {pos}/{total}번째",
+      "queueActive": "처리 중: {name}",
+      "queueWaiting": "{n}개 대기 중",
+      "batchQueued": "{n}개를 대기열에 추가(순서대로 생성)",
+      "alreadyQueued": "이미 대기 중입니다",
+      "singleQueued": "대기열 {pos}번째에 추가",
+      "cancelQueue": "대기열 취소",
+      "queueCancelled": "대기열이 취소됨({n})",
       "promptGenerated": "최종 프롬프트가 생성되었습니다",
       "promptRegenerated": "최종 프롬프트가 다시 생성되었습니다",
       "promptGenFailedRetry": "최종 프롬프트 생성에 실패했습니다. 다시 시도하세요",
@@ -743,6 +781,15 @@
       "resolutionSwitched": "이 에피소드의 영상 해상도가 {label}(으)로 변경되었습니다",
       "noneToGenerate": "생성할 샷이 없습니다",
       "batchStarted": "{n}개의 영상 생성 작업을 시작했습니다",
+      "batchQueued": "{n}개의 영상을 대기열에 추가(순서대로 생성)",
+      "alreadyQueued": "영상이 이미 대기 중입니다",
+      "singleQueued": "영상 대기열 {pos}번째에 추가",
+      "queuePos": "영상 대기 {pos}/{total}번째",
+      "queueActive": "영상 생성 중: {name}",
+      "queueWaiting": "{n}개의 영상 대기 중",
+      "videoGenerating": "영상 생성 중…{n}초",
+      "cancelQueue": "대기열 취소",
+      "queueCancelled": "영상 대기열이 취소됨({n})",
       "retryFailed": "실패 재시도({n})",
       "select": "선택",
       "selectDone": "{n}개 선택 · 완료",
@@ -773,7 +820,7 @@
       "uploadRefAudio": "참조 오디오 업로드 ({used}/{limit})",
       "refAudioHint": "참조 오디오에는 참조 이미지 또는 영상이 1개 이상 필요합니다",
       "params": "생성 파라미터",
-      "duration": "분镜 길이",
+      "duration": "샷 길이",
       "durationUnit": "초(4-15)",
       "durationUnitWan": "초(2-30)",
       "durationHint": "수정 시 스토리보드에 즉시 저장되어 목록 및 배치 생성에도 적용됩니다",
@@ -827,7 +874,9 @@
       "batchGeneratingProp": "소품 이미지 일괄 생성 중",
       "allCharsDone": "모든 캐릭터 이미지가 생성되었습니다",
       "allScenesDone": "모든 장면 이미지가 생성되었습니다",
-      "allPropsDone": "모든 소품 이미지가 생성되었습니다"
+      "allPropsDone": "모든 소품 이미지가 생성되었습니다",
+      "genFailed": "이미지 생성 실패",
+      "genTimeout": "이미지 생성 시간 초과"
     },
     "extract": {
       "done": "{type} 추출이 완료되었습니다",
@@ -871,56 +920,46 @@
     "requestFailed": "요청 실패（{status}）",
     "unknown": "작업에 실패했습니다. 다시 시도하세요"
   },
-  "tour": {
-    "next": "다음",
-    "prev": "이전",
-    "done": "완료",
-    "helpTitle": "가이드",
-    "index": {
-      "welcome": {
-        "title": "👋 휘바오 숏드라마에 오신 것을 환영합니다",
-        "desc": "소설 → 대본 → 에셋 → 스토리보드 → 영상 → 완성, 모두 한곳에서. 먼저 AI 서비스를 설정하고 첫 프로젝트를 만들어 보세요."
-      },
-      "create": {
-        "title": "2단계 · 프로젝트 생성",
-        "desc": "\"새 프로젝트\"에서 작품명, 화면 비율(가로/세로), 화풍을 선택합니다."
-      },
-      "settings": {
-        "title": "1단계 · AI 서비스 설정",
-        "desc": "모든 AI 기능에 사전 설정이 필요합니다. 설정 페이지에서 Huobao API 키를 붙여넣어 텍스트/이미지/영상을 한 번에 설정하세요."
-      }
-    },
-    "settings": {
-      "quick": {
-        "title": "가장 빠른 설정: 빠른 설정",
-        "desc": "Huobao API 키를 붙여넣으면 추천 설정 3종(텍스트/이미지/영상)을 한 번에 등록합니다. 연결 테스트 지원."
-      },
-      "nav": {
-        "title": "모든 설정이 여기에",
-        "desc": "왼쪽에서 섹션 전환: AI 서비스, 일반(UI·생성 언어), 스타일 프리셋, Agent 프롬프트와 스킬, 저장소, 정보."
-      }
-    },
-    "episode": {
-      "topbar": {
-        "title": "상단 바: 모델과 상태",
-        "desc": "텍스트/이미지/영상 모델을 언제든 전환. 해상도와 길이는 모델에 연동됩니다."
-      },
-      "script": {
-        "title": "1단계 · 대본",
-        "desc": "(전제: 설정 페이지에서 AI 서비스 설정 완료) 원문을 붙여넣고 \"AI 재작성\"으로 촬영용 대본을 생성합니다."
-      },
-      "assets": {
-        "title": "2단계 · 에셋",
-        "desc": "캐릭터/장면/소품을 추출하고 일관성 있는 참조 이미지를 생성합니다. 영상 생성 시 참조 소재로 사용됩니다."
-      },
-      "videos": {
-        "title": "3단계 · 영상 제작",
-        "desc": "스토리보드 분할 → 프롬프트 확인 → 일괄 영상 생성. 실패는 원클릭 재시도. 완료 후 병합·내보내기."
-      },
-      "help": {
-        "title": "언제든 다시 보기",
-        "desc": "이 \"?\" 버튼으로 이 페이지의 가이드를 다시 재생할 수 있습니다. 즐거운 제작 되세요!"
-      }
-    }
+  "auth": {
+    "subtitle": "AI 드라마 프로듀서",
+    "registerTitle": "새 계정 만들기",
+    "registerSubtitle": "자신의 AI 드라마를 만들기 시작하세요",
+    "username": "사용자 이름",
+    "usernamePlaceholder": "사용자 이름 입력",
+    "usernameHint": "3~32자, 영문/숫자/_.-",
+    "password": "비밀번호",
+    "passwordPlaceholder": "비밀번호 입력",
+    "passwordHint": "최소 6자",
+    "confirmPassword": "비밀번호 확인",
+    "confirmPasswordPlaceholder": "비밀번호 재입력",
+    "fillAllFields": "모든 항목을 입력하세요",
+    "passwordMismatch": "비밀번호가 일치하지 않습니다",
+    "login": "로그인",
+    "loggingIn": "로그인 중...",
+    "register": "회원가입",
+    "noAccount": "계정이 없으신가요?",
+    "haveAccount": "이미 계정이 있으신가요?",
+    "loginSuccess": "로그인 성공",
+    "loginFailed": "로그인 실패, 다시 시도해주세요",
+    "registerSuccess": "계정이 생성되었습니다",
+    "registerFailed": "계정 생성 실패, 다시 시도해주세요",
+    "creatingAccount": "계정 생성 중...",
+    "roleAdmin": "관리자",
+    "roleUser": "사용자",
+    "logout": "로그아웃"
+  },
+  "profile": {
+    "title": "프로필",
+    "editProfile": "프로필 편집",
+    "changePassword": "비밀번호 변경",
+    "currentPassword": "현재 비밀번호",
+    "newPassword": "새 비밀번호",
+    "confirmNewPassword": "새 비밀번호 확인",
+    "save": "저장",
+    "saving": "저장 중...",
+    "profileSaved": "프로필이 업데이트되었습니다",
+    "profileSaveFailed": "프로필 업데이트에 실패했습니다",
+    "passwordChanged": "비밀번호가 변경되었습니다",
+    "passwordChangeFailed": "비밀번호 변경에 실패했습니다"
   }
 }

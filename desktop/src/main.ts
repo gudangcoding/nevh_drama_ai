@@ -17,7 +17,7 @@ import * as path from 'path'
 import { registerMigrationIpc } from './migrate'
 import { registerUpdater, markQuitting } from './updater'
 
-// Proses utama membuat产物 CJS, __dirname tersedia secara alami (import.meta.url di CJS = undefined)
+// Proses utama menghasilkan CJS, __dirname tersedia secara alami (import.meta.url di CJS = undefined)
 declare const __dirname: string
 // desktop/dist → akar desktop
 const DESKTOP_ROOT = path.resolve(__dirname, '..')
@@ -26,7 +26,7 @@ const REPO_ROOT = path.resolve(DESKTOP_ROOT, '..')
 const BACKEND_BUNDLE = path.join(DESKTOP_ROOT, 'build', 'backend.mjs')
 
 /** Versi template workspace: ditingkatkan saat template internal diperbarui, memicu penambahan file yang hilang ke direktori pengguna */
-const TEMPLATE_VERSION = '4'
+const TEMPLATE_VERSION = '5'
 const STORAGE_CONFIG_FILE = 'storage-config.json'
 
 let mainWindow: BrowserWindow | null = null
@@ -37,10 +37,10 @@ let backendPort = 0
 let currentDataDir = ''
 
 // userData dibedakan secara eksplisit berdasarkan mode: versi paket / versi dev tidak saling mengganggu (database, file upload, single instance lock terisolasi),
-// tidak bergantung pada nama package.json (setelah打包 nama yang sama dengan dev会导致 single instance lock salah kunci)
+// tidak bergantung pada nama package.json (setelah dikemas, nama yang sama dengan dev dapat menyebabkan kunci single instance lock salah)
 app.setPath('userData', path.join(
   app.getPath('appData'),
-  app.isPackaged ? 'HuobaoDrama' : 'HuobaoDrama-Dev',
+  app.isPackaged ? 'Nevh Drama' : 'Nevh Drama-Dev',
 ))
 
 if (!app.requestSingleInstanceLock()) {
@@ -100,11 +100,11 @@ function loadStorageConfig(): string {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
     const dir = parsed?.dataDir
-    if (typeof dir !== 'string' || !path.isAbsolute(dir)) throw new Error('dataDir 非绝对路径')
+    if (typeof dir !== 'string' || !path.isAbsolute(dir)) throw new Error('dataDir bukan path absolut')
     fs.mkdirSync(dir, { recursive: true })
     return dir
   } catch (err) {
-    console.warn(`[main] ${STORAGE_CONFIG_FILE} 读取失败，回退默认数据目录: ${(err as Error).message}`)
+    console.warn(`[main] ${STORAGE_CONFIG_FILE} gagal dibaca, kembali ke direktori data default: ${(err as Error).message}`)
     return fallback
   }
 }
@@ -117,7 +117,7 @@ export function writeStorageConfig(dataDir: string): void {
   fs.renameSync(tmp, file)
 }
 
-/** Perbandingan path win32 di统一 ke huruf kecil */
+/** Perbandingan path win32 disamakan ke huruf kecil */
 export function normCase(p: string): string {
   return process.platform === 'win32' ? p.toLowerCase() : p
 }
@@ -140,7 +140,7 @@ function syncWorkspaceTemplate(templateDir: string, destDir: string) {
 }
 
 function resolveResourceDir(): string {
-  // 打包后在 resources/（extraResources）；dev 直指仓库目录
+  // Setelah dikemas, berada di resources/ (extraResources); dev menunjuk langsung ke direktori repo
   return app.isPackaged ? process.resourcesPath : REPO_ROOT
 }
 
@@ -191,7 +191,7 @@ function startBackend(): void {
     backend = null
     // Exit selama migrasi/restart adalah perilaku yang diharapkan, dikelola oleh pemanggil
     if (!quitting && !backendRestarting) {
-      dialog.showErrorBox('Huobao Drama', `Layanan latar belakang keluar secara tidak terduga (code ${code}), aplikasi akan ditutup. Silakan mulai ulang.`)
+      dialog.showErrorBox('Nevh Drama', `Layanan latar belakang keluar secara tidak terduga (code ${code}), aplikasi akan ditutup. Silakan mulai ulang.`)
       app.quit()
     }
   })
@@ -203,7 +203,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    title: 'Huobao Drama',
+    title: 'Nevh Drama',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -262,7 +262,7 @@ async function bootstrap() {
     await createWindow()
   } catch (err) {
     console.error('[main] Startup gagal:', err)
-    dialog.showErrorBox('Huobao Drama', `Startup gagal:\n${(err as Error)?.message || err}`)
+    dialog.showErrorBox('Nevh Drama', `Startup gagal:\n${(err as Error)?.message || err}`)
     app.quit()
   }
 }

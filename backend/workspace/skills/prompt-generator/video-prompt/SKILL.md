@@ -1,71 +1,71 @@
 ---
 name: video-prompt
-description: 视频提示词规范 — 根据分镜段落内容生成按时间分段、段内可切镜的视频生成提示词
+description: Spesifikasi prompt video — menghasilkan prompt pembuatan video tersegmentasi waktu dari konten segmen storyboard, dengan pemotongan yang diperbolehkan dalam satu segmen
 ---
 
-# 视频提示词（分镜段落 → video_prompt）
+# Prompt Video (segmen storyboard → video_prompt)
 
-根据单个分镜段落的 description（含【镜头N】子镜头结构与台词/旁白）/ atmosphere / duration，生成驱动 AI 视频生成的 `video_prompt`。**一个分镜段落 = 一段 8-15 秒的视频，内部允许切镜**：段与段之间可以是不同镜头（换景别/角度/对象），用硬切衔接；但**全程不跨场景**、不闪回。
+Dari deskripsi segmen storyboard tunggal (yang berisi struktur sub-shot 【ShotN】 dan dialog/narasi) / atmosphere / durasi, hasilkan `video_prompt` yang menggerakkan pembuatan video AI. **Satu segmen storyboard = satu video 8-15 detik, dengan pemotongan yang diperbolehkan di dalamnya**: segmen berurutan boleh berupa shot berbeda (ganti ukuran shot/sudut/subjek), disambung dengan hard cut; tetapi keseluruhan segmen **tidak pernah melintasi adegan** dan tidak pernah menggunakan kilas balik.
 
-## 格式
+## Format
 
-`video_prompt` 的**第一行是信息头**：先介绍这条视频有哪些人物和场景，然后再接时间分段。人物、场景一律用 @ 引用（生成时会替换为对应参考图片标记，让视频模型先对上"谁"和"在哪"）。
+**Baris pertama `video_prompt` adalah header**: pertama perkenalkan karakter dan adegan mana yang muncul dalam video ini, kemudian ikuti dengan segmen waktu. Karakter dan adegan selalu direferensikan dengan @ (selama pembuatan mereka diganti dengan penanda gambar referensi yang sesuai, sehingga model video pertama-tama mengunci "siapa" dan "di mana").
 
 ```
-出场人物：@小明、@小红；场景：@咖啡厅。
-0-3秒：@咖啡厅，近景固定镜头，@小明低头看手机，手指反复敲桌面，表情焦虑。
-3-6秒：切到门口全景，门铃响，@小红推门走入，带进一阵冷风。
-6-9秒：切回中景，@小红微笑着走向小明坐下，小明说：「你终于来了。」
+Karakter: @Xiaoming, @Xiaohong; Adegan: @Kedai Kopi.
+0-3d: @Kedai Kopi, close shot, kamera statis; @Xiaoming menunduk menatap ponselnya, jari-jari berulang kali mengetuk meja, ekspresi cemas.
+3-6d: Potong ke wide shot pintu masuk; bel pintu berbunyi saat @Xiaohong mendorong pintu masuk dan berjalan masuk, membawa angin dingin.
+6-9d: Potong kembali ke medium shot; @Xiaohong berjalan mendekat dengan senyuman dan duduk di seberang Xiaoming; Xiaoming berkata: "Akhirnya kamu datang juga."
 ```
 
-信息头规则：
-- 只列该分镜段落实际出场的人物和绑定的场景，不要列没出场的
-- 有明显道具出场时可在信息头追加（如 `；道具：@信件`）
-- 信息头独立一行，以句号结尾，之后是时间分段
+Aturan header:
+- Hanya daftarkan karakter yang benar-benar muncul dalam segmen storyboard ini dan adegan yang terikat — jangan daftarkan yang tidak muncul
+- Ketika properti memiliki kemunculan notable, dapat ditambahkan ke header (misalnya `; Properti: @Surat`)
+- Header adalah barisnya sendiri, diakhiri dengan titik, diikuti oleh segmen waktu
 
-按 3 秒为一段，每段单独一行、用换行分隔，时间范围连续衔接（无重叠、无空缺）。
+Dibagi menjadi segmen 3 detik, setiap segmen pada barisnya sendiri dipisahkan oleh baris baru, dengan rentang waktu kontinu dan berdekatan (tanpa tumpang tindih, tanpa celah).
 
-## 与分镜描述的映射
+## Pemetaan ke Deskripsi Storyboard
 
-`description` 是 video_prompt 的唯一内容来源（画面、动作、台词、旁白都在其中），转换规则：
+`description` adalah satu-satunya sumber konten video_prompt (visual, tindakan, dialog, dan narasi semuanya ada di dalamnya). Aturan konversi:
 
-- `description` 的每个 `【镜头N】` 映射为 **1-2 个连续的 3 秒段**，顺序一致、不遗漏、不合并、不新增子镜头
-- 台词/旁白从对应 `【镜头N】` 内的「角色名说：「…」」「旁白：…」提取，分配到该子镜头映射的段；**不要创作 description 之外的新台词**
-- 画面动作以 `description` 为准；`atmosphere` 只用于补各段的光线、色调与氛围描写
+- Setiap `【ShotN】` dalam `description` dipetakan ke **1-2 segmen 3 detik berurutan** — urutan sama, tidak ada yang dihilangkan, tidak ada penggabungan, tidak ada sub-shot baru
+- Dialog/narasi diekstrak dari entri "NamaKarakter berkata: "..."" / "Narasi: ..." di dalam `【ShotN】` yang sesuai dan ditugaskan ke segmen yang dipetakan untuk sub-shot tersebut; **jangan menciptakan dialog baru di luar deskripsi**
+- Tindakan visual mengikuti `description`; `atmosphere` hanya digunakan untuk melengkapi deskripsi pencahayaan, nada warna, dan suasana setiap segmen
 
-## 段内结构
+## Struktur Dalam-Segmen
 
-每一段按此顺序组织内容（可省略无内容的项，但动作/画面必须有）：
+Atur konten setiap segmen dalam urutan ini (item tanpa konten boleh dihilangkan, tetapi tindakan/visual wajib ada):
 
-**时间范围 ＋ 场景@引用 ＋ 景别/运镜 ＋ 角色@引用＋主体动作·表情 ＋ 对白/旁白 ＋ 氛围光线**
+**Rentang waktu + adegan @referensi + ukuran shot/gerakan kamera + karakter @referensi + tindakan utama·ekspresi + dialog/narasi + suasana dan pencahayaan**
 
-- **第一段必须建立空间**：场景 + 机位 + 角色的位置与状态，让观众一眼知道在哪、看谁
-- **切镜**：切镜后的段开头用"切到/切回"等衔接词，并重新交代景别与主体；切镜点应对齐分镜 `description` 中的 `【镜头N】` 结构
-- **景别/运镜**：每段一个镜头状态（近景/中景/全景/特写；固定/推/拉/摇/跟）；单个子镜头内运镜连续，切镜后可更换运镜方式
-- **动作**：每段一个主动作，动词具体可见（走、转身、抬头、攥紧、停顿）
-- **情绪全部转为可见描写**：不要"他很伤心/气氛紧张"这类抽象词，写成"他低下头、手指攥紧杯沿、呼吸变重"
-- **对白/旁白**：写「角色名说：「台词」」，旁白写「旁白：内容」；3 秒念不完的长台词拆到多段；无对白的段可写环境音/动作音（如"机器持续轰鸣"）
+- **Segmen pertama harus menetapkan ruang**: adegan + posisi kamera + posisi dan kondisi setiap karakter, sehingga penonton langsung tahu di mana kita berada dan siapa yang harus diperhatikan
+- **Pemotongan**: mulai segmen pasca-potong dengan kata transisi seperti "potong ke / potong kembali", dan nyatakan ulang ukuran shot dan subjek; titik potong harus selaras dengan struktur `【ShotN】` dalam `description` storyboard
+- **Ukuran shot/gerakan kamera**: satu kondisi kamera per segmen (close shot / medium shot / wide shot / close-up; statis / push / pull / pan / tracking); gerakan kamera kontinu dalam satu sub-shot dan boleh berubah setelah pemotongan
+- **Tindakan**: satu tindakan utama per segmen, dengan kata kerja konkret yang dapat dilihat (berjalan, berbalik, mendongak, mengepal, berhenti)
+- **Semua emosi harus menjadi deskripsi yang terlihat**: tanpa kata-kata abstrak seperti "dia sangat sedih / suasana tegang" — tulis sebagai "dia menundukkan kepala, jari-jari mengepal pinggiran cangkir, napas semakin berat"
+- **Dialog/narasi**: tulis "NamaKarakter berkata: "dialog""; narasi sebagai "Narasi: konten"; dialog panjang yang tidak bisa diucapkan dalam 3 detik dibagi ke beberapa segmen; segmen tanpa dialog boleh mencatat suara ambient/tindakan (misalnya "mesin terus menderu")
 
-## 引用规则
+## Aturan Referensi
 
-- `@场景名` — 场景引用，名字必须与场景列表中的地点完全一致
-- `@角色名` — 角色引用，名字必须与角色列表中的名字完全一致
-- `@道具名` — 道具引用，名字必须与道具列表中的名字完全一致；道具在画面中明显可见、被使用或特写时引用
-- 生成时会自动把 `@名字` 替换为对应参考图片标记（如 `@小明` → `@图片1小明`），因此名字必须精确匹配，不要缩写或加额外符号
-- **每段至少一个 @ 引用锚定画面**；角色出场的段必须 @ 该角色；只引用该分镜段落已绑定的场景/角色/道具
+- `@NamaAdegan` — referensi adegan; nama harus persis cocok dengan lokasi dalam daftar adegan
+- `@NamaKarakter` — referensi karakter; nama harus persis cocok dengan nama dalam daftar karakter
+- `@NamaProperti` — referensi properti; nama harus persis cocok dengan nama dalam daftar properti; referensikan properti saat terlihat jelas dalam frame, digunakan, atau ditampilkan dalam close-up
+- Selama pembuatan, setiap `@nama` secara otomatis diganti dengan penanda gambar referensi yang sesuai (misalnya `@Xiaoming` → `@Gambar1Xiaoming`), sehingga nama harus cocok persis — jangan disingkat atau ditambahkan simbol ekstra
+- **Setiap segmen harus memiliki setidaknya satu referensi @ yang menjangkarkan frame**; segmen mana pun di mana karakter muncul harus @ karakter tersebut; hanya referensikan adegan/karakter/properti yang sudah terikat ke segmen storyboard ini
 
-## 时间轴规则
+## Aturan Linimasa
 
-- 段数 = 分镜段落 duration ÷ 3 秒（向上取整），各段时间范围相加必须等于段落总时长
-- 内容节奏：第一段建立 → 中段推进动作/冲突 → 末段落到结果或情绪点
+- Jumlah segmen = durasi segmen storyboard ÷ 3 detik (dibulatkan ke atas); rentang waktu segmen harus berjumlah tepat sama dengan total durasi segmen
+- Pacing konten: segmen pertama menetapkan → segmen tengah memajukan tindakan/konflik → segmen terakhir mendarat pada hasil atau beat emosional
 
-## 禁止事项
+## Larangan
 
-- 跨场景切换、闪回（一个段落只发生在一个场景内）
-- 引用列表之外的场景/角色名
-- 抽象心理描写、文学化比喻（模型只认可见画面）
-- 语言与会话语言指令不符
+- Pergantian lintas adegan, kilas balik (satu segmen berlangsung di satu adegan saja)
+- Mereferensikan nama adegan/karakter di luar daftar
+- Deskripsi psikologis abstrak, metafora sastra (model hanya mengenali citra yang dapat dilihat)
+- Bahasa yang tidak cocok dengan direktif bahasa sesi
 
-## 保存
+## Menyimpan
 
-调用 `update_storyboard` 仅更新该分镜段落的 `video_prompt` 字段，不要改动其他字段，不要重新拆分整集。
+Panggil `update_storyboard` untuk hanya memperbarui bidang `video_prompt` dari segmen storyboard ini; jangan memodifikasi bidang lain apa pun, dan jangan mem-breakdown ulang seluruh episode.

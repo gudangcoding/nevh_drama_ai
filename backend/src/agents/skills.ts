@@ -1,9 +1,9 @@
 /**
- * Workspace Agent — kemampuan native Mastra
- * Setiap Agent memiliki satu Workspace:
- * - filesystem: di-jail ke direktori backend/workspace/, Agent mendapatkan tool baca/tulis file
- * - skills: mendaftarkan SKILL.md khusus setiap Agent dari workspace/skills/
- * Saat menyuntikkan instructions, teks skill lengkap digabungkan (penyuntikan native hanya metadata, penyuntikan teks lengkap menjamin perilaku konsisten)
+ * Agent Workspace - Mastra native capability
+ * Each Agent has one Workspace:
+ * - filesystem: jailed to backend/workspace/, Agent gets file read/write tools
+ * - skills: registers each Agent SKILL.md from workspace/skills/
+ * When injecting instructions, full skill text is concatenated (native injection is metadata-only; full-text injection ensures consistent behavior)
  */
 import fs from 'fs'
 import path from 'path'
@@ -12,22 +12,23 @@ import { Workspace, LocalFilesystem } from '@mastra/core/workspace'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-// Versi desktop menyuntikkan WORKSPACE_PATH dari proses utama Electron (salinan yang dapat ditulis di userData); dev menggunakan backend/workspace sebagai anchor
+// Desktop injects WORKSPACE_PATH from Electron main process (writable copy in userData); dev uses backend/workspace as anchor
 const WORKSPACE_DIR = process.env.WORKSPACE_PATH
   ? path.resolve(process.env.WORKSPACE_PATH)
   : path.resolve(__dirname, '../../workspace')
 const SKILLS_DIR = path.join(WORKSPACE_DIR, 'skills')
 
-// Memastikan direktori kerja ada saat startup (akar jail untuk baca/tulis file Agent)
-  // Setelah di-pack, modul desktop mungkin masih dimuat dari lokasi hanya-baca, kegagalan tidak menghalangi startup (lapisan route akan memberikan error yang jelas)
+// Ensure work directory exists at startup (jail root for Agent file read/write)
+  // After packaging, desktop module may be loaded from read-only location; failure should not block startup (route layer gives clear error)
   try {
     fs.mkdirSync(SKILLS_DIR, { recursive: true })
   } catch (err) {
-    console.warn(`[skills] Gagal membuat direktori kerja (lingkungan hanya-baca?): ${(err as Error).message}`)
+    console.warn(`[skills] Failed to create work directory (read-only environment?): ${(err as Error).message}`)
   }
 
-/** Direktori skill yang didaftarkan setiap Agent (relatif terhadap workspace/skills/, termasuk direktori sub-spesifikasi; nama direktori harus sesuai Spesifikasi Agent Skills: huruf kecil + tanda hubung) */
+/** Skill directories registered per Agent (relative to workspace/skills/, including sub-spec dirs; dir names must follow Agent Skills Spec: lowercase + hyphens) */
 const AGENT_SKILL_MAP: Record<string, string[]> = {
+  episode_expander: [],
   script_rewriter: ['script-rewriter'],
   extractor: ['extractor'],
   storyboard_breaker: ['storyboard-breaker'],
@@ -39,8 +40,8 @@ const AGENT_SKILL_MAP: Record<string, string[]> = {
   ],
 }
 
-/** Workspace setiap Agent (direktori kerja filesystem + pendaftaran skill native)
- *  Skills menggunakan resolver dinamis untuk mencocokkan berdasarkan awalan direktori: sub-skill baru yang dibuat di halaman pengaturan dapat ditemukan tanpa restart */
+/** Workspace per Agent (filesystem work dir + native skill registration)
+ *  Skills use dynamic resolver matching by directory prefix: new sub-skills created in settings can be discovered without restart */
 export const skillWorkspaces: Record<string, Workspace> = Object.fromEntries(
   Object.entries(AGENT_SKILL_MAP).map(([agentType, prefixes]) => [
     agentType,
@@ -54,7 +55,7 @@ export const skillWorkspaces: Record<string, Workspace> = Object.fromEntries(
   ]),
 )
 
-/** Memindai secara rekursif semua direktori yang berisi SKILL.md di bawah workspace/skills/ (jalur relatif terhadap root workspace) */
+/** Recursively scan all directories containing SKILL.md under workspace/skills/ (paths relative to workspace root) */
 function scanSkillPaths(): string[] {
   const found: string[] = []
   const walk = (dir: string, prefix: string) => {
@@ -72,8 +73,8 @@ function scanSkillPaths(): string[] {
 }
 
 /**
- * Workspace Manajemen Skill (untuk CRUD halaman pengaturan)
- * Skills menggunakan resolver dinamis, direktori skill yang baru dibuat/hapus dapat ditemukan tanpa restart
+ * Skill Management Workspace (for settings page CRUD)
+ * Skills use dynamic resolver; newly created/deleted skill dirs are discoverable without restart
  */
 export const skillsManagerWorkspace = new Workspace({
   id: 'workspace-skills-manager',
@@ -86,13 +87,13 @@ function formatSkillSection(skillId: string, content: string): string {
   return [`## Skill: ${skillId}`, content].join('\n')
 }
 
-/** Menghapus frontmatter dari file bergaya SKILL.md, mengembalikan isi (untuk dibaca langsung oleh varian bahasa) */
+/** Strip frontmatter from SKILL.md-style file, return body (for direct reading by language variants) */
 function stripFrontmatter(raw: string): string {
   const m = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/)
   return (m ? raw.slice(m[0].length) : raw).trim()
 }
 
-/** Membaca isi varian bahasa skill (SKILL.<lang>.md, dibaca langsung melewati cache selalu terbaru); mengembalikan null jika tidak ada */
+/** Read skill language variant content (SKILL.<lang>.md, read directly bypassing cache for freshness); returns null if missing */
 async function readLocalizedSkill(relPath: string, lang: string): Promise<string | null> {
   const fsm = skillsManagerWorkspace.filesystem!
   const p = `skills/${relPath}/SKILL.${lang}.md`
@@ -105,10 +106,10 @@ async function readLocalizedSkill(relPath: string, lang: string): Promise<string
   }
 }
 
-/** Membaca teks lengkap skill khusus Agent (melalui API workspace.skills, mempertahankan format penyuntikan asli)
- *  Direktori AGENT_SKILL_MAP dicocokkan berdasarkan awalan: direktori itu sendiri dan semua SKILL.md di sub-direktornya akan disuntikkan,
- *  sehingga sub-skill baru yang dibuat di halaman pengaturan (misalnya storyboard-breaker/xxx) dapat berlaku tanpa mengubah kode.
- *  Ketika lang bukan zh, setiap skill memprioritaskan SKILL.<lang>.md, jika tidak ada kembali ke versi dasar (Cina) */
+/** Read full skill text for an Agent (via workspace.skills API, preserving original injection format)
+ *  AGENT_SKILL_MAP directories are matched by prefix: the directory itself and all SKILL.md in subdirectories are injected,
+ *  so new sub-skills created in settings (e.g. storyboard-breaker/xxx) take effect without code changes.
+ *  When lang is not zh, each skill prefers SKILL.<lang>.md, falls back to base version if missing */
 export async function loadAgentSkills(agentType: string, lang?: string | null): Promise<string> {
   const workspace = skillWorkspaces[agentType]
   const prefixes = AGENT_SKILL_MAP[agentType] || []
@@ -133,18 +134,18 @@ export async function loadAgentSkills(agentType: string, lang?: string | null): 
   if (!contents.length) return ''
 
   return [
-    '以下是该 Agent 专属的项目技能规范（SKILL.md）。',
-    '不同 Agent 会加载不同 skill；你只需要遵守当前注入的这些技能。',
-    '你必须在不违背当前工具边界的前提下优先遵守这些规范；若与用户明确要求冲突，以用户要求为准。',
+    'The following are project skill specs (SKILL.md) specific to this Agent.',
+    'Different Agents load different skills; you only need to follow the skills currently injected.',
+    'You must prioritize following these specs without violating current tool boundaries; if they conflict with explicit user requirements, user requirements take precedence.',
     '',
     contents.join('\n\n'),
   ].join('\n')
 }
 
 /**
- * Memaksa pemindaian ulang skill semua Agent (dipanggil setelah menyunting SKILL.md)
- * maybeRefresh bertanggung jawab mendeteksi penambahan/penghapusan direktori (perubahan jalur resolver dinamis), refresh bertanggung jawab pembaruan konten
- * (mtime direktori tidak diperbarui karena menyunting isi file, validasi kedaluwarsa hanya dapat diandalkan dari maybeRefresh)
+ * Force rescan of all Agent skills (called after editing SKILL.md)
+ * maybeRefresh detects directory add/remove (dynamic resolver path changes), refresh handles content updates
+ * (directory mtime does not update on file content edit, staleness detection relies on maybeRefresh)
  */
 export async function refreshSkillWorkspaces(): Promise<void> {
   await Promise.all(

@@ -1,4 +1,4 @@
-/* === HuoBao Studio — ChatFire 火焰橙 × 现代 SaaS (light / dark) === */
+/* === HuoBao Studio — ChatFire flame orange × modern SaaS (light / dark) === */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -29,7 +29,7 @@
   --text-2: #5c6370;
   --text-3: #9aa1ad;
 
-  /* ChatFire 火焰橙（platform 品牌色） */
+  /* ChatFire flame orange (platform brand color) */
   --accent: #f97316;
   --accent-dark: #c2410c;
   --accent-bg: rgba(249,115,22,0.10);
@@ -119,7 +119,7 @@
   --header-bg: rgba(247,248,250,0.75);
   --inverse-surface: #17181a;
   --on-inverse: #ffffff;
-  /* 视频播放/预览区固定深底（两主题一致，深色块不覆写） */
+  /* video player/preview area keeps a dark background (consistent in both themes, dark block is not overridden) */
   --media-surface: #0b0d10;
   --scrollbar-thumb: rgba(92,99,112,0.28);
   --scrollbar-thumb-hover: rgba(92,99,112,0.42);
@@ -138,7 +138,7 @@
   --accent-purple-text: #4f46e5;
   --accent-purple-bg: rgba(99,102,241,0.10);
 
-  /* z-index 分层：页面内部 1–40；模态 .overlay 100–120；菜单 1000；全屏阻塞 2000 */
+  /* z-index layering: inside pages 1–40; modal .overlay 100–120; menus 1000; full-screen blockers 2000 */
   --z-menu: 1000;
   --z-blocking: 2000;
 }
@@ -146,7 +146,7 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* gateway 石板蓝灰暗色（区别于纯黑，带 slate 蓝调） */
+  /* gateway slate blue-gray dark tone (distinct from pure black, with a slate-blue tint) */
   --surface-base: #0b0f16;
   --surface-raised: #131a24;
   --surface-muted: #131a24;
@@ -171,7 +171,7 @@
   --text-2: rgba(226,232,240,0.65);
   --text-3: #8b94a3;
 
-  /* 蜜桃橙（dark 下品牌色提亮，platform 同款） */
+  /* peach orange (dark brand color brightened in dark mode, platform same as) */
   --accent: #ffb076;
   --accent-dark: #f5934e;
   --accent-bg: rgba(255,176,118,0.14);
@@ -292,7 +292,7 @@ p { line-height: 1.7; }
 .btn:focus-visible { outline: none; box-shadow: 0 0 0 3.5px var(--button-focus); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-primary {
-  /* ChatFire 签名主 CTA：品牌渐变 + 悬停发光 + 轻微放大 */
+  /* ChatFire signature primary CTA: brand gradient + hover glow + slight scale-up */
   background: var(--accent-gradient);
   color: var(--on-accent);
 }
@@ -419,7 +419,7 @@ select.input { appearance: auto; cursor: pointer; padding-right: 14px; }
   border-bottom: 1px solid var(--border);
 }
 .dialog-title { font-size: 17px; font-weight: 700; }
-.dialog-body { padding: var(--sp-6); overflow-y: auto; }
+.dialog-body { padding: var(--sp-6); overflow-y: auto; flex: 1 1 auto; min-height: 0; }
 .dialog-foot {
   display: flex;
   justify-content: flex-end;
@@ -466,7 +466,7 @@ select.input { appearance: auto; cursor: pointer; padding-right: 14px; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 .mono { font-family: var(--font-mono); }
-/* gateway 页眉签名：eyebrow 小标签（大写 + 宽字距 + 品牌色） */
+/* gateway header signature: eyebrow small label (uppercase + wide tracking + brand color) */
 .eyebrow {
   font-size: 11px;
   font-weight: 700;
@@ -507,7 +507,7 @@ select.input { appearance: auto; cursor: pointer; padding-right: 14px; }
 .stagger-4 { animation-delay: 0.16s; }
 .stagger-5 { animation-delay: 0.2s; }
 
-/* === AppMenu — 全站统一下拉菜单面板（Teleport to body，必须全局样式） === */
+/* === AppMenu — site-wide dropdown menu panel (Teleport to body, must be global styles) === */
 .app-menu-anchor { display: inline-flex; min-width: 0; }
 .app-menu-anchor.block { display: flex; width: 100%; }
 .app-menu {

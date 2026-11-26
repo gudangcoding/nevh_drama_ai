@@ -8,30 +8,30 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8')
 test('add episode dialog asks for a title and a fixed video resolution', () => {
   const page = read('app/pages/drama/[id]/index.vue')
 
-  // 删除图片/视频服务选择 UI
-  assert.doesNotMatch(page, /图片生成服务/)
-  assert.doesNotMatch(page, /视频生成服务/)
+  // image/video service picker UI removed
+  assert.doesNotMatch(page, /Image generation service/)
+  assert.doesNotMatch(page, /Video generation service/)
   assert.doesNotMatch(page, /svc-card/)
   assert.doesNotMatch(page, /svc-pick/)
   assert.doesNotMatch(page, /imageConfigs|videoConfigs/)
-  assert.doesNotMatch(page, /配置将锁定/)
-  assert.doesNotMatch(page, /创建并锁定配置/)
+  assert.doesNotMatch(page, /Config will be locked/)
+  assert.doesNotMatch(page, /Create and lock config/)
 
-  // 保留标题输入与提交
+  // keep the title input and submit
   assert.match(page, /v-model="newEpisodeTitle"/)
-  assert.match(page, /placeholder="默认按集数自动命名"/)
-  assert.match(page, /留空时会自动按集数命名/)
-  assert.match(page, /创建后自动锁定当前启用的图片与视频生成能力/)
-  assert.match(page, /creatingEpisode \? '创建中\.\.\.' : '创建'/)
+  assert.match(page, /placeholder="Auto-named by episode number by default"/)
+  assert.match(page, /leave empty to auto-name by episode number/)
+  assert.match(page, /active image/video generation capabilities are locked at creation/)
+  assert.match(page, /creatingEpisode \? 'Creating\.\.\.' : 'Create'/)
 
-  // 视频分辨率：创建集时固定（480p/720p，默认 720p）
-  assert.match(page, /视频分辨率/)
+    // Video resolution: fixed at creation (480p/720p, default 720p)
+  assert.match(page, /Video resolution/)
   assert.match(page, /v-model="newEpisodeResolution"/)
   assert.match(page, /const resolutionOptions = \[/)
-  assert.match(page, /720p · 高清/)
-  assert.match(page, /480p · 流畅/)
+  assert.match(page, /720p · HD/)
+  assert.match(page, /480p · Smooth/)
   assert.match(page, /newEpisodeResolution = ref\('720p'\)/)
-  assert.match(page, /之后仍可在集卡片上修改/)
+  assert.match(page, /can still be changed on the episode card/)
 })
 
 test('addEpisode posts drama_id, title and resolution', () => {
@@ -49,8 +49,8 @@ test('addEpisode posts drama_id, title and resolution', () => {
 test('episode card resolution is editable via a dropdown persisted to episodes.resolution', () => {
   const page = read('app/pages/drama/[id]/index.vue')
 
-  // 卡片上的分辨率标签 + 下拉修改
-  assert.match(page, /点击修改本集视频分辨率/)
+  // resolution badge on the card + dropdown edit
+  assert.match(page, /Click to change this episode's video resolution/)
   assert.match(page, /epResMenuId/)
   assert.match(page, /function epResolution\(ep\) \{ return ep\.resolution === '480p' \? '480p' : '720p' \}/)
   assert.match(page, /function setEpisodeResolution/)

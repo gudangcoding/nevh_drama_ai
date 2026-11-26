@@ -5,12 +5,14 @@ import { success, badRequest } from '../utils/response.js'
 import { mergeEpisodeVideos } from '../services/ffmpeg-merge.js'
 import { toSnakeCase } from '../utils/transform.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { assertEpisodeAccess } from '../services/ownership.js'
 
 const app = new Hono()
 
 // POST /episodes/:id/merge — gabungkan video shot (body.storyboard_ids opsional, hanya gabung yang dipilih)
 app.post('/episodes/:id/merge', async (c) => {
   const episodeId = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, episodeId)
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
   if (!ep) return badRequest(c, 'Episode tidak ditemukan')
 
@@ -40,6 +42,7 @@ app.post('/episodes/:id/merge', async (c) => {
 // GET /episodes/:id/merge — periksa status penggabungan terbaru
 app.get('/episodes/:id/merge', async (c) => {
   const episodeId = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, episodeId)
   const merges = await db.select().from(schema.videoMerges)
     .where(eq(schema.videoMerges.episodeId, episodeId))
 
@@ -53,6 +56,7 @@ app.get('/episodes/:id/merge', async (c) => {
 // GET /episodes/:id/merges — daftar film ( semua catatan penggabungan, yang baru di depan)
 app.get('/episodes/:id/merges', async (c) => {
   const episodeId = Number(c.req.param('id'))
+  await assertEpisodeAccess(c, episodeId)
   const merges = await db.select().from(schema.videoMerges)
     .where(and(eq(schema.videoMerges.episodeId, episodeId), isNull(schema.videoMerges.deletedAt)))
   merges.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))

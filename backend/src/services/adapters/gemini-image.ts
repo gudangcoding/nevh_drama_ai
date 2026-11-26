@@ -3,6 +3,11 @@
  * Autentikasi: parameter Query URL ?key= atau Header x-goog-api-key
  * Permintaan: struktur contents[].parts[] gaya Google REST
  * Respons: base64 dikodekan di inlineData.data, tanpa URL
+ *
+ * Model Image Gemini 3 (gemini-3.*-image) di host resmi memakai Interactions API (skema 2026-05-20):
+ * POST /v1beta/interactions SINKRON (model image TIDAK mendukung background interactions),
+ * respons akhir berisi status "completed" + gambaran di output_image / steps[].content[].type="image"
+ * dengan data base64. response_format: { type:"image", mime_type:"image/jpeg", aspect_ratio, image_size }.
  */
 import type {
   ImageProviderAdapter,
@@ -27,6 +32,9 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
     const isOfficialHost = /generativelanguage\.googleapis\.com/.test(config.baseUrl || '')
 
     if (isGemini3Image && isOfficialHost) {
+      // Model image tidak mendukung background interactions (pro-image menolak "background": true).
+      // Jadi permintaan dikirim SINKRON: POST /v1beta/interactions menunggu sampai gambar selesai
+      // (respons berisi status completed + output_image / steps[].content[].type=image, data base64).
       return {
         url: joinProviderUrl(config.baseUrl, '/v1beta', '/interactions'),
         method: 'POST',
@@ -39,6 +47,7 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
           input: record.prompt || 'Generate an image',
           response_format: {
             type: 'image',
+            mime_type: 'image/jpeg',
             aspect_ratio: this.parseAspectRatio(record.size),
             image_size: this.parseImageSize(record.size),
           },
@@ -97,6 +106,11 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
   }
 
   parseGenerateResponse(result: any): ImageGenResponse {
+    // Error eksplisit dari interactions endpoint (misal: saldo tidak cukup, model tidak valid)
+    if (result?.error) {
+      throw new Error(result.error.message || 'Gemini generation failed')
+    }
+
     const firstCandidate = result?.candidates?.[0]
     const finishReason = firstCandidate?.finishReason || firstCandidate?.finish_reason
     const finishMessage = firstCandidate?.finishMessage || firstCandidate?.finish_message
@@ -113,30 +127,50 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
       return { isAsync: false, imageUrl: undefined }
     }
 
-    if (result.task_id || result.id) {
+    // Respons latar belakang: { id, status: "in_progress"|"queued"|"completed"|"failed" }
+    // Status completed + output_image sudah tertangani extractImageBase64 di atas.
+    if (result?.id) {
+      const status = String(result.status || '').toLowerCase()
+      // Jika status sudah final tapi tidak ada gambar, lempar error
+      if (status === 'failed') {
+        throw new Error(result.error?.message || 'Gemini generation failed')
+      }
+      // completed tanpa gambar: anomali (biasanya tak terjadi), fallback ke polling yang akan timeout
       return { isAsync: true, taskId: result.task_id || result.id }
     }
 
-    if (result.error) {
-      throw new Error(result.error.message || 'Gemini generation failed')
+    if (result.task_id) {
+      return { isAsync: true, taskId: result.task_id }
     }
+
     throw new Error('No image data in Gemini response')
   }
 
   parsePollResponse(result: any): ImagePollResponse {
-    // Gemini bersifat sinkron, biasanya tidak masuk ke sini
-    return { status: 'completed' }
+    const status = String(result?.status || '').toLowerCase()
+    // Error eksplisit dari hulu (saldo habis, moderasi konten, dll) = status akhir
+    if (result?.error || status === 'failed' || status === 'error') {
+      const msg = result?.error?.message || result?.error || 'Gemini generation failed'
+      return { status: 'failed', error: msg }
+    }
+    if (status === 'completed') {
+      // Gambar diekstrak oleh generation.ts via extractImageBase64 setelah status completed
+      return { status: 'completed' }
+    }
+    // in_progress / queued / processing / pending → masih berjalan
+    return { status: 'processing' }
   }
 
   buildPollRequest(config: AIConfig, taskId: string): ProviderRequest {
-    // Gemini tidak membutuhkan polling, tetapi menerapkan antarmuka untuk menjaga konsistensi
-    const url = new URL(joinProviderUrl(config.baseUrl, '/v1beta', `/${taskId}`))
+    // Endpoint polling interaksi: GET /v1beta/interactions/{id}
+    const url = new URL(joinProviderUrl(config.baseUrl, '/v1beta', `/interactions/${taskId}`))
     url.searchParams.set('key', config.apiKey)
     return {
       url: url.toString(),
       method: 'GET',
       headers: {
         'x-goog-api-key': config.apiKey,
+        'Api-Revision': '2026-05-20',
       },
       body: undefined,
     }
@@ -158,17 +192,36 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
     if (result?.output_image?.data) {
       return {
         data: result.output_image.data,
-        mimeType: result.output_image.mime_type || result.output_image.mimeType || 'image/png',
+        mimeType: result.output_image.mime_type || result.output_image.mimeType || 'image/jpeg',
       }
     }
 
+    // Struktur Interactions API (respons akhir sinkron):
+    // steps[].content[] = blok { type:"image", mime_type, data } (base64).
+    // Model image bisa menghasilkan beberapa blok gambar (thinking → model_output); ambil yang TERAKHIR.
+    const steps = result?.steps || []
+    let last: { data: string; mimeType: string } | null = null
+    for (const step of steps) {
+      const content = Array.isArray(step?.content) ? step.content : []
+      for (const block of content) {
+        if (block?.type === 'image' && block.data) {
+          last = {
+            data: block.data,
+            mimeType: block.mime_type || block.mimeType || 'image/jpeg',
+          }
+        }
+      }
+    }
+    if (last) return last
+
+    // Bentuk lama / relay: candidates[].content.parts[].inline_data
     const parts = result.candidates?.[0]?.content?.parts || []
     for (const part of parts) {
       if (part.inlineData || part.inline_data) {
         const inline = part.inlineData || part.inline_data
         return {
           data: inline.data,
-          mimeType: inline.mimeType || inline.mime_type || 'image/png',
+          mimeType: inline.mimeType || inline.mime_type || 'image/jpeg',
         }
       }
     }

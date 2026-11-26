@@ -8,7 +8,7 @@
         </button>
       </template>
 
-      <!-- Search（slot 内容随父作用域，scoped 样式可达 Teleport 面板内） -->
+      <!-- Search (slot content follows the parent scope; scoped styles reach the Teleport panel) -->
       <div v-if="searchable" class="base-select-search">
         <Search :size="12" />
         <input

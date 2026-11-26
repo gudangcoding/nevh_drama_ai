@@ -97,7 +97,7 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
     }
 
     // Secara otomatis memotong bagian yang melebihi 20000 karakter; sekaligus mengonversi penanda internal proyek @GambarN menjadi referensi resmi GambarN.
-    const prompt = cleanUrl(record.prompt).replace(/@图片(\d+)/g, '图$1').slice(0, PROMPT_MAX_CHARS)
+    const prompt = cleanUrl(record.prompt).replace(/@Gambar(\d+)/g, '\u56fe$1').slice(0, PROMPT_MAX_CHARS)
 
     const refImages = parseUrlArray(record.referenceImageUrls)
     const refVideos = parseUrlArray(record.referenceVideoUrls)

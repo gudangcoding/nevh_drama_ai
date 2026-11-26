@@ -6,7 +6,7 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
           </svg>
-          {{ t('episode.topbar.back') }}
+          <span class="back-label">{{ t('episode.topbar.back') }}</span>
         </button>
         <div class="studio-identity">
           <h1 class="studio-title">{{ drama.title }}</h1>
@@ -54,9 +54,6 @@
         </div>
         <div class="studio-actions">
           <LocaleSwitcher />
-          <button class="btn btn-icon tour-help-btn" :title="t('tour.helpTitle')" @click="startTour('episode', EPISODE_TOUR, t)">
-            <CircleHelp :size="14" :stroke-width="1.8" />
-          </button>
           <button class="btn" @click="refresh">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             {{ t('common.refresh') }}
@@ -100,7 +97,7 @@
             @click="goSubStep(item.key)"
           >
             <span class="pipe-icon" :class="sectionState(section.id) === 'done' ? 'icon-done' : activeSubStepKey === item.key ? 'icon-active' : ''">
-              <!-- 收起态：始终显示步骤图标，进行中用右上角小脉冲点表达 -->
+              <!-- collapsed state: always show step icons, in-progress shown by a small pulse dot in the top-right -->
               <template v-if="sidebarCollapsed">
                 <component :is="item.icon" :size="12" />
                 <span v-if="sectionState(section.id) === 'active'" class="pipe-mini-pulse" />
@@ -117,7 +114,7 @@
         </div>
       </nav>
 
-      <!-- Bottom: 收起/展开 + Stage marquee + Refresh -->
+      <!-- Bottom: collapse/expand + Stage marquee + Refresh -->
       <div class="sidebar-bottom">
         <button
           type="button"
@@ -128,7 +125,7 @@
           <svg class="sidebar-toggle-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           <span v-if="!sidebarCollapsed">{{ t('episode.sidebar.collapse') }}</span>
         </button>
-        <!-- 步骤跑马灯：四段主流程进度，当前段流动光效，点击段可跳转 -->
+        <!-- step marquee: four main-stage progress, flowing glow on the current stage, click a stage to jump -->
         <div class="sidebar-progress">
           <div class="sidebar-progress-head">
             <span class="sidebar-progress-title">{{ currentStageLabel }}</span>
@@ -250,7 +247,7 @@
         </div>
 
         <template v-else>
-          <!-- 制作子步骤导航（资产/分镜拆分/视频生成）由左侧栏承担，顶部不再重复展示 -->
+          <!-- production sub-step navigation (assets/storyboard split/video generation) handled by the left sidebar, no longer duplicated at the top -->
           <!-- Sub: Assets -->
           <div v-if="prodTab === 'assets'" class="prod-content">
             <div class="prod-section-bar">
@@ -282,6 +279,11 @@
                   {{ t('episode.prod.batchProp') }}
                 </button>
               </div>
+            </div>
+            <div v-if="assetQueueActive || assetQueue.length" class="asset-queue-bar">
+              <Loader2 :size="12" class="animate-spin" />
+              <span class="asset-queue-text">{{ assetQueueStatusText }}</span>
+              <button v-if="assetQueue.length" class="btn btn-sm" @click="cancelAssetQueue">{{ t('episode.asset.cancelQueue') }}</button>
             </div>
             <div v-if="extractingTargets.length && !chars.length && !scenes.length && !propItems.length" class="step-loading">
               <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
@@ -361,6 +363,15 @@
                     <span class="afp-label">{{ t('episode.asset.finalPromptTurnaround') }}</span>
                     <span :class="['afp-text', !(c.final_prompt || c.finalPrompt) && 'dim']">{{ c.final_prompt || c.finalPrompt || t('episode.asset.finalPromptAutoTurnaround') }}</span>
                   </div>
+                  <div v-if="assetProgressOf('character', c.id)" class="asset-progress" :class="'is-' + (assetProgressOf('character', c.id)?.stage || 'queued')">
+                    <div class="asset-progress-top">
+                      <span class="asset-progress-label">{{ assetProgressStageLabel('character', c.id) }}</span>
+                      <span class="asset-progress-pct mono">{{ assetProgressPercent('character', c.id) }}%</span>
+                    </div>
+                    <div class="asset-progress-track" role="progressbar" :aria-valuenow="assetProgressPercent('character', c.id)" aria-valuemin="0" aria-valuemax="100">
+                      <div class="asset-progress-fill" :style="{ width: assetProgressPercent('character', c.id) + '%' }" />
+                    </div>
+                  </div>
                 </div>
               </article>
             </div>
@@ -404,6 +415,15 @@
                   <div class="asset-meta asset-final" :class="{ dim: !(s.final_prompt || s.finalPrompt) }" :title="s.final_prompt || s.finalPrompt || ''">
                     <span class="afp-label">{{ t('episode.asset.finalPromptFixed') }}</span>
                     {{ s.final_prompt || s.finalPrompt || t('episode.asset.finalPromptAutoFixed') }}
+                  </div>
+                  <div v-if="assetProgressOf('scene', s.id)" class="asset-progress" :class="'is-' + (assetProgressOf('scene', s.id)?.stage || 'queued')">
+                    <div class="asset-progress-top">
+                      <span class="asset-progress-label">{{ assetProgressStageLabel('scene', s.id) }}</span>
+                      <span class="asset-progress-pct mono">{{ assetProgressPercent('scene', s.id) }}%</span>
+                    </div>
+                    <div class="asset-progress-track" role="progressbar" :aria-valuenow="assetProgressPercent('scene', s.id)" aria-valuemin="0" aria-valuemax="100">
+                      <div class="asset-progress-fill" :style="{ width: assetProgressPercent('scene', s.id) + '%' }" />
+                    </div>
                   </div>
                 </div>
                 <div class="asset-foot">
@@ -462,6 +482,15 @@
                     <span class="afp-label">{{ t('episode.asset.finalPromptWhiteBg') }}</span>
                     {{ p.final_prompt || p.finalPrompt || t('episode.asset.finalPromptAutoWhiteBg') }}
                   </div>
+                  <div v-if="assetProgressOf('prop', p.id)" class="asset-progress" :class="'is-' + (assetProgressOf('prop', p.id)?.stage || 'queued')">
+                    <div class="asset-progress-top">
+                      <span class="asset-progress-label">{{ assetProgressStageLabel('prop', p.id) }}</span>
+                      <span class="asset-progress-pct mono">{{ assetProgressPercent('prop', p.id) }}%</span>
+                    </div>
+                    <div class="asset-progress-track" role="progressbar" :aria-valuenow="assetProgressPercent('prop', p.id)" aria-valuemin="0" aria-valuemax="100">
+                      <div class="asset-progress-fill" :style="{ width: assetProgressPercent('prop', p.id) + '%' }" />
+                    </div>
+                  </div>
                 </div>
                 <div class="asset-foot">
                   <span :class="['dot', (p.image_url || p.imageUrl) && 'ok', isPendingPropImage(p.id) && 'pending']" />
@@ -481,7 +510,7 @@
             </template>
           </div>
 
-          <!-- Sub: Video Production（分镜拆分 + 视频生成 合并） -->
+          <!-- Sub: Video Production (storyboard split + video generation merge) -->
           <div v-if="prodTab === 'videos'" class="prod-content">
             <div class="prod-section-bar">
               <span class="dim" style="font-size:12px">{{ t('episode.prod.videos') }}</span>
@@ -537,6 +566,11 @@
                   <button type="button" class="video-task-metric is-failed" :class="{ on: videoListFilter === 'failed' }" @click="toggleVideoFilter('failed')">{{ t('episode.vid.metricFailed', { n: videoTaskFailedCount }) }}</button>
                 </div>
                 </div>
+                <div v-if="videoQueueActive || videoQueue.length" class="video-queue-bar">
+                  <Loader2 :size="12" class="animate-spin" />
+                  <span class="asset-queue-text">{{ videoQueueStatusText }}</span>
+                  <button v-if="videoQueue.length" class="btn btn-sm" @click="cancelVideoQueue">{{ t('episode.vid.cancelQueue') }}</button>
+                </div>
                 <div v-if="videoSelectMode" class="shot-quick-actions video-quick-actions">
                   <button class="shot-quick-btn" @click="toggleSelectAllVideos">{{ t('episode.sb.selectAll') }}</button>
                   <button class="shot-quick-btn" @click="selectMissingVideos">{{ t('episode.vid.selectMissing') }}</button>
@@ -585,10 +619,17 @@
                       </span>
                       <span class="video-task-sep">·</span>
                       <span>{{ task.duration }}s</span>
+                      <template v-if="videoProgressOf(task.id)">
+                        <span class="video-task-sep">·</span>
+                        <span class="video-task-queue" :title="videoProgressLabel(task.id)">{{ videoProgressLabel(task.id) }} · {{ videoProgressPercent(task.id) }}%</span>
+                      </template>
                       <template v-if="task.meta">
                         <span class="video-task-sep">·</span>
                         <span class="video-task-loc truncate">{{ task.meta }}</span>
                       </template>
+                    </div>
+                    <div v-if="videoProgressOf(task.id)" class="video-task-progress-track" role="progressbar" :aria-valuenow="videoProgressPercent(task.id)" aria-valuemin="0" aria-valuemax="100">
+                      <div class="video-task-progress-fill" :style="{ width: videoProgressPercent(task.id) + '%' }" />
                     </div>
                     <div v-if="task.error" class="video-task-error" :title="task.error">
                       {{ mapError(task.error) }}
@@ -698,6 +739,7 @@
                     <span :class="['dot', videoTaskState(selectedSb) === 'done' && 'ok', videoTaskState(selectedSb) === 'pending' && 'pending']" />
                     {{ videoTaskStatusLabel(selectedSb) }}
                   </span>
+                  <span v-if="videoProgressOf(selectedSb.id)" class="video-task-queue">{{ videoProgressLabel(selectedSb.id) }} · {{ videoProgressPercent(selectedSb.id) }}%</span>
                   <span v-if="selectedSb.duration" class="video-player-sub">{{ selectedSb.duration }}s</span>
                 </div>
                 <button
@@ -792,7 +834,7 @@
                   </section>
                 </div>
 
-                <!-- 分镜时长 + 生成操作常驻底部：不随检查器内容滚动 -->
+                <!-- shot duration + generate actions pinned to the bottom: does not scroll with the inspector -->
                 <div class="video-inspector-footer">
                   <section class="video-inspector-section video-params-card">
                     <div class="video-param-row">
@@ -857,7 +899,7 @@
         </div>
         <div v-else class="export-split">
           <div class="export-main">
-            <!-- 上方:成片列表 -->
+            <!-- top:merged video list -->
             <div class="export-section">
               <div class="export-section-head">
                 <span class="export-section-title">{{ t('episode.export.filmList') }}</span>
@@ -921,7 +963,7 @@
               <div v-else class="export-merge-empty">{{ t('episode.export.empty') }}</div>
             </div>
 
-            <!-- 下方:镜头素材(可勾选) -->
+            <!-- bottom:shot assets(selectable) -->
             <div class="export-section export-section-grow">
               <div class="export-section-head">
                 <span class="export-section-title">{{ t('episode.export.shotAssets') }}</span>
@@ -1245,10 +1287,30 @@
                     ? t('episode.asset.promptHintScene')
                     : t('episode.asset.promptHintProp') }}
               </p>
+              <label class="switch-row asset-detail-autoimg">
+                <input
+                  type="checkbox"
+                  class="sr-only"
+                  :checked="autoImageAfterPrompt"
+                  @change="toggleAutoImageAfterPrompt"
+                />
+                <span class="switch" :class="{ on: autoImageAfterPrompt }"></span>
+                <span class="field-hint switch-hint">{{ t('episode.asset.autoImageLabel') }}</span>
+                <span class="field-hint switch-hint">{{ t('episode.asset.autoImageHint') }}</span>
+              </label>
             </section>
           </div>
 
           <footer class="dialog-foot asset-detail-foot">
+            <div v-if="assetDetail.open && assetDetail.item && assetProgressOf(assetDetail.type, assetDetail.item.id)" class="asset-progress is-dialog" :class="'is-' + (assetProgressOf(assetDetail.type, assetDetail.item.id)?.stage || 'queued')">
+              <div class="asset-progress-top">
+                <span class="asset-progress-label">{{ assetProgressStageLabel(assetDetail.type, assetDetail.item.id) }}</span>
+                <span class="asset-progress-pct mono">{{ assetProgressPercent(assetDetail.type, assetDetail.item.id) }}%</span>
+              </div>
+              <div class="asset-progress-track" role="progressbar" :aria-valuenow="assetProgressPercent(assetDetail.type, assetDetail.item.id)" aria-valuemin="0" aria-valuemax="100">
+                <div class="asset-progress-fill" :style="{ width: assetProgressPercent(assetDetail.type, assetDetail.item.id) + '%' }" />
+              </div>
+            </div>
             <div class="asset-detail-secondary-actions">
               <button class="btn btn-danger" @click="askDeleteAsset(assetDetail.type, assetDetail.item)">{{ t('common.delete') }}</button>
               <button class="btn" @click="closeAssetDetail">{{ t('common.close') }}</button>
@@ -1439,10 +1501,9 @@ import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 import {
   Users, FileText, FolderKanban, Clapperboard, Download, Loader2,
-  Plus, X, ListTodo, CircleHelp,
+  Plus, X, ListTodo,
 } from 'lucide-vue-next'
 import { api, dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI } from '~/composables/useApi'
-import { startTour, autoTour } from '~/composables/useTour'
 import { useAgent } from '~/composables/useAgent'
 import { toastError, mapError, MODERATION_RE } from '~/composables/useToast'
 import LocaleSwitcher from '~/components/LocaleSwitcher.vue'
@@ -1456,8 +1517,8 @@ const dramaId = Number(route.params.id)
 const episodeNumber = Number(route.params.episodeNumber)
 
 const drama = ref(null), episode = ref(null), chars = ref([]), scenes = ref([]), propItems = ref([]), sbs = ref([]), mergeData = ref(null)
-// 工作台面板位置记忆（按剧集隔离）：仅页面刷新(reload)时恢复到上次所在步骤；
-// 从列表/详情页点击进入时始终默认「剧本」面板
+// workbench panel position memory (isolated per episode): restore the last step only on page reload;
+// entering from list/detail always defaults to"script"panel
 const PANEL_STORE_KEY = `huobao:workbench:panel:${dramaId}:${episodeNumber}`
 const isPageReload = (() => {
   try { return performance.getEntriesByType('navigation')[0]?.type === 'reload' } catch { return false }
@@ -1466,7 +1527,7 @@ const storedPanel = (() => {
   if (!isPageReload) return null
   try { return JSON.parse(localStorage.getItem(PANEL_STORE_KEY) || 'null') } catch { return null }
 })()
-// 首个 refresh 时若已恢复面板位置，跳过按内容自动重置 scriptStep
+// on first refresh, if the panel position was restored, skip content-based auto reset scriptStep
 let panelRestored = !!storedPanel
 const panel = ref(['production', 'export'].includes(storedPanel?.panel) ? storedPanel.panel : 'script')
 const { running: rn, runningType: rt, run: runAgent } = useAgent()
@@ -1478,10 +1539,10 @@ const epId = computed(() => episode.value?.id || 0)
 const rawLen = computed(() => localRaw.value.replace(/\s/g, '').length || 0)
 const scriptLen = computed(() => localScript.value.replace(/\s/g, '').length || 0)
 
-// ===== 拼接导出:镜头选择 + 成片列表 =====
-const exportSelectedIds = ref([]) // 勾选的镜头 id
-const exportMerges = ref([])      // 成片(拼接记录)列表
-let exportSelTouched = false      // 用户手动操作过选择后,不再自动全选
+// ===== merge export:shot selection + merged video list =====
+const exportSelectedIds = ref([]) // selected shot ids
+const exportMerges = ref([])      // merged video (merge record) list
+let exportSelTouched = false      // after the user changed the selection manually, no longer auto-select all
 
 const exportReadyIds = computed(() => sbs.value.filter(s => hasVid(s)).map(s => s.id))
 const exportSelectedReadyIds = computed(() => exportSelectedIds.value.filter(id => exportReadyIds.value.includes(id)))
@@ -1509,18 +1570,18 @@ function toggleSelectAllExport() {
 
 async function loadExportMerges() {
   if (!epId.value) return
-  try { exportMerges.value = await mergeAPI.list(epId.value) || [] } catch { /* 静默 */ }
+  try { exportMerges.value = await mergeAPI.list(epId.value) || [] } catch { /* silent */ }
 }
 
 const scriptStep = ref(storedPanel ? (storedPanel.scriptStep === 0 ? 0 : 1) : 0)
-// 旧版本地存储的 'storyboard' 子步骤已并入 'videos'（视频制作）
+// legacy local storage 'storyboard' sub-step merged into 'videos' (video production)
 const storedProdTab = storedPanel?.prodTab === 'storyboard' ? 'videos' : storedPanel?.prodTab
 const prodTab = ref(['assets', 'videos'].includes(storedProdTab) ? storedProdTab : 'assets')
-// 面板位置变化即持久化
+// panel position changes are persisted immediately
 watch([panel, scriptStep, prodTab], ([p, s, pt]) => {
-  try { localStorage.setItem(PANEL_STORE_KEY, JSON.stringify({ panel: p, scriptStep: s, prodTab: pt })) } catch { /* 静默 */ }
+  try { localStorage.setItem(PANEL_STORE_KEY, JSON.stringify({ panel: p, scriptStep: s, prodTab: pt })) } catch { /* silent */ }
 })
-// ===== 视频制作三栏宽度：拖拽调节 + 全局持久化（双击分隔条恢复默认） =====
+// ===== video production three-column widths: drag to resize + global persistence (double-click the divider to restore defaults) =====
 const VIDEO_COL_STORE_KEY = 'huobao:workbench:video-cols'
 const VIDEO_COL_DEFAULTS = { left: 236, right: 340 }
 const VIDEO_COL_LIMITS = { left: [180, 420], right: [260, 560] }
@@ -1534,7 +1595,7 @@ const clampVideoCol = (which, w) => Math.min(VIDEO_COL_LIMITS[which][1], Math.ma
 const videoLeftW = ref(clampVideoCol('left', Number(storedVideoCols?.left) || VIDEO_COL_DEFAULTS.left))
 const videoRightW = ref(clampVideoCol('right', Number(storedVideoCols?.right) || VIDEO_COL_DEFAULTS.right))
 watch([videoLeftW, videoRightW], ([l, r]) => {
-  try { localStorage.setItem(VIDEO_COL_STORE_KEY, JSON.stringify({ left: l, right: r })) } catch { /* 静默 */ }
+  try { localStorage.setItem(VIDEO_COL_STORE_KEY, JSON.stringify({ left: l, right: r })) } catch { /* silent */ }
 })
 function startVideoColDrag(which, e) {
   if (e.button !== 0) return
@@ -1568,12 +1629,12 @@ const prodTabIdx = computed({
 const imageConfigs = ref([])
 const videoConfigs = ref([])
 const textConfigs = ref([])
-// 生成时可选模型：空串 = 跟随配置默认（models[0]）；选择持久化到 localStorage，刷新页面后保留
+// optional model for generation: empty string = follow the configured default (models[0]); selection persisted to localStorage, retained after refresh
 const MODEL_STORE_KEYS = { chat: 'huobao:model:chat', image: 'huobao:model:image', video: 'huobao:model:video' }
 function readStoredModel(key, legacyKey = '') {
   try { return localStorage.getItem(key) || (legacyKey && localStorage.getItem(legacyKey)) || '' } catch { return '' }
 }
-// 顶栏文本模型：适用于所有 Chat Agent 调用（改写/提取/拆镜/视频提示词/最终提示词），空串 = 跟随配置默认
+// Top-bar text model: applies to all Chat Agent calls (rewrite/extraction/storyboard split/video prompt/final prompt); empty string = follow the configured default
 const chatModel = ref(readStoredModel(MODEL_STORE_KEYS.chat, 'huobao:model:rewrite'))
 const imageModel = ref(readStoredModel(MODEL_STORE_KEYS.image))
 const videoModel = ref(readStoredModel(MODEL_STORE_KEYS.video))
@@ -1585,7 +1646,7 @@ function persistModel(modelRef, key) {
 persistModel(chatModel, MODEL_STORE_KEYS.chat)
 persistModel(imageModel, MODEL_STORE_KEYS.image)
 persistModel(videoModel, MODEL_STORE_KEYS.video)
-// 左侧菜单栏收起/展开：收起为窄图标栏给内容区让位，持久化到 localStorage
+// Left sidebar menu collapse/expand: collapse into a narrow icon rail to give the content area more room, persisted to localStorage
 const SIDEBAR_COLLAPSED_KEY = 'huobao:sidebar-collapsed'
 const sidebarCollapsed = ref((() => {
   try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1' } catch { return false }
@@ -1596,17 +1657,208 @@ function toggleSidebar() {
     sidebarCollapsed.value
       ? localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1')
       : localStorage.removeItem(SIDEBAR_COLLAPSED_KEY)
-  } catch { /* 静默 */ }
+  } catch { /* silent */ }
 }
-/** 顶栏文本模型覆盖参数：未选择时为 undefined，后端回退到 Agent/文本配置默认 */
+/** Top-bar text model override param: undefined when not selected, backend falls back to the Agent/text config default */
 function chatModelOverride() { return bareModelName(chatModel.value) || undefined }
 function chatConfigId() { return ownerConfigId(textModelOptions.value, chatModel.value) }
 const pendingCharImageIds = ref([])
 const pendingSceneImageIds = ref([])
 const pendingPropImageIds = ref([])
+// ─── Progress realtime per-card aset ─────────────────────────────────────
+// Provider gambar tidak mengembalikan persen; progress dihitung dari fase +
+// elapsed polling agar tiap card terbaca "sampai mana":
+// prompt(10%) → antre(25%) → generating(30→92% naik per detik) → done(100%).
+const assetProgressMap = ref({})
+function assetProgressKey(type, id) { return `${type}:${id}` }
+function setAssetProgress(type, id, patch) {
+  const key = assetProgressKey(type, id)
+  const prev = assetProgressMap.value[key] || { stage: 'queued', percent: 5, startedAt: Date.now(), elapsed: 0, error: '' }
+  assetProgressMap.value = { ...assetProgressMap.value, [key]: { ...prev, ...patch } }
+}
+function clearAssetProgress(type, id) {
+  const key = assetProgressKey(type, id)
+  if (!(key in assetProgressMap.value)) return
+  const next = { ...assetProgressMap.value }
+  delete next[key]
+  assetProgressMap.value = next
+}
+function assetProgressOf(type, id) {
+  return assetProgressMap.value[assetProgressKey(type, id)] || null
+}
+function assetProgressPercent(type, id) {
+  const p = assetProgressOf(type, id)
+  if (!p) return 0
+  if (p.stage === 'done') return 100
+  if (p.stage === 'failed') return p.percent || 100
+  if (p.stage === 'generating') {
+    // Estimasi: gambar biasanya 30–120 dtk; naik mulus 30→92% lalu mentok sampai selesai.
+    // (elapsed disimpan per tick polling; fallback ke startedAt bila tick belum jalan)
+    const elapsed = Math.max(p.elapsed || 0, p.startedAt ? (Date.now() - p.startedAt) / 1000 : 0)
+    return Math.min(92, Math.round(30 + Math.min(elapsed / 120, 1) * 62))
+  }
+  if (p.stage === 'prompt') return 12
+  return 25
+}
+function assetProgressStageLabel(type, id) {
+  const p = assetProgressOf(type, id)
+  if (!p) return ''
+  if (p.stage === 'prompt') return t('episode.asset.stagePrompt')
+  if (p.stage === 'queued') {
+    return (p.queuePos && p.queueTotal)
+      ? t('episode.asset.queuePos', { pos: p.queuePos, total: p.queueTotal })
+      : t('episode.asset.stageQueued')
+  }
+  if (p.stage === 'generating') return t('episode.asset.stageGenerating', { n: Math.round(p.elapsed || 0) })
+  if (p.stage === 'done') return t('episode.asset.stageDone')
+  if (p.stage === 'failed') return p.error || t('episode.asset.stageFailed')
+  return ''
+}
+let assetProgressTicker = null
+function startAssetProgressTicker() {
+  if (assetProgressTicker) return
+  assetProgressTicker = setInterval(() => {
+    if (!Object.keys(assetProgressMap.value).length) return
+    // Picu re-render agar persen berbasis elapsed naik tiap detik tanpa request tambahan.
+    assetProgressMap.value = { ...assetProgressMap.value }
+    if (typeof videoProgressMap !== 'undefined' && Object.keys(videoProgressMap.value || {}).length) {
+      videoProgressMap.value = { ...videoProgressMap.value }
+    }
+  }, 1000)
+}
+startAssetProgressTicker()
+
+// ─── Antrean pembuatan gambar aset: SATU PER SATU (FIFO) ─────────────────
+// Semua generate gambar aset (karakter/adegan/properti, satuan maupun batch,
+// dari card maupun dialog) masuk antrean ini. Worker memproses satu per satu
+// sampai selesai/gagal sebelum lanjut ke berikutnya — tidak ada lagi N sesi
+// agent teks + N request gambar yang ditembak serentak. Setiap item antre
+// selalu punya indikator progres (posisi antre / tahap / elapsed).
+const assetQueue = ref([]) // [{ kind, id }] menunggu giliran
+const assetQueueActive = ref(null) // { kind, id } sedang diproses
+function isAssetQueued(kind, id) { return assetQueue.value.some(j => j.kind === kind && j.id === id) }
+function isAssetJobActive(kind, id) {
+  return !!assetQueueActive.value && assetQueueActive.value.kind === kind && assetQueueActive.value.id === id
+}
+function assetPendingRef(kind) {
+  return kind === 'character' ? pendingCharImageIds : kind === 'scene' ? pendingSceneImageIds : pendingPropImageIds
+}
+function assetDisplayName(kind, id) {
+  if (kind === 'character') return chars.value.find(x => x.id === id)?.name || `#${id}`
+  if (kind === 'scene') return scenes.value.find(x => x.id === id)?.location || `#${id}`
+  return propItems.value.find(x => x.id === id)?.name || `#${id}`
+}
+/** Tulis ulang posisi antre (Antre #pos dari total) ke semua item menunggu */
+function refreshAssetQueueProgress() {
+  const activeCount = assetQueueActive.value ? 1 : 0
+  const total = assetQueue.value.length + activeCount
+  assetQueue.value.forEach((j, i) => {
+    setAssetProgress(j.kind, j.id, { stage: 'queued', queuePos: i + 1 + activeCount, queueTotal: total, elapsed: 0, error: '' })
+  })
+}
+/**
+ * Masukkan aset ke antrean. Mengembalikan daftar { id, pos } yang baru ditambahkan
+ * (kosong bila semuanya sudah dalam antrean / sedang diproses).
+ */
+function enqueueAssetJobs(kind, ids) {
+  const pendingRef = assetPendingRef(kind)
+  const added = []
+  for (const id of ids) {
+    if (isAssetQueued(kind, id) || isAssetJobActive(kind, id)) continue
+    assetQueue.value.push({ kind, id })
+    if (!pendingRef.value.includes(id)) pendingRef.value.push(id)
+    added.push(id)
+  }
+  refreshAssetQueueProgress()
+  // Tandai posisi tiap item baru (pos dihitung setelah semua dimasukkan)
+  const result = added.map(id => {
+    const idx = assetQueue.value.findIndex(j => j.kind === kind && j.id === id)
+    return { id, pos: idx + 1 + (assetQueueActive.value ? 1 : 0) }
+  })
+  pumpAssetQueue()
+  return result
+}
+let assetQueuePumping = false
+async function pumpAssetQueue() {
+  if (assetQueuePumping) return
+  assetQueuePumping = true
+  try {
+    while (assetQueue.value.length) {
+      const job = assetQueue.value.shift()
+      assetQueueActive.value = job
+      refreshAssetQueueProgress()
+      try {
+        await runAssetJob(job.kind, job.id)
+      } catch (e) { /* runAssetJob sudah mencatat failed + toast */ }
+      assetQueueActive.value = null
+      refreshAssetQueueProgress()
+    }
+  } finally {
+    assetQueuePumping = false
+  }
+}
+function assetFindRec(kind, id) {
+  return kind === 'character'
+    ? chars.value.find(c => c.id === id)
+    : kind === 'scene'
+      ? scenes.value.find(s => s.id === id)
+      : propItems.value.find(p => p.id === id)
+}
+/** Satu job aset: prompt akhir (teks) → request gambar → tunggu selesai. Awaitable. */
+async function runAssetJob(kind, id) {
+  const pendingRef = assetPendingRef(kind)
+  const startedAt = Date.now()
+  try {
+    const rec = assetFindRec(kind, id)
+    if (rec && !(rec.final_prompt || rec.finalPrompt)) {
+      setAssetProgress(kind, id, { stage: 'prompt', startedAt, elapsed: 0, error: '' })
+      try {
+        await ensureAssetPrompt(kind, id)
+      } catch {} // prompt gagal tidak menghentikan: backend fallback sebelum generate gambar
+    }
+    const total = assetQueue.value.length + 1
+    setAssetProgress(kind, id, { stage: 'queued', queuePos: 1, queueTotal: total, startedAt, elapsed: 0 })
+    const api = kind === 'character' ? characterAPI : kind === 'scene' ? sceneAPI : propAPI
+    const res = await api.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    await refresh()
+    const taskIds = res?.image_generation_id ? [Number(res.image_generation_id)] : []
+    return await watchAssetImages(taskIds, [id], kind)
+  } catch (e) {
+    setAssetProgress(kind, id, { stage: 'failed', error: e?.message || String(e || ''), elapsed: Math.round((Date.now() - startedAt) / 1000) })
+    toastError(e)
+    return false
+  } finally {
+    pendingRef.value = pendingRef.value.filter(item => item !== id)
+  }
+}
+/** Batalkan item yang masih menunggu (yang sedang berjalan diselesaikan) */
+function cancelAssetQueue() {
+  const waiting = [...assetQueue.value]
+  if (!waiting.length) return
+  assetQueue.value = []
+  const byKind = { character: [], scene: [], prop: [] }
+  for (const j of waiting) {
+    ;(byKind[j.kind] || (byKind[j.kind] = [])).push(j.id)
+    clearAssetProgress(j.kind, j.id)
+  }
+  pendingCharImageIds.value = pendingCharImageIds.value.filter(id => !byKind.character.includes(id))
+  pendingSceneImageIds.value = pendingSceneImageIds.value.filter(id => !byKind.scene.includes(id))
+  pendingPropImageIds.value = pendingPropImageIds.value.filter(id => !byKind.prop.includes(id))
+  toast.info(t('episode.asset.queueCancelled', { n: waiting.length }))
+}
+const assetQueueStatusText = computed(() => {
+  const parts = []
+  if (assetQueueActive.value) {
+    parts.push(t('episode.asset.queueActive', {
+      name: assetDisplayName(assetQueueActive.value.kind, assetQueueActive.value.id),
+    }))
+  }
+  if (assetQueue.value.length) parts.push(t('episode.asset.queueWaiting', { n: assetQueue.value.length }))
+  return parts.join(' · ')
+})
 const pendingVideoIds = ref([])
 const failedVideoMessages = ref({})
-// 任务列表面板：顶栏按钮触发的右侧抽屉,按集聚合 sys_task + video_merges
+// task list panel: right drawer triggered by the top-bar button, grouped by episode sys_task + video_merges
 const genTasks = ref([])
 const genMerges = ref([])
 const taskDrawer = ref(false)
@@ -1620,14 +1872,14 @@ function closeTaskDrawer() {
   taskDrawer.value = false
 }
 const imageViewer = ref({ open: false, src: '', title: '' })
-const activeMerge = ref(null) // 成片大预览弹窗中正在播放的拼接记录
-const burnSubtitles = ref(false) // 拼接时是否将台词烧录为字幕
-const previewShot = ref(null) // 导出页镜头素材预览弹窗中正在播放的分镜
+const activeMerge = ref(null) // merge record playing in the full preview dialog
+const burnSubtitles = ref(false) // whether to burn dialogue into subtitles when merging
+const previewShot = ref(null) // storyboard playing in the export page shot preview dialog
 function shotNumberOf(sb) {
   const i = sbs.value.findIndex(s => s.id === sb?.id)
   return i >= 0 ? i + 1 : 0
 }
-// 导出步骤完成 = 用户手动标记（episodes.status = 'completed'），不再按最新拼接记录推算
+// export step completion = manually marked by the user (episodes.status = 'completed'), no longer derived from the latest merge record
 const exportDone = computed(() => episode.value?.status === 'completed')
 async function toggleExportDone() {
   if (!epId.value) return
@@ -1642,10 +1894,20 @@ async function toggleExportDone() {
 }
 const assetDetail = ref({ open: false, type: '', item: null })
 const assetDetailDraft = ref({ appearance: '', styling: '', prompt: '', lighting: '', description: '' })
-// 最终提示词手动编辑：dirty 时才随保存提交，避免无修改保存误清空 Agent 生成的提示词
+// manual edit of the final prompt: dirty submitted on save only when, avoid clearing on a no-change save Agent generated prompt
 const assetPromptDraft = ref('')
 const assetPromptDirty = ref(false)
 const savingAssetDetail = ref(false)
+
+// Opsi: setelah prompt aset berhasil dibuat, langsung buat gambarnya juga (persisted per perangkat)
+const AUTO_IMAGE_AFTER_PROMPT_KEY = 'hbao_auto_image_after_prompt'
+const autoImageAfterPrompt = ref((() => {
+  try { return localStorage.getItem(AUTO_IMAGE_AFTER_PROMPT_KEY) === '1' } catch { return false }
+})())
+function toggleAutoImageAfterPrompt() {
+  autoImageAfterPrompt.value = !autoImageAfterPrompt.value
+  try { localStorage.setItem(AUTO_IMAGE_AFTER_PROMPT_KEY, autoImageAfterPrompt.value ? '1' : '0') } catch {}
+}
 
 function isPendingCharImage(id) {
   return pendingCharImageIds.value.includes(id)
@@ -1681,8 +1943,8 @@ function closeAssetDetail() {
   assetPromptDirty.value = false
 }
 
-// ─── 手动新增资产 ────────────────────────────────────────────
-// 类型短显示名渲染时求值（不模块级固化），逻辑判断一律用 kind code
+// ─── manually add asset ────────────────────────────────────────────
+// short type label evaluated at render time (not frozen at module level), logic always uses kind code
 const assetKindLabelMap = computed(() => ({
   character: t('common.role'),
   scene: t('common.scene'),
@@ -1724,7 +1986,7 @@ async function saveAssetCreate() {
   }
 }
 
-// ─── 删除资产 ────────────────────────────────────────────────
+// ─── delete asset ────────────────────────────────────────────────
 const assetDelete = ref({ open: false, type: '', item: null, loading: false })
 const assetDeleteTypeLabel = computed(() => assetKindLabel(assetDelete.value.type))
 const assetDeleteName = computed(() => assetDelete.value.item?.name || assetDelete.value.item?.location || '')
@@ -1762,7 +2024,7 @@ const assetFinalPrompt = computed(() => {
   return item?.final_prompt || item?.finalPrompt || ''
 })
 
-/** 把生成好的最终提示词同步到列表项与弹窗项 */
+/** sync the generated final prompt to list and dialog items */
 function applyFinalPrompt(type, id, fp) {
   const patch = { final_prompt: fp, finalPrompt: fp }
   const list = type === 'character' ? chars.value : type === 'scene' ? scenes.value : propItems.value
@@ -1779,45 +2041,75 @@ function isGeneratingPrompt(type, id) {
   return generatingPromptKeys.value.includes(`${type}:${id}`)
 }
 
-/** 该资产图片是否在外层「生成」流程中（含提示词阶段与生图阶段） */
+/** Whether this asset image is in the outer "generate" flow (including prompt and image stages) */
 function isAssetImagePending(type, id) {
   return type === 'character' ? isPendingCharImage(id) : type === 'scene' ? isPendingSceneImage(id) : isPendingPropImage(id)
 }
 
 /**
- * 生成最终提示词（弹窗按钮与外层两段式生图共用同一 key 状态，避免重复触发）
- * force=true 时忽略已有提示词强制重新生成
- * 返回最终提示词；生成失败由接口抛错，Agent 返回空时返回 ''
+ * generate final prompt (dialog button and outer two-stage generation share the same key state, avoid duplicate triggers)
+ * force=true ignore the existing prompt and force regeneration when
+ * returns the final prompt; generation errors are thrown by the API, Agent returns when empty ''
  */
-async function ensureAssetPrompt(type, id, force = false) {
+async function ensureAssetPrompt(type, id, force = false, autoImage = false) {
   const key = `${type}:${id}`
   if (generatingPromptKeys.value.includes(key)) return ''
   generatingPromptKeys.value.push(key)
+  const hadImageProgress = !!assetProgressOf(type, id)
+  if (!hadImageProgress) setAssetProgress(type, id, { stage: 'prompt', startedAt: Date.now(), elapsed: 0, error: '' })
   try {
     const res = type === 'character'
-      ? await characterAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId())
+      ? await characterAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId(), autoImage)
       : type === 'scene'
-        ? await sceneAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId())
-        : await propAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId())
+        ? await sceneAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId(), autoImage)
+        : await propAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId(), autoImage)
     const fp = res?.final_prompt || res?.finalPrompt || ''
     if (fp) applyFinalPrompt(type, id, fp)
+    if (!hadImageProgress && !autoImage && !isAssetImagePending(type, id)) {
+      setAssetProgress(type, id, { stage: 'done', elapsed: 0 })
+      setTimeout(() => clearAssetProgress(type, id), 3000)
+    }
     return fp
+  } catch (e) {
+    if (!hadImageProgress) setAssetProgress(type, id, { stage: 'failed', error: e?.message || String(e || '') })
+    throw e
   } finally {
     generatingPromptKeys.value = generatingPromptKeys.value.filter(k => k !== key)
   }
 }
 
-/** 弹窗内生成最终提示词（不生图）；已有最终提示词时重新生成（force） */
+/** generate the final prompt inside the dialog (without image generation); regenerate when a final prompt already exists (force) */
 async function genAssetFinalPrompt() {
   const detail = assetDetail.value
   if (!detail.open || !detail.item?.id) return
+  if (isAssetQueued(detail.type, detail.item.id) || isAssetJobActive(detail.type, detail.item.id)) {
+    toast.info(t('episode.asset.alreadyQueued'))
+    return
+  }
   const force = !!assetFinalPrompt.value
   try {
-    const fp = await ensureAssetPrompt(detail.type, detail.item.id, force)
+    const fp = await ensureAssetPrompt(detail.type, detail.item.id, force, autoImageAfterPrompt.value)
     if (!fp) throw new Error(t('episode.asset.promptGenFailedRetry'))
     assetPromptDraft.value = fp
     assetPromptDirty.value = false
     toast.success(force ? t('episode.asset.promptRegenerated') : t('episode.asset.promptGenerated'))
+    if (autoImageAfterPrompt.value) {
+      toast.success(detail.type === 'character'
+        ? t('episode.image.generatingChar')
+        : detail.type === 'scene' ? t('episode.image.generatingScene') : t('episode.image.generatingProp'))
+      await refresh()
+      watchAsyncResult(() => {
+        const item = detail.type === 'character'
+          ? chars.value.find(c => c.id === detail.item.id)
+          : detail.type === 'scene' ? scenes.value.find(s => s.id === detail.item.id) : propItems.value.find(p => p.id === detail.item.id)
+        const done = !!(item?.image_url || item?.imageUrl)
+        if (done) {
+          const pending = detail.type === 'character' ? pendingCharImageIds : detail.type === 'scene' ? pendingSceneImageIds : pendingPropImageIds
+          pending.value = pending.value.filter(x => x !== detail.item.id)
+        }
+        return done
+      })
+    }
   } catch (e) {
     toastError(e, { fallback: 'episode.asset.promptGenFailed' })
   }
@@ -1838,7 +2130,7 @@ async function saveAssetDetail() {
   const detail = assetDetail.value
   if (!detail.open || !detail.item?.id) return
   const item = detail.item
-  // 只提交真正修改过的字段：无修改保存不应触发后端的提示词失效置空
+  // only submit fields that actually changed: a no-change save must not trigger backend prompt invalidation
   const payload = {}
   let infoChanged = false
   if (detail.type === 'character') {
@@ -1851,7 +2143,7 @@ async function saveAssetDetail() {
     if (assetDetailDraft.value.description !== (item.description || '')) payload.description = assetDetailDraft.value.description
   }
   infoChanged = Object.keys(payload).length > 0
-  // 手动编辑过最终提示词才提交；空串视为清空
+  // submit only when the final prompt was manually edited; empty string counts as clearing
   if (assetPromptDirty.value) payload.final_prompt = assetPromptDraft.value.trim() || ''
   if (!infoChanged && !assetPromptDirty.value) {
     toast.info(t('episode.asset.noChanges'))
@@ -1862,7 +2154,7 @@ async function saveAssetDetail() {
     if (detail.type === 'character') await characterAPI.update(item.id, payload)
     else if (detail.type === 'scene') await sceneAPI.update(item.id, payload)
     else await propAPI.update(item.id, payload)
-    // 本地同步：手动编辑的提示词以草稿为准；仅信息字段变更时提示词已被后端置空
+    // local sync: manually edited prompt uses the draft as source of truth; when only info fields change, the backend has already cleared the prompt
     const { final_prompt, ...infoPatch } = payload
     const promptValue = assetPromptDirty.value ? (payload.final_prompt || null) : (infoChanged ? null : (item.final_prompt || item.finalPrompt || null))
     Object.assign(item, infoPatch, { final_prompt: promptValue, finalPrompt: promptValue })
@@ -1893,12 +2185,12 @@ function assetDetailTitle(detail) {
   return detail.item.location || t('episode.asset.unnamedScene')
 }
 
-/** 资产详情弹窗 kicker / aria-label 用长标签 */
+/** Asset detail dialog kicker / aria-label uses the long label */
 function assetTypeLabel(type) {
   return { character: t('episode.asset.typeChar'), scene: t('episode.asset.typeScene'), prop: t('episode.asset.typeProp') }[type] || t('episode.asset.fallbackType')
 }
 
-/** 资产详情预览图标题（角色形象/场景图/道具图） */
+/** asset detail preview image title (character portrait / scene image / prop image) */
 function assetDetailImageTitle(detail) {
   if (!detail?.item) return ''
   const kindLabel = detail.type === 'character' ? t('episode.asset.charPortrait') : detail.type === 'scene' ? t('episode.asset.sceneImage') : t('common.prop')
@@ -1939,6 +2231,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleImageViewerKeydown)
   stopGenTasksPolling()
+  if (assetProgressTicker) { clearInterval(assetProgressTicker); assetProgressTicker = null }
 })
 
 function isPendingSceneImage(id) {
@@ -1953,8 +2246,8 @@ function videoFailMessage(id) {
   return failedVideoMessages.value[id] || ''
 }
 
-// 内容审核类失败（真人/敏感内容，如火山的 OutputVideoSensitiveContentDetected）：
-// 各厂商审核尺度不同，给出切换模型重试的引导
+// Content moderation failures (real person / sensitive content, e.g. Volcano Engine's OutputVideoSensitiveContentDetected):
+// moderation thresholds differ across providers, guide the user to switch models and retry
 function videoModerationHint(msg) {
   return MODERATION_RE.test(String(msg || '')) ? t('episode.vid.moderationHint') : ''
 }
@@ -1994,11 +2287,11 @@ const allVideoTaskRows = computed(() => sbs.value.map((sb, index) => {
     duration: Number.isFinite(duration) ? duration : 5,
     referenceCount,
     state: videoTaskState(sb),
-    // 只有当前处于失败状态才显示错误,避免重试成功的分镜残留历史错误信息
+    // show errors only while currently failed, avoid stale errors on shots that succeeded after retry
     error: videoTaskState(sb) === 'failed' ? videoFailMessage(sb.id) : '',
   }
 }))
-// 列表筛选：点击顶部统计徽章过滤（再点一次取消）
+// list filtering: click a top stat badge to filter (click again to cancel)
 const videoListFilter = ref('')
 const videoTaskRows = computed(() => videoListFilter.value
   ? allVideoTaskRows.value.filter(task => task.state === videoListFilter.value)
@@ -2009,7 +2302,7 @@ function toggleVideoFilter(state) {
   videoListFilter.value = videoListFilter.value === state ? '' : state
 }
 
-// ===== 批量视频：选择模式 + 生成前确认（视频生成成本高，避免误触全量触发） =====
+// ===== batch video: selection mode + pre-generation confirmation (video generation is costly, avoid accidentally triggering all) =====
 const videoSelectMode = ref(false)
 const selectedVideoSbIds = ref([])
 const batchVideoConfirm = ref({ open: false, targets: [] })
@@ -2029,17 +2322,17 @@ function onVideoTaskRowClick(sb) {
   else selectedSb.value = sb
 }
 
-// 旁白角色识别：按内容语言的关键词匹配（提取产物中的旁白角色不参与画面生成）
+// narrator character detection: keyword match by content language (narrator characters from extraction are excluded from image generation)
 function isNarratorCharacter(char) {
   const text = `${char?.name || ''} ${char?.role || ''}`.toLowerCase()
-  return ['旁白', '画外音', 'narrator', 'ナレーター', 'ナレーション', '내레이션', '해설'].some(k => text.includes(k))
+  return ['narrator', 'voiceover', 'voice-over', 'offscreen', 'ナレーター', 'ナレーション', '내레이션', '해설'].some(k => text.includes(k))
 }
 
 const visualChars = computed(() => chars.value.filter(c => !isNarratorCharacter(c)))
 const lockedVideoConfigId = computed(() => episode.value?.video_config_id || episode.value?.videoConfigId || null)
-// 集视频分辨率：顶栏直接修改（持久化 episodes.resolution，生成任务按此值锁定）。
-// 内部统一存 480p/720p/1080p 三档，界面按当前选中的视频模型显示厂商原生档位
-// （Seedance 480p/720p、MiniMax 768P/2K、Wan 3.0 480P/720P/1080P），适配器再映射为官方枚举
+// Episode video resolution: edited directly in the top bar (persisted to episodes.resolution; generation tasks are locked to this value).
+// internally stores uniformly 480p/720p/1080p three tiers, UI shows provider-native tiers for the selected video model
+// (Seedance 480p/720p, MiniMax 768P/2K, Wan 3.0 480P/720P/1080P), the adapter maps them to official enums
 const RESOLUTION_TIERS = {
   volcengine: ['480p', '720p'],
   minimax: ['720p', '1080p'],
@@ -2077,18 +2370,18 @@ async function changeEpisodeResolution(val) {
     toastError(e)
   }
 }
-// 画面比例在创建项目时固定，视频生成统一使用
+// aspect ratio fixed at project creation, video generation uses it uniformly
 const dramaAspectRatio = computed(() => drama.value?.aspect_ratio || drama.value?.aspectRatio || '16:9')
 
-// 生成可选模型列表：配置中的模型数组（首位为配置默认）；API 可能返回数组或 JSON 字符串
+// list of selectable generation models: model array in the config (first is the config default); API API may return an array or JSON string
 function configModels(cfg) {
   const raw = cfg?.model
   if (!raw) return []
   if (Array.isArray(raw)) return raw.filter(Boolean)
   try { const m = JSON.parse(raw); return Array.isArray(m) ? m.filter(Boolean) : [m].filter(Boolean) } catch { return [raw].filter(Boolean) }
 }
-// 汇总该类型全部启用配置的模型（按 厂商+模型 去重，按优先级排序），选中模型时连同所属配置一起调用
-// 选中值使用 'provider/model' 复合键：同名模型可能来自不同厂商（如中转站与官方），必须区分
+// Aggregate models from all active configs of this type (deduped by provider + model, sorted by priority); call with the owning config when a model is selected
+// selected value uses 'provider/model' composite key: same-named models may come from different providers (e.g. gateway and official), must be distinguished
 function collectModelOptions(cfgs) {
   const seen = new Set()
   const out = []
@@ -2103,7 +2396,7 @@ function collectModelOptions(cfgs) {
   }
   return out
 }
-// 复合键 → 裸模型名（后端适配器按厂商校验模型名，不能带 provider 前缀）
+// composite key → bare model name (backend adapter validates model names by provider, must not include a provider prefix)
 function bareModelName(key) {
   if (!key) return ''
   const i = key.indexOf('/')
@@ -2132,10 +2425,10 @@ const isWan3Video = computed(() => selectedVideoConfig.value?.provider === 'aliy
 const isGeminiVideo = computed(() => selectedVideoConfig.value?.provider === 'gemini'
   || bareModelName(videoModel.value).startsWith('veo-'))
 
-// 参考图上限（Wan 3.0 官方 10 张，其他模型 9 张），绑定素材收集与 @名字 映射统一读取
+// Reference image limit (Wan 3.0 official: 10 images, other models: 9); bound asset collection and @name mapping read the same value
 const refImageLimit = computed(() => isWan3Video.value ? 10 : 9)
 
-// 本次生成的生效配置（模型/分辨率/时长），用于右侧小结与批量确认弹窗
+// Effective config for this generation (model/resolution/duration), used by the right summary and batch confirmation dialog
 const effectiveVideoModelLabel = computed(() => {
   const explicit = bareModelName(videoModel.value)
   if (explicit) return explicit
@@ -2143,7 +2436,7 @@ const effectiveVideoModelLabel = computed(() => {
 })
 const episodeResolutionLabel = computed(() =>
   resolutionOptions.value.find(o => o.key === episodeResolution.value)?.model || episodeResolution.value)
-// 短档位标签（480p / 768P / 2K 等厂商原生档位），用于底部生效配置小结
+// short tier label (480p / 768P / 2K and other provider-native tiers), used in the bottom effective-config summary
 const episodeResolutionShort = computed(() =>
   RESOLUTION_DISPLAY[resolutionProvider.value][episodeResolution.value] || episodeResolution.value)
 const effectiveVideoDuration = computed(() => Number(selectedSb.value?.duration || 10))
@@ -2156,7 +2449,7 @@ function openBatchVideoConfirm(pool) {
   batchVideoConfirm.value = { open: true, targets }
 }
 function batchVideos() {
-  // 选择模式且有勾选 → 仅所选（允许重出已完成镜头）；否则全部未完成（待生成+失败）
+  // selection mode with checked items → only selected (allow regenerating completed shots); otherwise all unfinished (pending + failed)
   const useSelection = videoSelectMode.value && selectedVideoSbIds.value.length
   const pool = useSelection
     ? sbs.value.filter(s => selectedVideoSbIds.value.includes(s.id))
@@ -2170,24 +2463,23 @@ function confirmBatchVideos() {
   const targets = [...batchVideoConfirm.value.targets]
   batchVideoConfirm.value = { open: false, targets: [] }
   if (!targets.length) return
-  const ids = targets.map(s => s.id)
-  targets.forEach(sb => genVid(sb, { silent: true }))
-  toast.success(t('episode.vid.batchStarted', { n: ids.length }))
-  watchAsyncResult(() => ids.every(id => {
+  const ids = targets.map(s => s.id).filter(id => {
     const target = sbs.value.find(s => s.id === id)
-    const done = !!getVideoUrl(target)
-    if (done) pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== id)
-    return done
-  }), 80, 4000)
+    return target && !hasVid(target)
+  })
+  if (!ids.length) { toast.info(t('episode.vid.noneToGenerate')); return }
+  const added = enqueueVideoJobs(ids, true)
+  if (added.length) toast.success(t('episode.vid.batchQueued', { n: added.length }))
+  else toast.info(t('episode.vid.alreadyQueued'))
   if (videoSelectMode.value) toggleVideoSelectMode()
 }
 
-// 配置变化后校验持久化的模型是否仍存在（配置被删/模型被移除时回退默认，避免把失效模型传给后端）
+// after config changes, verify the persisted model still exists (fall back to default if config deleted or model removed, avoid sending an invalid model to the backend)
 function pruneStaleModel(modelRef, optionsRef) {
   watch(optionsRef, opts => {
     if (!modelRef.value || !opts.length) return
     if (opts.some(o => o.key === modelRef.value)) return
-    // 旧版本地存储只有裸模型名：能对上则升级为复合键，对不上回退默认
+    // legacy local storage had only bare model names: if matched, upgrade to a composite key, otherwise fall back to default
     const legacy = opts.filter(o => o.model === modelRef.value)
     modelRef.value = legacy.length ? legacy[0].key : ''
   }, { immediate: true })
@@ -2200,7 +2492,7 @@ const imageModelMultiCfg = computed(() => hasMultiConfigs(imageModelOptions.valu
 const videoModelMultiCfg = computed(() => hasMultiConfigs(videoModelOptions.value))
 
 // Production step helpers
-// ========== 任务列表面板 ==========
+// ========== task list panel ==========
 async function loadGenTasks() {
   if (!epId.value) return
   try {
@@ -2208,10 +2500,10 @@ async function loadGenTasks() {
     genTasks.value = data?.tasks || []
     genMerges.value = data?.merges || []
 
-    // 生成中/失败状态只存在内存里,页面刷新后丢失;从 sys_task 记录按分镜恢复,
-    // 否则已失败的镜头刷新后会退化成"待生成"
+    // pending/failed states exist only in memory, lost after page refresh;restore from sys_task records per storyboard,
+    // Otherwise failed shots degrade to "pending" after refresh
     const videoTasks = genTasks.value.filter(t => t.type === 'video' && t.storyboard_id)
-    // 每个分镜只取最新一条任务(created_at 降序、id 兜底),旧任务不干预当前状态
+    // take only the latest task per storyboard(created_at descending, id fallback), old tasks do not affect current state
     const latestBySb = new Map()
     for (const t of videoTasks) {
       const prev = latestBySb.get(t.storyboard_id)
@@ -2221,24 +2513,24 @@ async function loadGenTasks() {
         latestBySb.set(t.storyboard_id, t)
       }
     }
-    // pending/failed 全量重建而非与现有值并集——否则刷新恢复的"生成中"在任务失败后
-    // 永不消退(videoTaskState 中 pending 优先于 failed,重试按钮还被禁用)
+    // pending/failed is rebuilt in full instead of unioned with existing values — otherwise a restored "in progress" never disappears after a task fails
+    // never disappear(videoTaskState in pending takes priority over failed, the retry button stays disabled)
     const pending = new Set()
     const failed = {}
     for (const [sbId, t] of latestBySb) {
-      // 分镜已有视频(失败后重试成功)时不再报历史错误
+      // storyboard already has a video(succeeded after retry following failure)no longer report stale errors when
       if (hasVid(sbs.value.find(s => s.id === sbId))) continue
       if (t.status === 'processing') pending.add(sbId)
       else if (t.status === 'failed') failed[sbId] = t.error_msg || t('episode.status.failed')
     }
-    // 刚点击提交、任务记录尚未加载出来的本地状态保留,避免状态闪退
+    // just clicked submit, preserve local state before task records load, avoid state flicker
     for (const id of pendingVideoIds.value) if (!latestBySb.has(id)) pending.add(id)
     for (const id of Object.keys(failedVideoMessages.value)) {
       if (!latestBySb.has(Number(id))) failed[id] = failedVideoMessages.value[id]
     }
     pendingVideoIds.value = [...pending]
     failedVideoMessages.value = failed
-  } catch { /* 静默失败,不打断其他刷新 */ }
+  } catch { /* silent failure, do not interrupt other refreshes */ }
 }
 
 function stopGenTasksPolling() {
@@ -2278,7 +2570,7 @@ function genTaskTargetLabel(task) {
   return t('episode.tasks.generic')
 }
 
-// 统一行结构：image / video / merge 三类合并按时间倒序
+// unified row structure: image / video / merge three merge types sorted newest first
 const genTaskRows = computed(() => {
   const taskRows = genTasks.value.map(t => ({
     key: `task-${t.id}`,
@@ -2321,14 +2613,14 @@ function genTaskStatusLabel(status) {
   return t('episode.status.generating')
 }
 
-// 映射到现有 video-task-status 的样式类:is-done / is-pending / is-failed
+// map to existing video-task-status style classes:is-done / is-pending / is-failed
 function genTaskStateClass(status) {
   if (status === 'completed') return 'done'
   if (status === 'failed') return 'failed'
   return 'pending'
 }
 
-// local_path 为站内相对路径补 '/',远端 result_url 原样使用
+// local_path append for site-relative paths '/', remote result_url used as-is
 function genTaskPreviewSrc(url) {
   if (!url) return ''
   return /^https?:\/\//.test(url) ? url : '/' + url
@@ -2341,7 +2633,7 @@ function genTaskDuration(row) {
   return ms >= 60000 ? `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s` : `${Math.round(ms / 1000)}s`
 }
 
-// 抽屉打开且有进行中任务时,4s 轮询;关闭或全部结束时停止
+// when the drawer is open with active tasks,4s polling;stop when closed or all finished
 watch([taskDrawer, genTaskActiveCount], ([open, active]) => {
   stopGenTasksPolling()
   if (open && active > 0) {
@@ -2417,8 +2709,8 @@ const sidebarSections = computed(() => ([
   },
 ]))
 
-// 大环节状态:pending(未开始)/ active(进行中)/ done(已完成)/ none(不显示状态,导出用)
-// 进行中 = 环节内有任意进度但未全部完成,或当前正处于该环节
+// major stage state:pending(not started)/ active(In progress)/ done(done)/ none(no status shown, for export)
+// in progress = stage has some progress but is not fully done, or is the current stage
 function sectionState(sectionId) {
   if (sectionId === 'export') return 'none'
   const done = sectionId === 'script'
@@ -2481,7 +2773,7 @@ const activeSubStepKey = computed(() => {
   return 'export:merge'
 })
 
-// 步骤跑马灯：四段主流程（剧本 → 资产制作 → 视频制作 → 导出），段点击跳转、当前段流动光效
+// Step marquee: four main stages (script → asset production → video production → export); click a segment to jump, flowing glow on the current stage
 const mainProgressSteps = computed(() => [
   { id: 'script', label: t('episode.stage.script') },
   { id: 'assets', label: t('episode.prod.assets') },
@@ -2638,7 +2930,7 @@ async function refresh() {
       const epHasScript = !!(episode.value?.script_content || episode.value?.scriptContent)
 
       if (panelRestored) {
-        // 已恢复到上次所在步骤，跳过自动重置（仅首次加载生效）
+        // restored to the last step, skip auto reset (only applies on first load)
         panelRestored = false
       } else if (epHasScript || epHasContent) scriptStep.value = 1
       else scriptStep.value = 0
@@ -2652,8 +2944,8 @@ async function refresh() {
 
 function saveRaw() { episodeAPI.update(epId.value, { content: localRaw.value }); episode.value.content = localRaw.value }
 function saveScr() { episodeAPI.update(epId.value, { script_content: localScript.value }); episode.value.script_content = localScript.value }
-// 发给 Agent 的 message 是功能性提示词而非 UI 文案：产出语言由后端全局「内容语言」指令控制，
-// 这里保持中文不随界面语言变化
+// the message sent to the Agent is a functional prompt, not UI copy: output language is controlled by the backend global "content language" directive,
+// this functional text stays fixed regardless of UI language
 function doRewrite() { saveRaw(); runAgent('script_rewriter', 'Baca skrip episode ini, tulis ulang menjadi skrip berformat, lalu simpan', dramaId, epId.value, refresh, chatModelOverride(), chatConfigId()) }
 function skipRewrite() {
   const raw = (localRaw.value || rawContent.value || '').trim()
@@ -2667,8 +2959,8 @@ function skipRewrite() {
   panel.value = 'production'
   prodTab.value = 'assets'
 }
-// 资产提取：按类型独立的异步任务（后端任务表驱动），三类可并行；前端轮询状态直到完成
-// label 渲染时求值（语言切换即时生效），key 为逻辑值
+// asset extraction: independent async task per type (driven by the backend task table), all three can run in parallel; frontend polls status until done
+// label evaluated at render time (language switch takes effect instantly), key is a logical value
 const EXTRACT_TARGETS = computed(() => [
   { key: 'characters', label: t('common.role') },
   { key: 'scenes', label: t('common.scene') },
@@ -2714,7 +3006,7 @@ function pollExtractStatus(target, attempts = 150) {
   setTimeout(() => tick(attempts), 2500)
 }
 
-/** 页面加载后恢复仍在运行的提取任务状态（刷新页面不丢进度展示） */
+/** restore running extraction task state after page load (refresh does not lose progress display) */
 async function syncExtractStatus() {
   if (!epId.value) return
   try {
@@ -2735,11 +3027,11 @@ async function syncExtractStatus() {
   } catch {}
 }
 
-// ─── 批量视频提示词：后端异步逐分镜生成，前端轮询进度 ──────────
+// ─── batch video prompts: backend generates per storyboard asynchronously, frontend polls progress ──────────
 const videoPromptBatch = ref({ running: false, total: 0, completed: 0 })
-// 单个视频提示词生成：按分镜 ID 跟踪，允许不同分镜并行生成（不走全局 rn 锁）
+// single video prompt generation: tracked by storyboard ID, allow parallel generation across storyboards (bypass the global rn lock)
 const videoPromptGeneratingIds = ref([])
-// 视频制作页多选快捷操作：全选 / 仅选未生成视频（勾选集与批量视频共用 selectedVideoSbIds）
+// video page multi-select shortcuts: select all / only videos not yet generated (selected set shared with batch video selectedVideoSbIds)
 function toggleSelectAllVideos() {
   selectedVideoSbIds.value = selectedVideoSbIds.value.length === sbs.value.length ? [] : sbs.value.map(sb => sb.id)
 }
@@ -2750,7 +3042,7 @@ function selectMissingVideos() {
 async function batchVideoPrompts() {
   if (videoPromptBatch.value.running || !epId.value) return
   if (!sbs.value.length) { toast.warning(t('episode.sb.breakFirst')); return }
-  // 选择模式下有勾选 → 仅补齐所选；否则全量补齐缺失
+  // in selection mode with checked items → only fill selected; otherwise fill all missing
   const ids = (videoSelectMode.value && selectedVideoSbIds.value.length) ? [...selectedVideoSbIds.value] : undefined
   try {
     const res = await episodeAPI.generateVideoPrompts(epId.value, chatModelOverride(), chatConfigId(), ids)
@@ -2786,7 +3078,7 @@ function pollVideoPromptBatch(attempts = 240) {
       if (st) {
         const prev = videoPromptBatch.value.completed
         videoPromptBatch.value = { running: true, total: st.total || 0, completed: st.completed || 0 }
-        if ((st.completed || 0) !== prev) await refresh() // 每完成一条刷新，提示词逐步出现
+        if ((st.completed || 0) !== prev) await refresh() // refresh on each completion, prompts appear progressively
       }
     } catch {}
     if (left > 0) setTimeout(() => tick(left - 1), 2500)
@@ -2796,13 +3088,13 @@ function pollVideoPromptBatch(attempts = 240) {
 }
 function doBreakdown() {
   const charList = chars.value.length
-    ? chars.value.map(c => `${c.name}(ID:${c.id})`).join('、')
+    ? chars.value.map(c => `${c.name}(ID:${c.id})`).join(', ')
     : '(Episode ini belum memiliki karakter)'
   const sceneList = scenes.value.length
-    ? scenes.value.map(s => `${s.location} · ${s.time || 'Waktu belum diatur'}(ID:${s.id})`).join('、')
+    ? scenes.value.map(s => `${s.location} · ${s.time || 'Waktu belum diatur'}(ID:${s.id})`).join(', ')
     : '(Episode ini belum memiliki adegan)'
   const propList = propItems.value.length
-    ? propItems.value.map(p => `${p.name}(ID:${p.id})`).join('、')
+    ? propItems.value.map(p => `${p.name}(ID:${p.id})`).join(', ')
     : '(Episode ini belum memiliki properti)'
   runAgent('storyboard_breaker', `Urai skrip episode ini menjadi storyboard, dan untuk setiap segmen storyboard sekaligus buat video_prompt (prompt pembuatan video).
 Model video kali ini: ${effectiveVideoModelLabel.value}, buat video_prompt sesuai karakteristik dan batasan durasi model tersebut.
@@ -2818,21 +3110,21 @@ Persyaratan binding:
 - Hanya shot lingkungan kosong murni yang boleh tidak mengikat karakter`, dramaId, epId.value, onBreakdownDone, chatModelOverride(), chatConfigId())
 }
 
-/** 拆分完成后刷新并自动补齐缺失的视频提示词（兜住 Agent 漏写/截断） */
+/** after split, refresh and auto-fill missing video prompts (guard against Agent omission/truncation) */
 async function onBreakdownDone() {
   await refresh()
   const missing = sbs.value.filter(sb => !(sb.video_prompt || sb.videoPrompt || '').trim())
   if (missing.length) batchVideoPrompts()
 }
 
-// 按需为单个分镜生成视频提示词：由 prompt_generator 读取分镜字段生成并保存到 video_prompt
+// generate a video prompt for a single storyboard on demand: generated by prompt_generator from storyboard fields and saved to video_prompt
 async function genVideoPrompt(sb) {
   if (!sb || videoPromptGeneratingIds.value.includes(sb.id)) return
   const idx = sbs.value.indexOf(sb) + 1
   const cfg = selectedVideoConfig.value
-  const label = cfg ? `${cfg.name} (${cfg.provider})` : '默认'
-  const charNames = getStoryboardCharacters(sb).map(c => c.name).join('、') || '无'
-  const propNames = getStoryboardProps(sb).map(p => p.name).join('、') || '无'
+  const label = cfg ? `${cfg.name} (${cfg.provider})` : 'Default'
+  const charNames = getStoryboardCharacters(sb).map(c => c.name).join(', ') || 'none'
+  const propNames = getStoryboardProps(sb).map(p => p.name).join(', ') || 'none'
   videoPromptGeneratingIds.value.push(sb.id)
   try {
     await api.post(`/agent/prompt_generator/chat`, {
@@ -2869,133 +3161,104 @@ function watchAsyncResult(check, attempts = 24, delay = 2500) {
   })()
 }
 
-async function genCharImg(id) {
-  try {
-    if (!isPendingCharImage(id)) pendingCharImageIds.value.push(id)
-    const char = chars.value.find(c => c.id === id)
-    if (char && !(char.final_prompt || char.finalPrompt)) {
-      toast.info(t('episode.asset.generatingPrompt'))
-      try {
-        await ensureAssetPrompt('character', id)
-      } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
-    }
-    await characterAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
-    toast.success(t('episode.image.generatingChar'))
-    await refresh()
-    watchAsyncResult(() => {
-      const char = chars.value.find(c => c.id === id)
-      const done = !!(char?.image_url || char?.imageUrl)
-      if (done) pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
-      return done
-    })
-  } catch (e) {
-    pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
-    toastError(e)
+async function watchAssetImages(taskIds, ids, kind, attempts = 48, delay = 2500) {
+  const clearPending = () => {
+    const pendingRef = kind === 'character' ? pendingCharImageIds : kind === 'scene' ? pendingSceneImageIds : pendingPropImageIds
+    pendingRef.value = pendingRef.value.filter(item => !ids.includes(item))
   }
+  const startedAt = Date.now()
+  for (const id of ids) setAssetProgress(kind, id, { stage: 'generating', startedAt, elapsed: 0, error: '' })
+  const findRec = id => kind === 'character'
+    ? chars.value.find(c => c.id === id)
+    : kind === 'scene'
+      ? scenes.value.find(s => s.id === id)
+      : propItems.value.find(p => p.id === id)
+  for (let i = 0; i < attempts; i++) {
+    await sleep(delay)
+    const elapsed = Math.round((Date.now() - startedAt) / 1000)
+    for (const id of ids) setAssetProgress(kind, id, { stage: 'generating', elapsed })
+    await refresh()
+    const done = ids.every(id => {
+      const rec = findRec(id)
+      return !!(rec?.image_url || rec?.imageUrl)
+    })
+    if (done) {
+      for (const id of ids) setAssetProgress(kind, id, { stage: 'done', elapsed })
+      setTimeout(() => { for (const id of ids) clearAssetProgress(kind, id) }, 4000)
+      clearPending(); return true
+    }
+    let failedMsg = ''
+    for (const tid of taskIds) {
+      try {
+        const task = await taskAPI.get(tid)
+        const st = task?.status
+        if (st === 'failed' || st === 'error' || st === 'timeout') { failedMsg = task?.errorMsg || ''; break }
+      } catch {}
+    }
+    if (failedMsg) {
+      for (const id of ids) setAssetProgress(kind, id, { stage: 'failed', error: failedMsg, elapsed })
+      clearPending()
+      toast.error(failedMsg)
+      return false
+    }
+  }
+  for (const id of ids) setAssetProgress(kind, id, { stage: 'failed', error: t('episode.image.genTimeout'), elapsed: Math.round((Date.now() - startedAt) / 1000) })
+  clearPending()
+  toast.info(t('episode.image.genTimeout'))
+  return false
+}
+
+/** Tombol generate satuan: masuk antrean FIFO (diproses satu per satu) */
+function genCharImg(id) {
+  const added = enqueueAssetJobs('character', [id])
+  if (!added.length) { toast.info(t('episode.asset.alreadyQueued')); return }
+  if (added[0].pos > 1) toast.info(t('episode.asset.singleQueued', { pos: added[0].pos }))
+  else toast.success(t('episode.image.generatingChar'))
 }
 function batchCharImages() {
   const ids = visualChars.value.filter(c => !(c.image_url || c.imageUrl)).map(c => c.id)
   if (!ids.length) { toast.info(t('episode.image.allCharsDone')); return }
-  pendingCharImageIds.value = [...new Set([...pendingCharImageIds.value, ...ids])]
-  characterAPI.batchImages(ids, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(async () => {
-    toast.success(t('episode.image.batchGeneratingChar'))
-    await refresh()
-    watchAsyncResult(() => ids.every(id => {
-      const char = chars.value.find(c => c.id === id)
-      const done = !!(char?.image_url || char?.imageUrl)
-      if (done) pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
-      return done
-    }), 36)
-  }).catch(e => {
-    pendingCharImageIds.value = pendingCharImageIds.value.filter(item => !ids.includes(item))
-    toastError(e)
-  })
+  const added = enqueueAssetJobs('character', ids)
+  if (added.length) toast.success(t('episode.asset.batchQueued', { n: added.length }))
+  else toast.info(t('episode.asset.alreadyQueued'))
 }
-async function genSceneImg(id) {
-  try {
-    if (!isPendingSceneImage(id)) pendingSceneImageIds.value.push(id)
-    const scene = scenes.value.find(s => s.id === id)
-    if (scene && !(scene.final_prompt || scene.finalPrompt)) {
-      toast.info(t('episode.asset.generatingPrompt'))
-      try {
-        await ensureAssetPrompt('scene', id)
-      } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
-    }
-    await sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
-    toast.success(t('episode.image.generatingScene'))
-    await refresh()
-    watchAsyncResult(() => {
-      const scene = scenes.value.find(s => s.id === id)
-      const done = !!(scene?.image_url || scene?.imageUrl)
-      if (done) pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
-      return done
-    })
-  } catch (e) {
-    pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
-    toastError(e)
-  }
+function genSceneImg(id) {
+  const added = enqueueAssetJobs('scene', [id])
+  if (!added.length) { toast.info(t('episode.asset.alreadyQueued')); return }
+  if (added[0].pos > 1) toast.info(t('episode.asset.singleQueued', { pos: added[0].pos }))
+  else toast.success(t('episode.image.generatingScene'))
 }
 function isPendingPropImage(id) {
   return pendingPropImageIds.value.includes(id)
 }
-async function genPropImg(id) {
-  try {
-    if (!isPendingPropImage(id)) pendingPropImageIds.value.push(id)
-    const prop = propItems.value.find(p => p.id === id)
-    if (prop && !(prop.final_prompt || prop.finalPrompt)) {
-      toast.info(t('episode.asset.generatingPrompt'))
-      try {
-        await ensureAssetPrompt('prop', id)
-      } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
-    }
-    await propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
-    toast.success(t('episode.image.generatingProp'))
-    await refresh()
-    watchAsyncResult(() => {
-      const prop = propItems.value.find(p => p.id === id)
-      const done = !!(prop?.image_url || prop?.imageUrl)
-      if (done) pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
-      return done
-    })
-  } catch (e) {
-    pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
-    toastError(e)
-  }
+function genPropImg(id) {
+  const added = enqueueAssetJobs('prop', [id])
+  if (!added.length) { toast.info(t('episode.asset.alreadyQueued')); return }
+  if (added[0].pos > 1) toast.info(t('episode.asset.singleQueued', { pos: added[0].pos }))
+  else toast.success(t('episode.image.generatingProp'))
 }
 function batchSceneImages() {
   const ids = scenes.value.filter(s => !(s.image_url || s.imageUrl)).map(s => s.id)
   if (!ids.length) { toast.info(t('episode.image.allScenesDone')); return }
-  pendingSceneImageIds.value = [...new Set([...pendingSceneImageIds.value, ...ids])]
-  ids.forEach(id => { sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toastError(e)) })
-  toast.success(t('episode.image.batchGeneratingScene'))
-  watchAsyncResult(() => ids.every(id => {
-    const scene = scenes.value.find(s => s.id === id)
-    const done = !!(scene?.image_url || scene?.imageUrl)
-    if (done) pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
-    return done
-  }), 36)
+  const added = enqueueAssetJobs('scene', ids)
+  if (added.length) toast.success(t('episode.asset.batchQueued', { n: added.length }))
+  else toast.info(t('episode.asset.alreadyQueued'))
 }
 function batchPropImages() {
   const ids = propItems.value.filter(p => !(p.image_url || p.imageUrl)).map(p => p.id)
   if (!ids.length) { toast.info(t('episode.image.allPropsDone')); return }
-  pendingPropImageIds.value = [...new Set([...pendingPropImageIds.value, ...ids])]
-  ids.forEach(id => { propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toastError(e)) })
-  toast.success(t('episode.image.batchGeneratingProp'))
-  watchAsyncResult(() => ids.every(id => {
-    const prop = propItems.value.find(p => p.id === id)
-    const done = !!(prop?.image_url || prop?.imageUrl)
-    if (done) pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
-    return done
-  }), 36)
+  const added = enqueueAssetJobs('prop', ids)
+  if (added.length) toast.success(t('episode.asset.batchQueued', { n: added.length }))
+  else toast.info(t('episode.asset.alreadyQueued'))
 }
 function getVideoUrl(s) { return s?.video_url || s?.videoUrl || s?.composed_video_url || s?.composedVideoUrl || null }
 function hasVid(s) { return !!getVideoUrl(s) }
 
-// ===== 分镜视频历史（一个分镜可能生成多个视频,sys_task 留存全部记录）=====
+// ===== storyboard video history (one storyboard may have multiple videos, sys_task all records retained)=====
 const sbVideoHistory = ref([])
-const previewVideoUrl = ref('') // 正在预览的历史视频(相对路径);空 = 预览当前主视频
+const previewVideoUrl = ref('') // history video currently previewed(relative path);empty = preview the current main video
 
-// 注意:/tasks 返回原始行(camelCase),/episodes/:id/generation-tasks 返回 snake_case,两种命名都兼容
+// Note: /tasks returns raw rows (camelCase), /episodes/:id/generation-tasks returns snake_case; both naming styles are supported
 function taskVideoPath(t) { return t?.local_path || t?.localPath || t?.result_url || t?.resultUrl || '' }
 function taskCreatedAt(t) { return t?.created_at || t?.createdAt || '' }
 function isCurrentVideo(t) { const p = taskVideoPath(t); return !!p && p === getVideoUrl(selectedSb.value) }
@@ -3062,8 +3325,8 @@ function getShotReferenceImages(sb) {
   return refs
 }
 
-// 右侧参考素材面板：本集全部可绑定素材（场景单选、角色/道具多选），bound 标记是否已绑定
-// kind 为英文 code（逻辑值）；typeLabel 为显示名（渲染时求值）
+// right reference asset panel: all bindable assets of this episode (single-select scene, multi-select characters/props), bound flag indicates whether bound
+// kind is an English code (logical value); typeLabel is a display name (evaluated at render time)
 function shotBindableAssets(sb) {
   const out = []
   for (const char of visualChars.value) {
@@ -3108,27 +3371,27 @@ function shotBindableAssets(sb) {
       bound: getStoryboardPropIds(sb).includes(prop.id),
     })
   }
-  // 固定顺序（角色→场景→道具，按资产原顺序）：点击绑定/解绑不重排，避免跳动
+  // Fixed order (character → scene → prop, in original asset order): bind/unbind does not reorder, avoids jumping
   return out
 }
 
-// 右侧参考素材面板渲染用：当前分镜可绑定的全部素材
+// right reference asset panel for rendering: all assets bindable to the current storyboard
 const refBindableAssets = computed(() => {
   const sb = selectedSb.value
   return sb ? shotBindableAssets(sb) : []
 })
 
-// 右栏「绑定参考图」：当前分镜已绑定素材（生成时作为参考图提交），按分组顺序平铺展示
+// Right column "Bound reference images": assets bound to the current storyboard (submitted as reference images at generation), laid out in group order
 const boundRefAssets = computed(() => refBindableAssets.value.filter(a => a.bound))
 
-// 参考面板分组顺序（kind code 驱动，label 渲染时求值）
+// reference panel group order (kind code driven, label evaluated at render time)
 const REF_KINDS = computed(() => ([
   { kind: 'character', label: t('common.role') },
   { kind: 'scene', label: t('common.scene') },
   { kind: 'prop', label: t('common.prop') },
 ]))
 
-// 右侧面板切换绑定：场景单选（切换/解绑），角色/道具多选（kind code 判断，不依赖显示文案）
+// right panel toggle binding: single-select scene (switch/unbind), multi-select characters/props (kind code check, does not rely on display copy)
 function toggleShotBind(sb, asset) {
   if (asset.kind === 'scene') {
     const current = sb?.scene_id || sb?.sceneId
@@ -3142,8 +3405,8 @@ function toggleShotBind(sb, asset) {
   toggleStoryboardProp(sb, asset.id)
 }
 
-// 视频提示词 @ 引用候选：仅当前分镜已绑定的角色与道具（按名字引用）、场景（按地点引用），展示顺序：角色 → 场景 → 道具
-// kind 为逻辑值（MentionTextarea 按 kind 着色/选图标），group 为显示文案
+// Video prompt @ mention candidates: only characters and props bound to the current storyboard (by name) and scenes (by location); display order: character → scene → prop
+// kind is a logical value (MentionTextarea colors/picks the icon by kind), group is display copy
 const mentionOptions = computed(() => {
   const sb = selectedSb.value
   if (!sb) return []
@@ -3173,7 +3436,7 @@ const mentionOptions = computed(() => {
   ]
 })
 
-// 按参考图顺序（场景图在前、角色图居中、道具图在后）为 @名字 建立索引映射，供视频提示词引用替换
+// Build an index mapping for @name mentions in reference image order (scene image first, character images in the middle, prop images last), for video prompt mention replacement
 function getShotReferenceIndexMap(sb) {
   const ordered = []
   const seen = new Set()
@@ -3195,7 +3458,7 @@ function getShotReferenceIndexMap(sb) {
   return nameToIndex
 }
 
-// 将视频提示词里的 @名字 替换为 @图片N名字（N 为参考图序号，1 起），生成时使用
+// Replace @name mentions in video prompts with @imageN-name tokens (N is the 1-based reference image index), used at generation time
 function resolveVideoPromptRefs(sb) {
   const prompt = sb.video_prompt || sb.videoPrompt || ''
   const map = getShotReferenceIndexMap(sb)
@@ -3204,15 +3467,15 @@ function resolveVideoPromptRefs(sb) {
   return prompt.replace(/@([^\s@]+)/g, (m, raw) => {
     for (const name of names) {
       if (raw.startsWith(name)) {
-        return `@图片${map[name]}${name}${raw.slice(name.length)}`
+        return `@Gambar${map[name]}${name}${raw.slice(name.length)}`
       }
     }
     return m
   })
 }
 
-// 分镜时长（视频生成参数区直接编辑并保存到分镜）：
-// 按当前视频模型限制范围收敛后写入 storyboards.duration，列表/批量/单次生成统一读取该值
+// shot duration (edit in the generation params and save to the storyboard):
+// clamp to the current video model limits then write to storyboards.duration, list/batch/single generation all read this value
 function onVideoDurationChange(e) {
   const sb = selectedSb.value
   if (!sb) return
@@ -3233,8 +3496,8 @@ function pickFile(accept, cb) {
   input.click()
 }
 
-// ===== 资产图片手动上传（角色形象 / 场景图 / 道具图）=====
-// 上传类型显示名渲染时求值
+// ===== Manual upload of asset images (character portrait / scene image / prop image) =====
+// upload type label evaluated at render time
 const assetUploadLabelMap = computed(() => ({
   character: t('episode.asset.charPortrait'),
   scene: t('episode.asset.sceneImage'),
@@ -3248,7 +3511,7 @@ function uploadAssetImage(kind, id) {
     if (!uploadingAssetKeys.value.includes(key)) uploadingAssetKeys.value.push(key)
     try {
       const res = await uploadAPI.image(file)
-      // 与生图回写保持一致：存相对路径（static/...），前端展示时补前导斜杠
+      // consistent with image generation write-back: store a relative path (static/...), frontend adds a leading slash when displaying
       const payload = { image_url: res.path, local_path: res.path }
       if (kind === 'character') await characterAPI.update(id, payload)
       else if (kind === 'scene') await sceneAPI.update(id, payload)
@@ -3263,60 +3526,197 @@ function uploadAssetImage(kind, id) {
   })
 }
 
+// ─── Antrean video: SATU PER SATU (FIFO) ─────────────────────────────────
+// Batch maupun tombol satuan masuk antrean ini; worker memproses satu shot
+// sampai selesai/gagal sebelum lanjut — tidak ada lagi N request video
+// serentak. Setiap item antre punya indikator (posisi antre / elapsed).
+const videoQueue = ref([]) // [{ id, silent }] menunggu giliran
+const videoQueueActive = ref(null) // storyboard id sedang diproses
+const videoProgressMap = ref({}) // sbId -> { stage, queuePos, queueTotal, startedAt, elapsed, error }
+function setVideoProgress(id, patch) {
+  const prev = videoProgressMap.value[id] || { stage: 'queued', startedAt: Date.now(), elapsed: 0, error: '' }
+  videoProgressMap.value = { ...videoProgressMap.value, [id]: { ...prev, ...patch } }
+}
+function clearVideoProgress(id) {
+  if (!(id in videoProgressMap.value)) return
+  const next = { ...videoProgressMap.value }
+  delete next[id]
+  videoProgressMap.value = next
+}
+function videoProgressOf(id) { return videoProgressMap.value[id] || null }
+function videoProgressPercent(id) {
+  const p = videoProgressOf(id)
+  if (!p) return 0
+  if (p.stage === 'done') return 100
+  if (p.stage === 'failed') return 100
+  if (p.stage === 'generating') {
+    // Estimasi: video biasanya 1–10 menit; naik mulus 5→95% lalu mentok.
+    const elapsed = Math.max(p.elapsed || 0, p.startedAt ? (Date.now() - p.startedAt) / 1000 : 0)
+    return Math.min(95, Math.round(5 + Math.min(elapsed / 600, 1) * 90))
+  }
+  return 8
+}
+function videoProgressLabel(id) {
+  const p = videoProgressOf(id)
+  if (!p) return ''
+  if (p.stage === 'queued') {
+    return (p.queuePos && p.queueTotal)
+      ? t('episode.vid.queuePos', { pos: p.queuePos, total: p.queueTotal })
+      : t('episode.asset.stageQueued')
+  }
+  if (p.stage === 'generating') return t('episode.vid.videoGenerating', { n: Math.round(Math.max(p.elapsed || 0, 0)) })
+  if (p.stage === 'done') return t('episode.asset.stageDone')
+  if (p.stage === 'failed') return p.error || t('episode.asset.stageFailed')
+  return ''
+}
+function refreshVideoQueueProgress() {
+  const activeCount = videoQueueActive.value ? 1 : 0
+  const total = videoQueue.value.length + activeCount
+  videoQueue.value.forEach((j, i) => {
+    setVideoProgress(j.id, { stage: 'queued', queuePos: i + 1 + activeCount, queueTotal: total, elapsed: 0, error: '' })
+  })
+}
+function enqueueVideoJobs(ids, silent = false) {
+  const added = []
+  for (const id of ids) {
+    if (videoQueueActive.value === id || videoQueue.value.some(j => j.id === id)) continue
+    videoQueue.value.push({ id, silent })
+    if (!pendingVideoIds.value.includes(id)) pendingVideoIds.value.push(id)
+    added.push(id)
+  }
+  refreshVideoQueueProgress()
+  const result = added.map(id => {
+    const idx = videoQueue.value.findIndex(j => j.id === id)
+    return { id, pos: idx + 1 + (videoQueueActive.value ? 1 : 0) }
+  })
+  pumpVideoQueue()
+  return result
+}
+let videoQueuePumping = false
+async function pumpVideoQueue() {
+  if (videoQueuePumping) return
+  videoQueuePumping = true
+  try {
+    while (videoQueue.value.length) {
+      const job = videoQueue.value.shift()
+      videoQueueActive.value = job.id
+      refreshVideoQueueProgress()
+      try {
+        await runVideoJob(job.id, job.silent)
+      } catch (e) { /* runVideoJob sudah mencatat failed + toast */ }
+      videoQueueActive.value = null
+      refreshVideoQueueProgress()
+    }
+  } finally {
+    videoQueuePumping = false
+  }
+}
+/** Satu job video: kirim request → tunggu selesai. Awaitable. */
+async function runVideoJob(sbId, silent = false) {
+  const startedAt = Date.now()
+  try {
+    const sb = sbs.value.find(s => s.id === sbId)
+    if (!sb) {
+      pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== sbId)
+      clearVideoProgress(sbId)
+      return false
+    }
+    if (hasVid(sb)) {
+      pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== sbId)
+      clearVideoProgress(sbId)
+      return true
+    }
+    const referenceImages = getShotReferenceImages(sb)
+    const params = {
+      storyboard_id: sb.id,
+      drama_id: dramaId,
+      prompt: resolveVideoPromptRefs(sb),
+      duration: Number(sb.duration || 10),
+      aspect_ratio: dramaAspectRatio.value,
+      generate_audio: true,
+      model: bareModelName(videoModel.value) || undefined,
+      config_id: ownerConfigId(videoModelOptions.value, videoModel.value),
+      reference_image_urls: referenceImages,
+    }
+    if (!params.prompt && !referenceImages.length) {
+      throw new Error(t('episode.vid.needRefOrPrompt'))
+    }
+    delete failedVideoMessages.value[sbId]
+    setVideoProgress(sbId, { stage: 'generating', startedAt, elapsed: 0, error: '' })
+    const generation = await taskAPI.generate({ type: 'video', ...params })
+    await refresh()
+    return await pollVideoGeneration(generation?.id, sbId, silent)
+  } catch (e) {
+    pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== sbId)
+    setVideoProgress(sbId, { stage: 'failed', error: e?.message || String(e || ''), elapsed: Math.round((Date.now() - startedAt) / 1000) })
+    failedVideoMessages.value = { ...failedVideoMessages.value, [sbId]: e.message || t('episode.vid.genFailed') }
+    toastError(e, { fallback: 'episode.vid.genFailed' })
+    return false
+  }
+}
+/** Batalkan video yang masih menunggu (yang sedang berjalan diselesaikan) */
+function cancelVideoQueue() {
+  const waiting = [...videoQueue.value]
+  if (!waiting.length) return
+  videoQueue.value = []
+  const ids = waiting.map(j => j.id)
+  pendingVideoIds.value = pendingVideoIds.value.filter(id => !ids.includes(id))
+  for (const id of ids) clearVideoProgress(id)
+  toast.info(t('episode.vid.queueCancelled', { n: waiting.length }))
+}
+const videoQueueStatusText = computed(() => {
+  const parts = []
+  if (videoQueueActive.value) {
+    const idx = sbs.value.findIndex(s => s.id === videoQueueActive.value)
+    const sb = sbs.value[idx]
+    parts.push(t('episode.vid.queueActive', { name: sb?.description || `#${idx >= 0 ? idx + 1 : videoQueueActive.value}` }))
+  }
+  if (videoQueue.value.length) parts.push(t('episode.vid.queueWaiting', { n: videoQueue.value.length }))
+  return parts.join(' · ')
+})
 async function genVid(sb, opts = {}) {
   const referenceImages = getShotReferenceImages(sb)
-  // 参考素材完全来自分镜绑定的角色/场景/道具图片
-  const params = {
-    storyboard_id: sb.id,
-    drama_id: dramaId,
-    prompt: resolveVideoPromptRefs(sb),
-    duration: Number(sb.duration || 10),
-    aspect_ratio: dramaAspectRatio.value,
-    generate_audio: true,
-    model: bareModelName(videoModel.value) || undefined,
-    config_id: ownerConfigId(videoModelOptions.value, videoModel.value),
-    reference_image_urls: referenceImages,
-  }
-  if (!params.prompt && !referenceImages.length) {
+  const prompt = resolveVideoPromptRefs(sb)
+  if (!prompt && !referenceImages.length) {
     toast.error(t('episode.vid.needRefOrPrompt'))
     return
   }
-  try {
-    delete failedVideoMessages.value[sb.id]
-    if (!isPendingVideo(sb.id)) pendingVideoIds.value.push(sb.id)
-    const generation = await taskAPI.generate({ type: 'video', ...params })
-    if (!opts.silent) toast.success(t('episode.vid.generating'))
-    await refresh()
-    pollVideoGeneration(generation?.id, sb.id)
-  } catch (e) {
-    pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== sb.id)
-    failedVideoMessages.value = {
-      ...failedVideoMessages.value,
-      [sb.id]: e.message || t('episode.vid.genFailed'),
-    }
-    toastError(e, { fallback: 'episode.vid.genFailed' })
+  const added = enqueueVideoJobs([sb.id], !!opts.silent)
+  if (!added.length) { toast.info(t('episode.vid.alreadyQueued')); return }
+  if (!opts.silent) {
+    if (added[0].pos > 1) toast.info(t('episode.vid.singleQueued', { pos: added[0].pos }))
+    else toast.success(t('episode.vid.generating'))
   }
 }
-async function pollVideoGeneration(generationId, storyboardId) {
+async function pollVideoGeneration(generationId, storyboardId, silent = false) {
+  const startedAt = Date.now()
+  const elapsed = () => Math.round((Date.now() - startedAt) / 1000)
   if (!generationId) {
     watchAsyncResult(() => {
       const target = sbs.value.find(s => s.id === storyboardId)
       const done = !!(target?.video_url || target?.videoUrl)
-      if (done) pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
+      if (done) {
+        pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
+        setVideoProgress(storyboardId, { stage: 'done', elapsed: elapsed() })
+        setTimeout(() => clearVideoProgress(storyboardId), 4000)
+      }
       return done
     }, 60, 4000)
-    return
+    return true
   }
   for (let i = 0; i < 120; i++) {
     await sleep(4000)
+    setVideoProgress(storyboardId, { stage: 'generating', elapsed: elapsed() })
     try {
       const res = await taskAPI.get(generationId)
       await refresh()
       if (res?.status === 'completed') {
         pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
         delete failedVideoMessages.value[storyboardId]
-        toast.success(t('episode.vid.genDone'))
-        return
+        setVideoProgress(storyboardId, { stage: 'done', elapsed: elapsed() })
+        setTimeout(() => clearVideoProgress(storyboardId), 4000)
+        if (!silent) toast.success(t('episode.vid.genDone'))
+        return true
       }
       if (res?.status === 'failed') {
         pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
@@ -3325,8 +3725,9 @@ async function pollVideoGeneration(generationId, storyboardId) {
           ...failedVideoMessages.value,
           [storyboardId]: errMsg,
         }
-        toastError(errMsg, { fallback: 'episode.vid.genFailed' })
-        return
+        setVideoProgress(storyboardId, { stage: 'failed', error: errMsg, elapsed: elapsed() })
+        if (!silent) toastError(errMsg, { fallback: 'episode.vid.genFailed' })
+        return false
       }
     } catch {}
   }
@@ -3335,7 +3736,9 @@ async function pollVideoGeneration(generationId, storyboardId) {
     ...failedVideoMessages.value,
     [storyboardId]: t('episode.vid.genTimeout'),
   }
-  toast.error(t('episode.vid.genTimeout'))
+  setVideoProgress(storyboardId, { stage: 'failed', error: t('episode.vid.genTimeout'), elapsed: elapsed() })
+  if (!silent) toast.error(t('episode.vid.genTimeout'))
+  return false
 }
 async function doMerge(ids) {
   const storyboardIds = Array.isArray(ids) ? ids : undefined
@@ -3377,16 +3780,6 @@ async function loadConfigs() {
 }
 
 onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
-
-// ===== 应用内引导（工作台）：沿左侧进度栏走 6 步流水线 =====
-const EPISODE_TOUR = [
-  { element: '.studio-topbar-main', titleKey: 'tour.episode.topbar.title', descKey: 'tour.episode.topbar.desc', popoverSide: 'bottom' },
-  { element: '.pipe-section:nth-of-type(1)', titleKey: 'tour.episode.script.title', descKey: 'tour.episode.script.desc', popoverSide: 'right' },
-  { element: '.pipe-section:nth-of-type(2)', titleKey: 'tour.episode.assets.title', descKey: 'tour.episode.assets.desc', popoverSide: 'right' },
-  { element: '.pipe-section:nth-of-type(2) .pipe-item:last-child', titleKey: 'tour.episode.videos.title', descKey: 'tour.episode.videos.desc', popoverSide: 'right' },
-  { element: '.studio-actions .tour-help-btn', titleKey: 'tour.episode.help.title', descKey: 'tour.episode.help.desc', popoverSide: 'bottom', popoverAlign: 'end' },
-]
-onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 </script>
 
 <style scoped>
@@ -3399,8 +3792,8 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   padding: 8px;
   gap: 8px;
   background: var(--surface-base);
-  /* 选中态:中性反色(浅色近黑/深色近白),与进行中(蓝脉冲)/已完成(绿勾)区分,
-     遵循「颜色只承担状态指示」——选中不是状态,保持无色 */
+  /* selected state:neutral inversion(near-black in light / near-white in dark), vs in-progress(blue pulse)/done(green check)distinguish,
+      follows the "colors only indicate status" rule — selected is not a status, so it stays colorless */
   --sel: var(--text-0);
   --sel-bg: var(--bg-active);
   --sel-text: var(--text-0);
@@ -3443,7 +3836,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   min-width: 0;
 }
 
-/* 用更高特异性压过后面的 .back-btn{height:40px}，保持顶栏紧凑 */
+/* use higher specificity to override the later .back-btn{height:40px}, keep the top bar compact */
 .studio-topbar .topbar-back {
   width: auto;
   min-width: 72px;
@@ -3452,6 +3845,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   border-radius: var(--radius-pill);
   white-space: nowrap;
   font-size: 11px;
+  flex-shrink: 1;
 }
 
 .studio-identity {
@@ -3552,7 +3946,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 
 .studio-body {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);  /* 列宽跟随侧栏实际宽度（收起时 46px） */
+  grid-template-columns: auto minmax(0, 1fr);  /* column width follows the actual sidebar width (46px when collapsed) */
   gap: 8px;
   min-height: 0;
   flex: 1;
@@ -3598,7 +3992,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   text-transform: uppercase; letter-spacing: 0.06em;
   padding: 0 7px 2px;
 }
-/* 分组标题保持中性灰,状态色只在左侧小指示器上 */
+/* group headings stay neutral gray, status color only on the small left indicator */
 .pipe-section-state {
   width: 13px; height: 13px; border-radius: 999px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -3627,7 +4021,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   border-radius: 999px; padding: 1px 5px;
   text-transform: none;
 }
-/* 子步骤进行中:与大环节同步的脉冲点 */
+/* sub-step in progress: pulse dot synced with the major stage */
 .pipe-item.doing { color: var(--text-1); }
 .pipe-item.doing .pipe-icon {
   background: var(--accent-bg);
@@ -3658,7 +4052,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   border-color: transparent;
   box-shadow: none;
 }
-/* ChatFire 签名：激活步骤左侧 3px 品牌色圆角指示条 */
+/* ChatFire signature: active stage left 3px brand-color rounded indicator bar */
 .pipe-item.active::before {
   content: '';
   position: absolute;
@@ -3733,7 +4127,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   flex-shrink: 0;
   background: var(--surface-soft);
 }
-/* 收起/展开按钮 */
+/* collapse/expand button */
 .sidebar-toggle {
   display: flex; align-items: center; justify-content: center; gap: 5px;
   width: 100%; min-height: 22px;
@@ -3746,7 +4140,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 .sidebar-toggle-icon { transition: transform 0.22s var(--ease-out); flex-shrink: 0; }
 .sidebar.collapsed .sidebar-toggle-icon { transform: rotate(180deg); }
 
-/* ===== 收起态：窄图标栏 ===== */
+/* ===== collapsed state: narrow icon rail ===== */
 .sidebar { transition: width 0.22s var(--ease-out); }
 .sidebar.collapsed { width: 46px; }
 .sidebar.collapsed .pipeline { padding: 12px 5px 8px; gap: 10px; }
@@ -3759,7 +4153,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 .sidebar.collapsed .pipe-item .pipe-copy { display: none; }
 .sidebar.collapsed .pipe-item-sub:not(:last-child)::after { display: none; }
 .sidebar.collapsed .pipe-icon { width: 22px; height: 22px; }
-/* 收起态：进行中步骤的角标脉冲点 */
+/* Collapsed state: pulse dot on an in-progress step */
 .pipe-mini-pulse {
   position: absolute; top: -3px; right: -3px;
   width: 7px; height: 7px; border-radius: 50%;
@@ -3770,7 +4164,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 .sidebar.collapsed .sidebar-progress { display: none; }
 .sidebar.collapsed .sidebar-bottom { padding: 9px 6px 10px; align-items: center; }
 .sidebar.collapsed .refresh-btn { width: 28px; min-height: 28px; padding: 0; font-size: 0; gap: 0; }
-/* 步骤跑马灯：四段主流程进度条，当前段流动光效 */
+/* step marquee: four-stage main progress bar, flowing glow on the current stage */
 .sidebar-progress {
   display: flex;
   flex-direction: column;
@@ -3821,7 +4215,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 }
 .sidebar-progress-seg.done { background: var(--success); }
 .sidebar-progress-seg.current { background: var(--accent-bg); }
-/* 跑马灯流动光：当前段内的渐变高光持续滑动 */
+/* Marquee flowing glow: the gradient highlight slides continuously within the current segment */
 .sidebar-progress-seg.current .sidebar-progress-seg-fill {
   position: absolute;
   inset: 0;
@@ -3891,7 +4285,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  /* 压过全局 .seg-item{padding:7px 16px}，收紧子导航高度 */
+  /* override the global .seg-item{padding:7px 16px}, tighten the sub-nav height */
   padding: 4px 13px;
   font-size: 12px;
 }
@@ -3975,10 +4369,10 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   flex-direction: column;
   gap: 5px;
 }
-/* 嵌入中栏时：不自带内边距；高度封顶内部滚动，避免把下方提示词顶出首屏 */
+/* when embedded in the middle column: no built-in padding; capped height with internal scroll, avoid pushing prompts below the fold */
 .storyboard-ref-list.is-embedded { overflow: visible; padding: 0; }
 .video-main-grid .storyboard-ref-list.is-embedded { max-height: 300px; overflow-y: auto; }
-/* 视频列表选择模式快捷操作：复用分段芯片样式，去掉顶部虚线分隔 */
+/* video list selection-mode shortcuts: reuse the segmented chip style, remove the top dashed separator */
 .video-quick-actions { margin: 0 12px 10px; padding-top: 0; border-top: none; }
 .storyboard-ref-group {
   display: grid;
@@ -4174,7 +4568,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 .prod-content { flex: 1; overflow-y: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
 .prod-section-bar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 
-/* 资产栏动作：提取（虚线中性）与批量生成（强调色）视觉分组 */
+/* Asset bar actions: extract (neutral dashed) and batch generate (accent) visually grouped */
 .asset-bar-actions { align-items: center; }
 .asset-bar-divider { width: 1px; height: 16px; margin: 0 4px; background: var(--surface-outline-strong); }
 .asset-btn-extract {
@@ -4191,7 +4585,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 }
 .asset-btn-batch:hover { background: var(--accent); color: var(--on-accent); }
 
-/* 资产分区标题：新增入口 + 卡片删除按钮 */
+/* asset section heading: add entry + card delete button */
 .asset-section-title { display: flex; align-items: center; gap: 8px; }
 .asset-add-btn {
   display: inline-flex;
@@ -4231,7 +4625,52 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 .character-asset-card:hover .asset-del-btn,
 .asset-click-card:hover .asset-del-btn { opacity: 1; }
 
-/* 分镜勾选：选择后批量生成视频提示词 */
+/* Progress realtime per-card aset */
+.asset-progress { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.asset-progress.is-dialog { flex: 1 1 100%; margin: 0 0 8px; }
+.asset-detail-foot { flex-wrap: wrap; }
+.asset-progress-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--text-2); }
+.asset-progress-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-progress-pct { font-variant-numeric: tabular-nums; color: var(--text-3); }
+.asset-progress-track { height: 6px; border-radius: 999px; background: var(--bg-2); border: 1px solid var(--surface-outline); overflow: hidden; }
+.asset-progress-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-text)); transition: width 0.8s linear; }
+.asset-progress.is-prompt .asset-progress-fill { background: linear-gradient(90deg, var(--warning, #d97706), var(--accent)); }
+.asset-progress.is-done .asset-progress-fill { background: var(--success); }
+.asset-progress.is-failed .asset-progress-fill { background: var(--action-danger); }
+.asset-progress.is-failed .asset-progress-label { color: var(--action-danger); }
+
+/* Antrean sequential aset: status bar di bawah section header */
+.asset-queue-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+  color: var(--text-1);
+  font-size: 12px;
+}
+.asset-queue-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Progress antrean video per baris */
+.video-task-queue { color: var(--accent-text); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.video-task-progress-track { height: 5px; margin-top: 5px; border-radius: 999px; background: var(--bg-2); border: 1px solid var(--surface-outline); overflow: hidden; }
+.video-task-progress-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-text)); transition: width 0.8s linear; }
+.video-queue-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 7px 10px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+  color: var(--text-1);
+  font-size: 12px;
+}
+
+/* Shot checkbox: batch generate video prompts after selection */
 .shot-check {
   flex: none;
   width: 14px;
@@ -4259,7 +4698,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   white-space: nowrap;
 }
 .shot-quick-btn:hover { text-decoration: underline; }
-/* 多选模式：头部快捷操作独立一行，分段芯片样式 */
+/* Multi-select mode: header shortcuts on their own row, segmented chip style */
 .shot-quick-actions {
   display: flex;
   gap: 6px;
@@ -4282,7 +4721,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   text-decoration: none;
 }
 
-/* 新增资产弹窗 */
+/* add asset dialog */
 .asset-create-dialog { width: 440px; max-width: calc(100vw - 48px); }
 .asset-create-body { display: flex; flex-direction: column; gap: 10px; }
 
@@ -4609,7 +5048,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   border-left: 1px solid var(--border);
   background: var(--surface-muted);
 }
-/* 三栏拖拽分隔条：透明热区覆盖分界，悬停/拖动时亮起 */
+/* three-column drag divider: transparent hotspot covers the boundary, lights up on hover/drag */
 .video-col-divider {
   position: absolute;
   top: 0;
@@ -4637,7 +5076,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   box-shadow: 0 0 6px var(--accent-glow);
 }
 :global(body.is-video-col-dragging) { cursor: col-resize; user-select: none; }
-/* 中列：纯编辑区（分镜描述/氛围/视频提示词），占满高度 */
+/* Middle column: pure edit area (storyboard description / atmosphere / video prompt), fills the height */
 .video-main-col {
   min-width: 0;
   min-height: 0;
@@ -4653,7 +5092,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   padding: 14px 16px 16px;
   background: var(--surface-raised);
 }
-/* 生成前检查动线集中一屏：上双栏（画面描述/氛围 ｜ 参考绑定），下整宽（视频提示词） */
+/* Pre-generation checks in one screen: top two columns (image description / atmosphere | reference binding), bottom full width (video prompt) */
 .video-main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
@@ -4798,7 +5237,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   object-fit: contain;
   display: block;
 }
-/* 空态：保留 16:9 播放框，内容居中（图标 + 文案 + 生成按钮） */
+/* empty state: keep 16:9 player frame, content centered (icon + copy + generate button) */
 .video-player-empty {
   width: 100%;
   display: flex;
@@ -4894,11 +5333,11 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   display: flex;
   flex-direction: column;
 }
-/* 统计徽章兼作筛选器 */
+/* stat badges double as filters */
 button.video-task-metric { cursor: pointer; font-family: inherit; transition: box-shadow 0.15s; }
 button.video-task-metric:hover { box-shadow: 0 0 0 2px var(--sel-glow); }
 button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
-/* 批量视频：选择模式 */
+/* batch video: selection mode */
 .btn.is-on { border-color: var(--accent); color: var(--accent-text); background: var(--accent-bg); }
 .video-retry-failed { color: var(--warning); border-color: var(--warning-bg); }
 .video-task-row.is-selected { background: var(--sel-bg); box-shadow: inset 0 0 0 1.5px var(--sel); }
@@ -4911,7 +5350,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   border-color: rgba(255,255,255,0.55);
 }
 .video-task-check.on { background: var(--accent); border-color: var(--accent); }
-/* 生成前生效配置小结 */
+/* Pre-generation effective config summary */
 .video-inspector-effective {
   margin: 0;
   padding: 4px 8px;
@@ -4928,20 +5367,20 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* 生成参数：强调卡片，时长是当前分镜生成的核心参数 */
+/* Generation params: accent card; duration is the core parameter for the current storyboard */
 .video-params-card {
   padding: 7px 10px;
   border: 1px solid var(--accent-glow);
   border-radius: var(--radius-lg);
   background: var(--accent-bg);
 }
-/* 审核失败引导 */
+/* moderation failure guidance */
 .video-task-error-hint {
   margin-top: 3px;
   color: var(--accent-text);
   font-weight: 600;
 }
-/* 批量生成确认弹窗 */
+/* batch generation confirm dialog */
 .batch-video-dialog { width: 420px; max-width: calc(100vw - 48px); }
 .batch-video-body { display: flex; flex-direction: column; gap: 10px; }
 .batch-video-row {
@@ -5069,7 +5508,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   justify-self: end;
   align-self: center;
 }
-/* 行内紧凑状态（窄列表用）：小圆点 + 文字 */
+/* inline compact status (for narrow lists): small dot + text */
 .video-task-state {
   display: inline-flex;
   align-items: center;
@@ -5116,7 +5555,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 .video-inspector-title { color: var(--text-0); font-size: 14px; font-weight: 700; }
 .video-inspector-sub { margin-top: 2px; color: var(--text-3); font-size: 11px; }
 .video-inspector-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 16px 18px 18px; }
-/* 时长参数 + 生成操作常驻底部：不随检查器滚动 */
+/* Duration parameter + generate actions pinned to the bottom: does not scroll with the inspector */
 .video-inspector-footer {
   flex: none;
   display: flex;
@@ -5148,7 +5587,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   justify-content: space-between;
   gap: 8px;
 }
-/* MentionTextarea 内部元素需 :deep 穿透（scoped 样式默认到不了子组件内部） */
+/* MentionTextarea inner elements need :deep (scoped styles do not reach child internals by default) */
 :deep(.video-inspector-prompt) {
   min-height: 176px;
   font-size: 13px;
@@ -5159,7 +5598,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 .video-inspector-params dt { color: var(--text-3); }
 .video-inspector-params dd { margin: 0; color: var(--text-1); text-align: right; }
 .video-inspector-action { width: 100%; min-height: 32px; height: 32px; padding: 0 12px; font-size: 12.5px; }
-/* 绑定参考图：当前分镜已绑定素材的图片平铺（生成时作为参考图提交） */
+/* Bound reference images: images of assets bound to the current storyboard, laid out in group order (submitted as reference images at generation) */
 .video-bound-refs { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
 .video-bound-ref {
   position: relative;
@@ -5564,6 +6003,19 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   font-size: 11px;
   line-height: 1.5;
 }
+.asset-detail-autoimg {
+  margin-top: 2px;
+}
+.switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  min-height: 27px;
+}
+.switch-hint {
+  margin: 0;
+}
 .asset-detail-readonly-grid {
   display: flex;
   flex-direction: column;
@@ -5798,7 +6250,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   font-family: var(--font-mono);
   font-size: 9px;
 }
-/* 镜头预览：悬停浮现的居中播放钮，点击打开预览弹窗（不影响卡片勾选） */
+/* shot preview: centered play button appears on hover, click to open the preview dialog (does not affect the card checkbox) */
 .exp-play {
   position: absolute;
   left: 50%;
@@ -5818,7 +6270,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 }
 .exp-card:hover .exp-play { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 .exp-play:hover { background: var(--accent); }
-/* 导出完成手动标记按钮 */
+/* manual export-complete button */
 .export-done-btn.on {
   background: var(--success-bg, var(--accent-bg));
   color: var(--success, var(--accent-text));
@@ -5831,6 +6283,14 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 .dim { color: var(--text-3); }
 
 @media (max-width: 1080px) {
+  .studio-topbar .topbar-back {
+    min-width: 0;
+    padding: 0 8px;
+  }
+  .studio-topbar .topbar-back .back-label {
+    display: none;
+  }
+
   .studio-body {
     grid-template-columns: 1fr;
   }
@@ -5919,7 +6379,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 
 }
 
-/* ===== 任务列表面板 ===== */
+/* ===== task list panel ===== */
 .gen-task-row {
   grid-template-columns: 84px minmax(0, 1fr) auto;
   cursor: default;
@@ -5928,7 +6388,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   cursor: zoom-in;
 }
 
-/* 任务触发按钮(顶栏) */
+/* task trigger button(top bar) */
 .task-drawer-trigger {
   position: relative;
 }
@@ -5947,7 +6407,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   line-height: 1;
 }
 
-/* 右侧抽屉 */
+/* right drawer */
 .task-drawer-overlay {
   position: fixed;
   inset: 0;
@@ -6064,7 +6524,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
     overflow-y: auto;
   }
 
-  /* 窄屏纵向堆叠后无栏间分界，隐藏拖拽分隔条 */
+  /* no column dividers after vertical stacking on narrow screens, hide the drag divider */
   .video-col-divider { display: none; }
 
   .video-task-inspector {
@@ -6079,7 +6539,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
     border-left: 0;
   }
 
-  /* 窄屏：中列改为纵向堆叠，由外层 workbench 整体滚动 */
+  /* narrow screens: middle column switches to a vertical stack, the outer workbench scrolls as a whole */
   .video-main-col {
     display: flex;
     flex-direction: column;
@@ -6092,7 +6552,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   }
 
   .video-task-side .video-task-inspector {
-    flex: none; /* 窄屏下由外层 workbench 整体滚动，检查器按内容撑开，不参与 flex 收缩 */
+      flex: none; /* on narrow screens the outer workbench scrolls as a whole; inspector expands to its content and does not shrink with flex */
     border-top: 0;
     display: flex;
     flex-direction: column;
@@ -6104,7 +6564,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   }
 
   .video-task-player {
-    flex: none; /* 禁止收缩：否则 stage 的 min-height 会使其溢出播放器并遮挡下方检查器 */
+    flex: none; /* no shrink: otherwise stage min-height overflows the player and covers the inspector */
   }
 
   .video-player-stage {

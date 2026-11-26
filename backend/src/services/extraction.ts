@@ -5,7 +5,10 @@
  */
 import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
+import { agentAbortSignal } from '../utils/agent-timeout.js'
+import { generateWithRetry } from '../utils/agent-retry.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { describeApiError } from '../utils/error-translate.js'
 
 export type ExtractTarget = 'characters' | 'scenes' | 'props'
 export const EXTRACT_TARGETS: ExtractTarget[] = ['characters', 'scenes', 'props']
@@ -45,9 +48,10 @@ export function startExtraction(episodeId: number, dramaId: number, target: Extr
       modelOverride: opts.model || undefined,
       textConfigId: opts.configId || undefined,
     })
-    return agent.generate([{ role: 'user', content: EXTRACT_MESSAGES[target] }], {
+    return generateWithRetry(agent, [{ role: 'user', content: EXTRACT_MESSAGES[target] }], {
       maxSteps: 20,
       requestContext,
+      abortSignal: agentAbortSignal(20),
       // Mencetak kemajuan Agent secara bertahap: tool mana yang dipanggil, output apa yang dihasilkan
       onStepFinish: (step: any) => {
         const tools = (step?.toolCalls || [])
@@ -59,7 +63,7 @@ export function startExtraction(episodeId: number, dramaId: number, target: Extr
           text: (step?.text || '').slice(0, 200) || undefined,
         })
       },
-    })
+    }, 'extract', { episodeId, target })
   })()
     .then((result: any) => {
       task.status = 'done'
@@ -75,7 +79,7 @@ export function startExtraction(episodeId: number, dramaId: number, target: Extr
     .catch((err: any) => {
       task.status = 'error'
       task.finished_at = new Date().toISOString()
-      task.error = err?.message || 'Ekstraksi gagal'
+      task.error = describeApiError(err)
       logTaskError('Extract', target, { episodeId, error: err?.message })
     })
   return true

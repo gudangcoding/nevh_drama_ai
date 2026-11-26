@@ -3,18 +3,50 @@
  * Membuat(processing) → adapter membangun request → selesai sinkron atau polling asinkron → mengunduh ke disk → menulis kembali ke tabel bisnis
  */
 import { db, getInsertId, schema } from '../db/index.js'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { getActiveConfig, getConfigById } from './ai.js'
 import { now } from '../utils/response.js'
 import { downloadFile, fetchImageAsCompressedDataUrl, generateImageThumb, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
-import { extractVideoPoster } from '../utils/video-poster.js'
+import { extractVideoLastFrame, extractVideoPoster } from '../utils/video-poster.js'
 import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import type { AIConfig } from './adapters/types'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
+import { translateApiError } from '../utils/error-translate.js'
+import { robustFetch } from '../utils/http.js'
 
 type TaskType = 'image' | 'video'
 
 const taskLabel = (type: TaskType) => (type === 'image' ? 'ImageTask' : 'VideoTask')
+
+// Pembatas konkurensi global untuk pemrosesan task: mencegah semua tugas generasi
+// dijalankan serentak (penyebab sering timeoute/gagal saat produksi otomatis besar).
+// Default 2; dapat diubah dengan env AI_TASK_CONCURRENCY.
+const MAX_CONCURRENT_TASKS = clampTaskConcurrency(process.env.AI_TASK_CONCURRENCY)
+let activeTaskCount = 0
+const taskWaiters: Array<() => void> = []
+
+function clampTaskConcurrency(raw: string | undefined): number {
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 1) return 2
+  return Math.min(8, Math.round(n))
+}
+
+function acquireTaskSlot(): Promise<void> {
+  if (activeTaskCount < MAX_CONCURRENT_TASKS) {
+    activeTaskCount++
+    return Promise.resolve()
+  }
+  return new Promise(resolve => taskWaiters.push(resolve))
+}
+
+function releaseTaskSlot(): void {
+  const next = taskWaiters.shift()
+  if (next) {
+    next()
+  } else {
+    activeTaskCount = Math.max(0, activeTaskCount - 1)
+  }
+}
 
 // Ritme polling: gambar 5s×120 (batas 10 menit); video 10s×300
 const POLL_PROFILES: Record<TaskType, { attempts: number; intervalMs: number; maxDurationMs: number | null }> = {
@@ -28,6 +60,8 @@ interface GenerateImageParams {
   sceneId?: number
   characterId?: number
   propId?: number
+  /** Saat diisi, hasil gambar ditulis balik ke dramas.thumbnail (sampul proyek) */
+  coverDramaId?: number
   prompt: string
   model?: string
   size?: string
@@ -60,6 +94,28 @@ interface GenerateVideoParams {
   configId?: number
 }
 
+/** Provider yang mendukung first_frame berdampingan dengan gambar referensi */
+const CHAIN_FIRST_FRAME_PROVIDERS = new Set(['gemini', 'minimax'])
+
+/**
+ * Cari frame terakhir video shot sebelumnya (nomor storyboard lebih kecil dalam
+ * episode yang sama, yang sudah punya video). Mengembalikan path relatif frame
+ * (static/frames/...) atau null bila tidak ada/tidak bisa diekstrak.
+ */
+async function resolveChainFrame(storyboardId: number, _provider: string): Promise<string | null> {
+  const [sb] = await db.select().from(schema.storyboards).where(eq(schema.storyboards.id, storyboardId))
+  if (!sb?.episodeId || sb.storyboardNumber == null) return null
+  const siblings = await db.select().from(schema.storyboards)
+    .where(and(eq(schema.storyboards.episodeId, sb.episodeId), isNull(schema.storyboards.deletedAt)))
+  const prev = siblings
+    .filter(x => !x.deletedAt && (x.storyboardNumber || 0) < (sb.storyboardNumber || 0))
+    .sort((a, b) => (a.storyboardNumber || 0) - (b.storyboardNumber || 0))
+    .pop()
+  const videoRel = prev?.videoUrl || prev?.composedVideoUrl
+  if (!videoRel) return null
+  return extractVideoLastFrame(videoRel)
+}
+
 export async function generateImage(params: GenerateImageParams): Promise<number> {
   // Konfigurasi yang ditetapkan (dikunci per episode) mungkin telah dinonaktifkan/dihapus/dari penyedia yang sudah tidak tersedia, jika tidak valid fallback ke konfigurasi aktif saat ini agar generasi tidak terjebak oleh referensi lama
   const config = params.configId
@@ -69,7 +125,7 @@ export async function generateImage(params: GenerateImageParams): Promise<number
 
   const id = await createTask('image', config, {
     storyboardId: params.storyboardId,
-    dramaId: params.dramaId,
+    dramaId: params.coverDramaId || params.dramaId,
     sceneId: params.sceneId,
     characterId: params.characterId,
     propId: params.propId,
@@ -79,6 +135,7 @@ export async function generateImage(params: GenerateImageParams): Promise<number
     size: params.size || '1920x1080',
     frameType: params.frameType,
     referenceImages: params.referenceImages,
+    coverDramaId: params.coverDramaId,
   })
 
   logTaskStart('ImageTask', 'enqueue', {
@@ -104,6 +161,32 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     ? (await getConfigById(params.configId)) ?? await getActiveConfig('video')
     : await getActiveConfig('video')
   if (!config) throw new Error('Model video belum dikonfigurasi, silakan tambah dan aktifkan layanan AI di halaman "Pengaturan"')
+
+  // Chaining antar shot (aksi bersambung ala Pipit): frame terakhir video shot
+  // sebelumnya dalam episode yang sama dijadikan acuan shot ini, agar sambungan
+  // hard cut terlihat natural — bukan dua klip asing yang ditempel.
+  if (params.storyboardId && !params.firstFrameUrl) {
+    try {
+      const chainFrame = await resolveChainFrame(params.storyboardId, config.provider)
+      if (chainFrame) {
+        if (CHAIN_FIRST_FRAME_PROVIDERS.has(config.provider)) {
+          params.firstFrameUrl = chainFrame
+        } else if (config.provider !== 'aliyun') {
+          // Provider tanpa first_frame (mis. Seedance/volcengine): jadikan gambar
+          // referensi pertama. Aliyun/Wan dikecualikan — mode first_frame-nya
+          // eksklusif (tak boleh campur reference), jadi andalkan prompt + trim.
+          params.referenceImageUrls = [chainFrame, ...(params.referenceImageUrls || [])].slice(0, 9)
+        }
+        logTaskProgress('VideoTask', 'chain-frame', {
+          storyboardId: params.storyboardId,
+          provider: config.provider,
+          mode: CHAIN_FIRST_FRAME_PROVIDERS.has(config.provider) ? 'first_frame' : 'reference',
+        })
+      }
+    } catch (err: any) {
+      logTaskWarn('VideoTask', 'chain-frame-skipped', { storyboardId: params.storyboardId, error: String(err?.message || err) })
+    }
+  }
 
   const id = await createTask('video', config, {
     storyboardId: params.storyboardId,
@@ -172,7 +255,9 @@ async function createTask(
   })
 
   const id = getInsertId(res)
-  processTask(id, config).catch(err => {
+  void acquireTaskSlot().then(() =>
+    processTask(id, config).finally(releaseTaskSlot)
+  ).catch(err => {
     logTaskError(taskLabel(type), 'process', { id, error: err.message })
     console.error(`${taskLabel(type)} ${id} failed:`, err)
   })
@@ -264,7 +349,7 @@ async function processTask(id: number, config: AIConfig) {
       body: isMultipart ? `[multipart/form-data: ${[...(body as FormData).keys()].join(', ')}]` : body,
     })
 
-    const resp = await fetch(url, {
+    const resp = await robustFetch(url, {
       method,
       headers,
       body: isMultipart ? (body as FormData) : JSON.stringify(body),
@@ -306,7 +391,7 @@ async function processTask(id: number, config: AIConfig) {
 
     if (!isAsync && videoUrl) {
       logTaskProgress(label, 'sync-complete', { id, videoUrl })
-      await handleVideoComplete(record, videoUrl, params.duration)
+      await handleVideoComplete(record, videoUrl, params.duration, geminiDownloadHeaders(config))
       return
     }
 
@@ -325,9 +410,10 @@ async function markPolling(id: number, taskId: string | undefined) {
 }
 
 async function failTask(id: number, message: string) {
-  logTaskError('SysTask', 'failed', { id, error: message })
+  const translated = translateApiError(message)
+  logTaskError('SysTask', 'failed', { id, error: translated })
   await db.update(schema.sysTask)
-    .set({ status: 'failed', errorMsg: message, updatedAt: now() })
+    .set({ status: 'failed', errorMsg: translated, updatedAt: now() })
     .where(eq(schema.sysTask.id, id))
 }
 
@@ -359,7 +445,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
       const remainingMs = profile.maxDurationMs
         ? Math.max(1_000, profile.maxDurationMs - (Date.now() - startedAt))
         : 600_000
-      const resp = await fetch(url, {
+      const resp = await robustFetch(url, {
         method,
         headers,
         signal: AbortSignal.timeout(remainingMs),
@@ -388,7 +474,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
           }
         } else if (pollResp.videoUrl) {
           logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, videoUrl: pollResp.videoUrl })
-          await handleVideoComplete(record, pollResp.videoUrl, pollResp.duration)
+          await handleVideoComplete(record, pollResp.videoUrl, pollResp.duration, geminiDownloadHeaders(config))
           return
         }
       }
@@ -437,7 +523,7 @@ async function handleImageCompleteBase64(record: SysTaskRecord, base64Data: stri
   await writeBackImageAssets(record, localPath)
 }
 
-// Setelah gambar selesai, tulis kembali ke tabel bisnis: storyboard (berdasarkan frameType), karakter, adegan, properti
+// Setelah gambar selesai, tulis kembali ke tabel bisnis: storyboard (berdasarkan frameType), karakter, adegan, properti, sampul proyek
 async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
   const params = parseTaskParams(record.params)
   if (record.storyboardId) {
@@ -446,6 +532,14 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
     else if (params.frameType === 'last_frame') sbUpdate.lastFrameImage = localPath
     else sbUpdate.composedImage = localPath
     await db.update(schema.storyboards).set(sbUpdate).where(eq(schema.storyboards.id, record.storyboardId))
+  }
+  if (params.coverDramaId || (record.dramaId && !record.storyboardId && !record.characterId && !record.sceneId && !record.propId)) {
+    const coverDramaId = params.coverDramaId || record.dramaId
+    if (coverDramaId) {
+      await db.update(schema.dramas)
+        .set({ thumbnail: localPath, updatedAt: now() })
+        .where(eq(schema.dramas.id, coverDramaId))
+    }
   }
   if (record.characterId) {
     await db.update(schema.characters).set({ imageUrl: localPath, updatedAt: now() }).where(eq(schema.characters.id, record.characterId))
@@ -458,12 +552,12 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
   }
 }
 
-async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined) {
+async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined, headers?: Record<string, string>) {
   // Provider (Gemini Veo) dapat mengembalikan video sebagai data URL base64
   const dataMatch = videoUrl.match(/^data:video\/([\w+.-]+);base64,(.+)$/)
   const localPath = dataMatch
     ? await saveBase64Image(dataMatch[2], `video/${dataMatch[1]}`, 'videos')
-    : await downloadFile(videoUrl, 'videos')
+    : await downloadFile(videoUrl, 'videos', headers)
   // Frame poster untuk tampilan daftar/sampul, menghindari frontend harus buffer seluruh video untuk menampilkan frame pertama
   await extractVideoPoster(localPath)
   await db.update(schema.sysTask)
@@ -589,4 +683,13 @@ function normalizeStoredVideoResolution(resolution: string | null | undefined): 
   if (value === '480p' || value === '720p' || value === '1080p') return value
   if (value === '2k') return '2K'
   return undefined
+}
+
+/**
+ * Header unduhan untuk penyedia Gemini (Veo): URI video `https://generativelanguage.googleapis.com/v1beta/files/...:download`
+ * mewajibkan header API key untuk mengunduh; provider lain tidak perlu header khusus.
+ */
+function geminiDownloadHeaders(config: AIConfig): Record<string, string> | undefined {
+  if (config.provider !== 'gemini' || !config.apiKey) return undefined
+  return { 'x-goog-api-key': config.apiKey }
 }

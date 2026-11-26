@@ -7,6 +7,7 @@ import { generateImage } from '../services/generation.js'
 import { getDramaStylePrompt } from '../services/style-preset.js'
 import { ensureCharacterFinalPrompt } from '../services/final-prompt.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { assertCharacterAccess, assertDramaAccess, assertEpisodeAccess } from '../services/ownership.js'
 
 const app = new Hono()
 const CHARACTER_IMAGE_SIZE = '1920x1080'
@@ -14,8 +15,9 @@ const CHARACTER_IMAGE_SIZE = '1920x1080'
 // POST /characters — menambahkan karakter secara manual (saat episode_id diberikan, akan dikaitkan ke episode tersebut)
 app.post('/', async (c) => {
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
-  if (!body.name?.trim()) return badRequest(c, '名称必填')
+  if (!body.drama_id) return badRequest(c, 'drama_id wajib diisi')
+  await assertDramaAccess(c, Number(body.drama_id))
+  if (!body.name?.trim()) return badRequest(c, 'Nama wajib diisi')
   const ts = now()
   const res = await db.insert(schema.characters).values({
     name: body.name.trim(),
@@ -43,19 +45,20 @@ function characterImagePrompt(char: typeof schema.characters.$inferSelect, style
   return [
     stylePrompt || '',
     char.name,
-    char.appearance || char.description || '人物立绘',
+    char.appearance || char.description || 'character portrait',
     char.styling || '',
-    '16:9 横版角色定妆照',
-    '半身角色海报构图',
-    '正面',
-    '高质量',
-    '白色背景',
+    '16:9 horizontal character turnaround sheet',
+    'half-body character poster composition',
+    'front view',
+    'high quality',
+    'white background',
   ].filter(Boolean).join(', ')
 }
 
 // PUT /characters/:id
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertCharacterAccess(c, id)
   const body = await c.req.json()
   const updates: Record<string, any> = { updatedAt: now() }
   for (const key of ['name', 'role', 'description', 'appearance', 'styling', 'imageUrl', 'localPath']) {
@@ -73,6 +76,7 @@ app.put('/:id', async (c) => {
 // DELETE /characters/:id
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertCharacterAccess(c, id)
   await db.update(schema.characters).set({ deletedAt: now() }).where(eq(schema.characters.id, id))
   return success(c)
 })
@@ -80,13 +84,15 @@ app.delete('/:id', async (c) => {
 // POST /characters/:id/generate-image
 app.post('/:id/generate-image', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertCharacterAccess(c, id)
   const body = await c.req.json()
   const [char] = await db.select().from(schema.characters).where(eq(schema.characters.id, id))
-  if (!char) return badRequest(c, '角色不存在')
-  if (!body.episode_id) return badRequest(c, 'episode_id 必填')
+  if (!char) return badRequest(c, 'Karakter tidak ditemukan')
+  if (!body.episode_id) return badRequest(c, 'episode_id wajib diisi')
 
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
-  if (!ep) return badRequest(c, '剧集不存在')
+  if (!ep) return badRequest(c, 'Episode tidak ditemukan')
+  if (ep.dramaId !== char.dramaId) return badRequest(c, 'Karakter dan episode tidak berada di drama yang sama')
 
   const stylePrompt = await getDramaStylePrompt(char.dramaId)
   const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
@@ -105,36 +111,52 @@ app.post('/:id/generate-image', async (c) => {
 // POST /characters/:id/generate-prompt — buat ulang/generate ulang final prompt tiga tampilan (tanpa membuat gambar)
 app.post('/:id/generate-prompt', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertCharacterAccess(c, id)
   const body = await c.req.json()
   const [char] = await db.select().from(schema.characters).where(eq(schema.characters.id, id))
-  if (!char) return badRequest(c, '角色不存在')
-  if (!body.episode_id) return badRequest(c, 'episode_id 必填')
+  if (!char) return badRequest(c, 'Karakter tidak ditemukan')
+  if (!body.episode_id) return badRequest(c, 'episode_id wajib diisi')
 
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
-  if (!ep) return badRequest(c, '剧集不存在')
+  if (!ep) return badRequest(c, 'Episode tidak ditemukan')
+  if (ep.dramaId !== char.dramaId) return badRequest(c, 'Karakter dan episode tidak berada di drama yang sama')
 
   logTaskStart('FinalPrompt', 'character-generate', { characterId: id, episodeId: ep.id, force: !!body.force })
   const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, !!body.force, { model: body.text_model, configId: body.text_config_id ?? undefined })
   if (!finalPrompt) {
     logTaskError('FinalPrompt', 'character-generate', { characterId: id, error: 'agent returned empty prompt' })
-    return badRequest(c, '最终提示词生成失败，请重试')
+    return badRequest(c, 'Gagal membuat prompt akhir, silakan coba lagi')
   }
   logTaskSuccess('FinalPrompt', 'character-generate', { characterId: id })
-  return success(c, { final_prompt: finalPrompt })
+  const response: Record<string, any> = { final_prompt: finalPrompt }
+  if (body.auto_image) {
+    const stylePrompt = await getDramaStylePrompt(char.dramaId)
+    const prompt = finalPrompt || characterImagePrompt(char, stylePrompt)
+    try {
+      logTaskStart('CharacterImage', 'generate', { characterId: id, episodeId: ep.id, dramaId: char.dramaId })
+      const genId = await generateImage({ characterId: id, dramaId: char.dramaId, prompt, model: body.model, size: CHARACTER_IMAGE_SIZE, configId: body.config_id ?? ep.imageConfigId ?? undefined })
+      logTaskSuccess('CharacterImage', 'generate', { characterId: id, generationId: genId })
+      response.image_generation_id = genId
+    } catch (err: any) {
+      logTaskError('CharacterImage', 'generate', { characterId: id, error: err.message })
+    }
+  }
+  return success(c, response)
 })
 
 // POST /characters/batch-generate-images
 app.post('/batch-generate-images', async (c) => {
   const body = await c.req.json()
   const ids: number[] = body.character_ids || []
-  if (!body.episode_id) return badRequest(c, 'episode_id 必填')
+  if (!body.episode_id) return badRequest(c, 'episode_id wajib diisi')
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
-  if (!ep) return badRequest(c, '剧集不存在')
+  if (!ep) return badRequest(c, 'Episode tidak ditemukan')
+  await assertDramaAccess(c, Number(ep.dramaId))
   const results: number[] = []
   const stylePrompt = await getDramaStylePrompt(ep.dramaId)
   for (const cid of ids) {
     const [char] = await db.select().from(schema.characters).where(eq(schema.characters.id, cid))
-    if (!char) continue
+    if (!char || char.dramaId !== ep.dramaId) continue
     const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
     const prompt = finalPrompt || characterImagePrompt(char, stylePrompt)
     try {

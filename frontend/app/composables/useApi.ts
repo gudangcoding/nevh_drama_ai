@@ -1,7 +1,33 @@
 const BASE = '/api/v1'
 
-async function req<T = any>(method: string, path: string, body?: any): Promise<T> {
-  const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json' } }
+import { getAuthToken, setAuthToken, clearAuthToken } from './useAuthToken'
+
+/** Minta sesi perangkat baru (tanpa login) — dipakai sekali saat token ditolak */
+async function refreshDeviceSession(): Promise<boolean> {
+  try {
+    const resp = await fetch(`${BASE}/auth/device`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const json = await resp.json().catch(() => null)
+    const token = json?.data?.token || json?.token
+    if (resp.ok && token) {
+      setAuthToken(token)
+      return true
+    }
+  } catch { /* abaikan, fallback ke beranda */ }
+  return false
+}
+
+async function req<T = any>(method: string, path: string, body?: any, retried = false): Promise<T> {
+  const token = getAuthToken()
+  const opts: RequestInit = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  }
   if (body) opts.body = JSON.stringify(body)
 
   const start = performance.now()
@@ -11,6 +37,16 @@ async function req<T = any>(method: string, path: string, body?: any): Promise<T
     const resp = await fetch(`${BASE}${path}`, opts)
     const json = await resp.json()
     const ms = Math.round(performance.now() - start)
+
+    // Token ditolak: coba sesi perangkat sekali lalu ulangi request; bila tetap
+    // gagal muat ulang beranda (tanpa halaman login — sudah dihapus)
+    if (resp.status === 401 && !path.startsWith('/auth/') && !retried) {
+      clearAuthToken()
+      if (await refreshDeviceSession()) {
+        return req<T>(method, path, body, true)
+      }
+      if (typeof window !== 'undefined') window.location.assign('/')
+    }
 
     if (!resp.ok || (json.code && json.code >= 400)) {
       console.log(`%c[API] %c${method} ${path} %c${resp.status} %c${ms}ms`, 'color:#888', 'color:#ef5350', 'color:#ef5350;font-weight:bold', 'color:#888', json.message || '')
@@ -41,6 +77,24 @@ export const dramaAPI = {
   create: (data: any) => api.post('/dramas', data),
   update: (id: number, data: any) => api.put(`/dramas/${id}`, data),
   del: (id: number) => api.del(`/dramas/${id}`),
+  // Buat/muat ulang sampul proyek dari prompt (async → task di latar belakang)
+  cover: (id: number, prompt?: string, model?: string, configId?: number) => api.post(`/dramas/${id}/cover`, { prompt: prompt || undefined, model: model || undefined, config_id: configId || undefined }),
+}
+
+// Generator sinopsis: ide → draft sinopsis terstruktur (dipakai untuk membuat proyek drama baru)
+export const synopsisAPI = {
+  generate: (d: any) => api.post('/synopsis/generate', d),
+  drafts: () => api.get('/synopsis/drafts'),
+  delDraft: (id: number) => api.del(`/synopsis/drafts/${id}`),
+}
+
+// Produksi otomatis lintas-episode (sinopsis → skrip → aset → gambar → persetujuan → video → merge)
+export const productionAPI = {
+  status: (dramaId: number) => api.get(`/dramas/${dramaId}/production`),
+  start: (dramaId: number, opts?: any) => api.post(`/dramas/${dramaId}/production/start`, opts || {}),
+  approve: (dramaId: number) => api.post(`/dramas/${dramaId}/production/approve`),
+  cancel: (dramaId: number) => api.post(`/dramas/${dramaId}/production/cancel`),
+  resume: (dramaId: number) => api.post(`/dramas/${dramaId}/production/resume`),
 }
 
 export const episodeAPI = {
@@ -68,7 +122,7 @@ export const characterAPI = {
   create: (data: any) => api.post('/characters', data),
   update: (id: number, data: any) => api.put(`/characters/${id}`, data),
   del: (id: number) => api.del(`/characters/${id}`),
-  generatePrompt: (id: number, episodeId: number, force = false, textModel?: string, textConfigId?: number) => api.post(`/characters/${id}/generate-prompt`, { episode_id: episodeId, force, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
+  generatePrompt: (id: number, episodeId: number, force = false, textModel?: string, textConfigId?: number, autoImage = false) => api.post(`/characters/${id}/generate-prompt`, { episode_id: episodeId, force, text_model: textModel || undefined, text_config_id: textConfigId || undefined, auto_image: autoImage || undefined }),
   generateImage: (id: number, episodeId: number, model?: string, configId?: number, textModel?: string, textConfigId?: number) => api.post(`/characters/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
   batchImages: (ids: number[], episodeId: number, model?: string, configId?: number, textModel?: string, textConfigId?: number) => api.post('/characters/batch-generate-images', { character_ids: ids, episode_id: episodeId, model: model || undefined, config_id: configId || undefined, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
 }
@@ -77,7 +131,7 @@ export const sceneAPI = {
   create: (data: any) => api.post('/scenes', data),
   update: (id: number, data: any) => api.put(`/scenes/${id}`, data),
   del: (id: number) => api.del(`/scenes/${id}`),
-  generatePrompt: (id: number, episodeId: number, force = false, textModel?: string, textConfigId?: number) => api.post(`/scenes/${id}/generate-prompt`, { episode_id: episodeId, force, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
+  generatePrompt: (id: number, episodeId: number, force = false, textModel?: string, textConfigId?: number, autoImage = false) => api.post(`/scenes/${id}/generate-prompt`, { episode_id: episodeId, force, text_model: textModel || undefined, text_config_id: textConfigId || undefined, auto_image: autoImage || undefined }),
   generateImage: (id: number, episodeId: number, model?: string, configId?: number, textModel?: string, textConfigId?: number) => api.post(`/scenes/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
 }
 
@@ -85,7 +139,7 @@ export const propAPI = {
   create: (data: any) => api.post('/props', data),
   update: (id: number, data: any) => api.put(`/props/${id}`, data),
   del: (id: number) => api.del(`/props/${id}`),
-  generatePrompt: (id: number, episodeId: number, force = false, textModel?: string, textConfigId?: number) => api.post(`/props/${id}/generate-prompt`, { episode_id: episodeId, force, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
+  generatePrompt: (id: number, episodeId: number, force = false, textModel?: string, textConfigId?: number, autoImage = false) => api.post(`/props/${id}/generate-prompt`, { episode_id: episodeId, force, text_model: textModel || undefined, text_config_id: textConfigId || undefined, auto_image: autoImage || undefined }),
   generateImage: (id: number, episodeId: number, model?: string, configId?: number, textModel?: string, textConfigId?: number) => api.post(`/props/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
 }
 

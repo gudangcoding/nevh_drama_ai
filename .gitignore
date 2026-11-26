@@ -47,7 +47,7 @@ temp/
 /CLAUDE.md
 /AGENTS.md
 
-# Agent workspace (skills/prompts 为策划模板保持跟踪，其余产出忽略)
+# Agent workspace (skills/prompts are tracked as planning templates; other generated output is ignored)
 backend/workspace/*
 !backend/workspace/skills/
 !backend/workspace/prompts/

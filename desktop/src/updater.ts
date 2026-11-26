@@ -3,9 +3,9 @@
  *
  * - Manifes: HUOBAO_UPDATE_FEED (default GitHub Releases releases/latest/download/latest.json)
  * - macOS: unduh zip (arsip .app) → verifikasi sha256 → ekstrak → rename paket lama .old sebagai cadangan → paket baru di tempat
- *   → `open` menjalankan aplikasi baru →实例 saat ini keluar; startup berikutnya bersihkan .old
- * - Windows: unduh Setup.exe → verifikasi sha256 → instalasi senyap detached (/S) →实例 saat ini keluar
- * - Mode belum打包 (dev) dinonaktifkan secara keseluruhan
+ *   → `open` menjalankan aplikasi baru → instansi saat ini keluar; startup berikutnya membersihkan .old
+ * - Windows: unduh Setup.exe → verifikasi sha256 → instalasi senyap detached (/S) → instansi saat ini keluar
+ * - Mode belum dikemas (dev) dinonaktifkan seluruhnya
  */
 import { app, ipcMain } from 'electron'
 import type { BrowserWindow } from 'electron'
@@ -16,7 +16,7 @@ import crypto from 'crypto'
 import { spawn, execFile } from 'child_process'
 
 const FEED_URL = process.env.HUOBAO_UPDATE_FEED
-  || 'https://github.com/chatfire-AI/huobao-drama/releases/latest/download/latest.json'
+  || 'https://github.com/gudangcoding/nevh_drama_ai/releases/latest/download/latest.json'
 
 export interface UpdateState {
   status: 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'downloaded' | 'error'
@@ -66,9 +66,9 @@ function platformKey(): string {
   return `${process.platform}-${process.arch}`
 }
 
-/** Path .app dari app yang terinstal (hanya macOS, dalam kondisi打包) */
+/** Path .app dari app yang terinstal (hanya macOS, saat sudah dikemas) */
 function installedAppBundle(): string {
-  // process.execPath = .../HuobaoDrama.app/Contents/MacOS/HuobaoDrama
+  // process.execPath = .../Nevh Drama.app/Contents/MacOS/Nevh Drama
   return path.resolve(path.dirname(process.execPath), '..', '..')
 }
 
@@ -114,7 +114,7 @@ async function doDownload(): Promise<UpdateState> {
   if (!asset) throw new Error(`Paket pembaruan untuk platform ${platformKey()} belum tersedia`)
 
   setState({ status: 'downloading', downloadProgress: 0 })
-  // Unduh file besar tanpa timeout keseluruhan (progress digerakkan oleh stream); gangguan jaringan akan memicu异常 fetch
+  // Unduh file besar tanpa timeout keseluruhan (progress digerakkan oleh stream); gangguan jaringan akan memicu kegagalan fetch
   const res = await fetch(asset.url)
   if (!res.ok || !res.body) throw new Error(`Unduhan paket pembaruan gagal (HTTP ${res.status})`)
 
@@ -159,7 +159,7 @@ async function doDownload(): Promise<UpdateState> {
   return state
 }
 
-// ---- Instalasi (setelah berhasil,实例 saat ini keluar, tidak akan mengembalikan) ----
+// ---- Instalasi (setelah berhasil, instansi saat ini keluar, tidak akan kembali) ----
 
 async function doApply(): Promise<void> {
   if (state.status !== 'downloaded' || !state.downloadedFile) {
@@ -170,12 +170,12 @@ async function doApply(): Promise<void> {
 
   if (process.platform === 'darwin') {
     const bundle = installedAppBundle()
-    const tmpExtract = path.join(app.getPath('temp'), `huobao-update-extract-${Date.now()}`)
+    const tmpExtract = path.join(app.getPath('temp'), `nevh-update-extract-${Date.now()}`)
     await new Promise<void>((resolve, reject) => {
       execFile('unzip', ['-q', '-o', downloaded, '-d', tmpExtract], err => (err ? reject(err) : resolve()))
     })
-    const newApp = path.join(tmpExtract, 'HuobaoDrama.app')
-    if (!fs.existsSync(newApp)) throw new Error('Isi paket pembaruan tidak normal (HuobaoDrama.app tidak ditemukan)')
+    const newApp = path.join(tmpExtract, 'Nevh Drama.app')
+    if (!fs.existsSync(newApp)) throw new Error('Isi paket pembaruan tidak normal (Nevh Drama.app tidak ditemukan)')
 
     const oldBundle = `${bundle}.old`
     fs.rmSync(oldBundle, { recursive: true, force: true })
@@ -189,14 +189,14 @@ async function doApply(): Promise<void> {
     } finally {
       fs.rmSync(tmpExtract, { recursive: true, force: true })
     }
-    // Detached menjalankan aplikasi baru lalu实例 saat ini keluar; startup berikutnya bersihkan .old cadangan
+    // Detached menjalankan aplikasi baru lalu instansi saat ini keluar; startup berikutnya membersihkan cadangan .old
     spawn('open', [bundle], { detached: true, stdio: 'ignore' }).unref()
     app.quit()
     return
   }
 
   if (process.platform === 'win32') {
-    // NSIS 静默安装：detached 拉起安装器后退出当前实例
+    // Instalasi senyap NSIS: jalankan installer secara detached lalu keluar dari instansi saat ini
     spawn(downloaded, ['/S'], { detached: true, stdio: 'ignore' }).unref()
     app.quit()
     return
@@ -226,7 +226,7 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
   // Setelah startup, periksa secara senyap sekali (saat versi baru ditemukan, layer render melalui update-state polling/toast notifikasi)
   setTimeout(() => { if (!quittingApp()) void doCheck() }, 20_000).unref?.()
 
-  // Bersihkan cadangan paket lama dari pembaruan sebelumnya. Tunda 3s: saat startup pertama setelah pembaruan,实例 lama mungkin masih dalam proses keluar,
+  // Bersihkan cadangan paket lama dari pembaruan sebelumnya. Tunda 3s: saat startup pertama setelah pembaruan, instansi lama mungkin masih dalam proses keluar,
   // menghapus segera mungkin bersaing dengan penulisan akhir; kegagalan tidak memblokir (startup berikutnya akan mencoba lagi)
   if (app.isPackaged && process.platform === 'darwin') {
     setTimeout(() => {

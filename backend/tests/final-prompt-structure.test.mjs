@@ -9,10 +9,10 @@ test('characters and scenes tables store the agent-written final prompt', () => 
   const schema = read('src/db/schema.ts')
   const mysql = read('src/db/mysql-schema.ts')
 
-  // Drizzle 表定义
+  // Drizzle \u8868\u5b9a\u4e49
   assert.match(schema, /export const characters = mysqlTable\('characters'[\s\S]*?finalPrompt: text\('final_prompt'\)/)
   assert.match(schema, /export const scenes = mysqlTable\('scenes'[\s\S]*?finalPrompt: text\('final_prompt'\)/)
-  // 新建表 DDL + 存量表 backfill
+  // \u65b0\u5efa\u8868 DDL + \u5b58\u91cf\u8868 backfill
   assert.match(mysql, /CREATE TABLE IF NOT EXISTS characters \([\s\S]*?final_prompt TEXT/)
   assert.match(mysql, /CREATE TABLE IF NOT EXISTS scenes \([\s\S]*?final_prompt TEXT/)
   assert.match(mysql, /table: 'characters', column: 'final_prompt'/)
@@ -24,10 +24,10 @@ test('grid prompt agent tools save agent-written final prompts with style inject
 
   assert.match(tools, /save_character_final_prompt/)
   assert.match(tools, /save_scene_final_prompt/)
-  // 保存时注入项目视觉风格并落库
+  // \u4fdd\u5b58\u65f6\u6ce8\u5165\u9879\u76ee\u89c6\u89c9\u98ce\u683c\u5e76\u843d\u5e93
   assert.match(tools, /getDramaStylePrompt/)
   assert.match(tools, /set\(\{ finalPrompt, updatedAt: now\(\) \}\)/)
-  // 提示词由 Agent 创作，不再由工具机械拼接
+  // \u63d0\u793a\u8bcd\u7531 Agent \u521b\u4f5c，\u4e0d\u518d\u7531\u5de5\u5177\u673a\u68b0\u62fc\u63a5
   assert.doesNotMatch(tools, /generate_character_prompt/)
   assert.doesNotMatch(tools, /generate_scene_prompt/)
 })
@@ -39,23 +39,25 @@ test('prompt agent instructions reference per-asset skills; skill files define t
   const sceneSkill = read('workspace/skills/prompt-generator/scene-prompt/SKILL.md')
 
   for (const src of [agents, settings]) {
-    // 三类图片规范入口（具体创作规则在各自 SKILL.md 中）
-    assert.match(src, /角色三视图/)
-    assert.match(src, /场景固定视角/)
-    assert.match(src, /道具白底单品/)
-    // 保存工具约定
+    // Three asset prompt specs (details live in the respective SKILL.md)
+    assert.match(src, /turnaround|three-view/)
+    assert.match(src, /fixed.angle/)
+    assert.match(src, /white-background/)
+    // Save tool contract
     assert.match(src, /save_character_final_prompt/)
     assert.match(src, /save_scene_final_prompt/)
   }
-  // 角色三视图 / 场景固定视角的必备要素由技能文件承载（纯中文输出）
-  assert.match(charSkill, /正脸特写/)
-  assert.match(charSkill, /正面、90 度侧面、背面/)
-  assert.match(charSkill, /三个视图的脸、发型和服装完全一致/)
-  assert.match(charSkill, /纯中文/)
-  assert.match(sceneSkill, /固定机位广角镜头/)
-  assert.match(sceneSkill, /前景（\[前景元素\]）、中景（\[中景主体空间\]）、后景（\[后景纵深\]）/)
-  assert.match(sceneSkill, /出入口/)
-  assert.match(sceneSkill, /纯中文/)
+  // Required elements for character/scene prompts are defined in the skill files (session language output)
+  assert.match(charSkill, /close-up wajah depan/)
+  assert.match(charSkill, /depan, samping 90 derajat, dan belakang/)
+  assert.match(charSkill, /wajah, potongan rambut, dan pakaian/)
+  assert.match(charSkill, /direktif bahasa sesi/)
+  assert.match(sceneSkill, /establishing shot sudut lebar/)
+  assert.match(sceneSkill, /latar depan/)
+  assert.match(sceneSkill, /latar tengah/)
+  assert.match(sceneSkill, /latar belakang/)
+  assert.match(sceneSkill, /pintu masuk\/keluar/)
+  assert.match(sceneSkill, /direktif bahasa sesi/)
 })
 
 test('image generation prefers the stored final prompt with agent generation and legacy fallback', () => {
@@ -66,17 +68,17 @@ test('image generation prefers the stored final prompt with agent generation and
   assert.match(service, /export async function ensureCharacterFinalPrompt/)
   assert.match(service, /export async function ensureSceneFinalPrompt/)
   assert.match(service, /getAgent\('prompt_generator'/)
-  // 已有最终提示词直接复用（force 时忽略强制重新生成）
+  // \u5df2\u6709\u6700\u7ec8\u63d0\u793a\u8bcd\u76f4\u63a5\u590d\u7528（force \u65f6\u5ffd\u7565\u5f3a\u5236\u91cd\u65b0\u751f\u6210）
   assert.match(service, /if \(char\.finalPrompt && !force\) return char\.finalPrompt/)
   assert.match(service, /if \(scene\.finalPrompt && !force\) return scene\.finalPrompt/)
   assert.match(service, /force = false/)
 
   assert.match(characters, /ensureCharacterFinalPrompt\(char, ep\.id, /)
-  // 文本模型覆盖（text_model/text_config_id）透传到提示词 Agent
+  // \u6587\u672c\u6a21\u578b\u8986\u76d6（text_model/text_config_id）\u900f\u4f20\u5230\u63d0\u793a\u8bcd Agent
   assert.match(characters, /text_model/)
   assert.match(characters, /finalPrompt \|\| characterImagePrompt\(char, stylePrompt\)/)
   assert.match(scenes, /ensureSceneFinalPrompt\(scene, ep\.id, /)
-  // 描述字段编辑后最终提示词失效
+  // \u63cf\u8ff0\u5b57\u6bb5\u7f16\u8f91\u540e\u6700\u7ec8\u63d0\u793a\u8bcd\u5931\u6548
   assert.match(characters, /updates\.finalPrompt = null/)
   assert.match(scenes, /updates\.finalPrompt = null/)
 })

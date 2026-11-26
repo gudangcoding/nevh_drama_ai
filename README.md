@@ -1,3 +1,5 @@
+> **Catatan:** Repositori ini adalah modifikasi dari repositori Huobao Drama versi China yang disesuaikan dengan nuansa kearifan lokal Indonesia.
+
 # 🎬 Huobao Drama - Platform Produksi Drama Pendek AI
 
 <div align="center">
@@ -7,9 +9,9 @@
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-[![Download](https://img.shields.io/github/v/release/chatfire-AI/huobao-drama?style=flat&logo=github&label=Download)](https://github.com/chatfire-AI/huobao-drama/releases/latest)
+[![Download](https://img.shields.io/github/v/release/gudangcoding/nevh_drama_ai?style=flat&logo=github&label=Download)](https://github.com/gudangcoding/nevh_drama_ai/releases/latest)
 
-**Bahasa Indonesia** | [English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+**Bahasa Indonesia** | [한국어](README.ko.md)
 
 [Fitur](#-fitur) • [Mulai Cepat](#-mulai-cepat) • [Panduan Visual](#-panduan-visual) • [Aplikasi Desktop](#-aplikasi-desktop-direkomendasikan) • [Deploy](#-deploy)
 
@@ -19,7 +21,7 @@
 
 Setelah deploy, tempel kunci di "Pengaturan → Pengaturan Cepat Huobao" untuk menulis tiga konfigurasi yang direkomendasikan dalam satu klik
 
-<h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">Unduh Aplikasi Desktop (macOS / Windows)</a></h3>
+<h3>📥 <a href="https://github.com/gudangcoding/nevh_drama_ai/releases/latest">Unduh Aplikasi Desktop (macOS / Windows)</a></h3>
 
 </div>
 
@@ -87,7 +89,7 @@ Empat agen Mastra bawaan dengan konfigurasi berbasis database dan ekstensi Skill
 
 ### 🌐 UI Multi-Bahasa
 
-Antarmuka tersedia dalam **中文 / English / 日本語 / 한국어**, dengan pengaturan global untuk bahasa konten yang dihasilkan AI.
+Antarmuka tersedia dalam **English / 한국어 / Bahasa Indonesia**, dengan pengaturan global untuk bahasa konten yang dihasilkan AI.
 
 ### 🔌 Multi-Provider
 
@@ -132,7 +134,7 @@ Tanpa file konfigurasi — semuanya diatur melalui variabel lingkungan (semua me
 
 ```bash
 # Clone repositori
-git clone https://github.com/chatfire-AI/huobao-drama.git
+git clone https://github.com/gudangcoding/nevh_drama_ai.git
 cd huobao-drama
 
 # Instal dependensi backend
@@ -197,7 +199,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🔑 Penggunaan Pertama: Konfigurasi Layanan AI
 
-Semua fitur AI (teks/gambar/video) memerlukan layanan model dikonfigurasi terlebih dahulu — banner di bagian atas halaman memandu Anda sampai那时:
+Semua fitur AI (teks/gambar/video) memerlukan layanan model dikonfigurasi terlebih dahulu — banner di bagian atas halaman memandu Anda sampaisaat itu:
 
 1. Buka halaman "Pengaturan"
 2. Tempel kunci API Huobao Anda di "Pengaturan Cepat Huobao" ([dapatkan di api.firemux.com](https://api.firemux.com)) untuk menulis tiga konfigurasi yang direkomendasikan (teks, gambar, video) dalam satu klik
@@ -283,7 +285,7 @@ Daftar episode menunjukkan status produksi setiap episode — klik "Masuk Studio
 
 ### 🖥️ Aplikasi Desktop (direkomendasikan)
 
-**⬇️ Installer pra-bangun: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+**⬇️ Installer pra-bangun: [GitHub Releases](https://github.com/gudangcoding/nevh_drama_ai/releases/latest)**
 
 | Platform | File untuk diunduh |
 |---|---|
@@ -455,7 +457,7 @@ HUOBAO_VERSION=4.0.0 docker compose up -d --build
 - **Routing**: Routing berbasis file (Vue Router 4)
 - **Styling**: CSS murni + CSS Variables
 - **Ikon**: Lucide Vue
-- **i18n**: vue-i18n (中文 / English / 日本語 / 한국어)
+- **i18n**: vue-i18n (English / 한국어 / Bahasa Indonesia)
 
 ---
 

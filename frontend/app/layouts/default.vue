@@ -5,12 +5,12 @@
       <div class="header-left">
         <button class="brand" @click="navigateTo('/')">
           <div class="brand-mark">
-            <img v-if="showBrandImage" :src="brandLogo" alt="Drama Pendek Huobao" class="brand-logo" @error="showBrandImage = false" />
-            <span v-else class="brand-fallback">火</span>
+            <img v-if="showBrandImage" :src="brandLogo" alt="Nevh Drama" class="brand-logo" @error="showBrandImage = false" />
+            <span v-else class="brand-fallback">N</span>
           </div>
           <div class="brand-text">
-            <span class="brand-name">Huobao Drama</span>
-            <span class="brand-sub">Drama Pendek Huobao</span>
+            <span class="brand-name">Nevh Drama</span>
+            <span class="brand-sub">Produser Drama AI</span>
           </div>
         </button>
       </div>
@@ -29,7 +29,7 @@
       <div class="header-right">
         <a
           class="github-link"
-          href="https://github.com/chatfire-AI/huobao-drama"
+          href="https://github.com/gudangcoding/nevh_drama_ai"
           target="_blank"
           rel="noopener"
           aria-label="GitHub"
@@ -37,6 +37,13 @@
         >
           <Github :size="15" :stroke-width="1.8" />
         </a>
+        <div v-if="user" class="user-chip" :title="t('profile.title')" @click="profileOpen = true">
+          <span class="user-avatar">{{ user.username.charAt(0).toUpperCase() }}</span>
+          <span class="user-meta">
+            <span class="user-name">{{ user.username }}</span>
+            <span class="user-role" :class="isAdmin ? 'is-admin' : ''">{{ isAdmin ? t('auth.roleAdmin') : t('auth.roleUser') }}</span>
+          </span>
+        </div>
         <ThemeToggle />
         <LocaleSwitcher />
       </div>
@@ -52,6 +59,8 @@
     <main class="content">
       <slot />
     </main>
+
+    <ProfileModal :open="profileOpen" @close="profileOpen = false" />
   </div>
 </template>
 
@@ -59,11 +68,14 @@
 import { LayoutGrid, Settings, TriangleAlert, Github } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { aiConfigAPI } from '~/composables/useApi'
-import brandLogo from '~/assets/huobao-logo.png'
+import { useAuth } from '~/composables/useAuth'
+import brandLogo from '~/assets/nevh-logo.png'
 
 const { t, locale } = useI18n()
 const route = useRoute()
 const showBrandImage = ref(true)
+const { user, isAdmin } = useAuth()
+const profileOpen = ref(false)
 
 // Dievaluasi saat render, peralihan bahasa berlaku secara instan (tidak dapat dierasikan sebagai konstanta level modul)
 const SERVICE_TYPE_LABELS = computed(() => ({
@@ -84,7 +96,7 @@ async function checkAiConfigs() {
 }
 
 onMounted(checkAiConfigs)
-// Setelah menyimpan konfigurasi di halaman pengaturan dan kembali, periksa ulang (layout digunakan di多个 halaman, onMounted hanya dipicu sekali)
+// Setelah menyimpan konfigurasi di halaman pengaturan dan kembali, periksa ulang (layout dipakai di banyak halaman, onMounted hanya dipicu sekali)
 watch(() => route.path, checkAiConfigs)
 // Saat mengganti bahasa antarmuka, teks tipe yang sudah disusun di banner perlu dihitung ulang
 watch(locale, checkAiConfigs)
@@ -124,14 +136,14 @@ watch(locale, checkAiConfigs)
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 .brand-mark {
-  width: 32px; height: 32px;
+  width: 40px; height: 40px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 9px;
   overflow: hidden;
 }
 .brand-logo {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
   display: block;
 }
@@ -187,6 +199,45 @@ watch(locale, checkAiConfigs)
   outline: none;
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
+
+/* Chip pengguna (username + role) */
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px 3px 4px;
+  margin-right: 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  cursor: pointer;
+  transition: all 0.18s var(--ease-out);
+}
+.user-chip:hover { border-color: var(--accent, #f04a24); }
+.user-avatar {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  font-size: 12px; font-weight: 700;
+  color: var(--on-accent);
+  background: var(--accent-gradient);
+  user-select: none;
+}
+.user-meta {
+  display: flex; flex-direction: column; align-items: flex-start;
+  line-height: 1.15;
+}
+.user-name {
+  font-size: 12px; font-weight: 600; color: var(--text-0);
+  max-width: 110px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.user-role {
+  font-size: 9.5px; font-weight: 600;
+  letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--text-3);
+}
+.user-role.is-admin { color: var(--accent, #f04a24); }
 .nav-link {
   display: flex; align-items: center; gap: 6px;
   min-height: 32px;

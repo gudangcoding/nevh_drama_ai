@@ -4,6 +4,7 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { success, created, now, badRequest } from '../utils/response.js'
 import { toSnakeCase } from '../utils/transform.js'
 import { logTaskPayload, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { assertEpisodeAccess, assertStoryboardAccess } from '../services/ownership.js'
 
 const app = new Hono()
 
@@ -62,17 +63,17 @@ async function validateStoryboardBindings(episodeId: number, sceneId: number | n
   const episodePropIds = new Set(propLinks.map(link => link.propId))
 
   if (sceneId != null && !episodeSceneIds.has(sceneId)) {
-    throw new Error('scene_id 必须来自当前集已关联场景')
+    throw new Error('scene_id harus berasal dari scene yang sudah tertaut pada episode ini')
   }
 
   const invalidCharacterIds = (characterIds || []).filter(id => !episodeCharacterIds.has(id))
   if (invalidCharacterIds.length) {
-    throw new Error('character_ids 必须来自当前集已关联角色')
+    throw new Error('character_ids harus berasal dari karakter yang sudah tertaut pada episode ini')
   }
 
   const invalidPropIds = (propIds || []).filter(id => !episodePropIds.has(id))
   if (invalidPropIds.length) {
-    throw new Error('prop_ids 必须来自当前集已关联道具')
+    throw new Error('prop_ids harus berasal dari properti yang sudah tertaut pada episode ini')
   }
 }
 
@@ -80,6 +81,8 @@ async function validateStoryboardBindings(episodeId: number, sceneId: number | n
 app.post('/', async (c) => {
   const body = await c.req.json()
   const ts = now()
+  if (!body.episode_id) return badRequest(c, 'episode_id wajib diisi')
+  await assertEpisodeAccess(c, Number(body.episode_id))
   logTaskStart('StoryboardAPI', 'create', {
     episodeId: body.episode_id,
     shotNumber: body.storyboard_number || 1,
@@ -117,9 +120,10 @@ app.post('/', async (c) => {
 // PUT /storyboards/:id
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertStoryboardAccess(c, id)
   const body = await c.req.json()
   const [storyboard] = await db.select().from(schema.storyboards).where(eq(schema.storyboards.id, id))
-  if (!storyboard) return badRequest(c, '镜头不存在')
+  if (!storyboard) return badRequest(c, 'Storyboard tidak ditemukan')
   logTaskStart('StoryboardAPI', 'update', {
     storyboardId: id,
     episodeId: storyboard.episodeId,
@@ -164,6 +168,7 @@ app.put('/:id', async (c) => {
 // DELETE /storyboards/:id
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  await assertStoryboardAccess(c, id)
   logTaskStart('StoryboardAPI', 'delete', { storyboardId: id })
   await db.delete(schema.storyboardCharacters).where(eq(schema.storyboardCharacters.storyboardId, id))
   await db.delete(schema.storyboardProps).where(eq(schema.storyboardProps.storyboardId, id))

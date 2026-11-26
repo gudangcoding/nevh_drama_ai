@@ -12,7 +12,10 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from '../utils/response.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
-import { extractVideoPoster } from '../utils/video-poster.js'
+import { translateApiError } from '../utils/error-translate.js'
+import { extractVideoPoster, posterPathFor, probeMedia, detectBlackEdges } from '../utils/video-poster.js'
+import { getAbsolutePath } from '../utils/storage.js'
+import sharp from 'sharp'
 import { ffmpeg, checkFfmpegSuite } from '../utils/ffmpeg.js'
 import { DATA_ROOT, STORAGE_ROOT } from '../utils/paths.js'
 import { getContentLanguage, type ContentLanguage } from './app-settings.js'
@@ -99,7 +102,7 @@ export async function mergeEpisodeVideos(
     logTaskError('MergeTask', 'episode-merge', { mergeId, episodeId, error: err.message })
     console.error(`[Merge] Failed:`, err)
     await db.update(schema.videoMerges)
-      .set({ status: 'failed', errorMsg: err.message })
+      .set({ status: 'failed', errorMsg: translateApiError(err.message) })
       .where(eq(schema.videoMerges.id, mergeId))
   })
 
@@ -107,15 +110,43 @@ export async function mergeEpisodeVideos(
 }
 
 async function doMerge(mergeId: number, episodeId: number, videos: string[], subtitlesEnabled: boolean) {
-  // Membuat file daftar concat
-  const listDir = path.join(STORAGE_ROOT, 'temp')
-  fs.mkdirSync(listDir, { recursive: true })
-  const listPath = path.join(listDir, `${uuid()}.txt`)
+  // ── Rencana trim: pangkas fade hitam di ujung tiap klip ───────────────────
+  // Model video sering membuka dengan fade-in dari hitam & menutup dengan fade-out
+  // ke hitam; tanpa dipangkas, tiap sambungan terlihat seperti "transisi fade" yang
+  // tidak natural. Di sini segmen hitam tepi dideteksi (blackdetect) lalu dipangkas
+  // sebelum concat, sehingga sambungan menjadi hard cut yang bersih.
+  interface ClipPlan { abs: string; start: number; end: number; hasAudio: boolean }
+  const plans: ClipPlan[] = []
+  for (const v of videos) {
+    const abs = toAbsPath(v)
+    const probed = await probeMedia(abs).catch(() => null)
+    const dur = probed?.duration || 0
+    let start = 0
+    let end = dur > 0 ? dur : 86400
+    if (dur > 0.5) {
+      const edges = await detectBlackEdges(abs).catch(() => null)
+      if (edges && (edges.lead > 0 || edges.trail > 0)) {
+        start = edges.lead
+        end = Math.max(start + 0.2, edges.duration - edges.trail)
+        logTaskStart('MergeTask', 'trim-fade', { clip: v, lead: edges.lead, trail: edges.trail })
+      }
+    }
+    plans.push({ abs, start, end, hasAudio: !!probed?.hasAudio })
+  }
+  // Normalisasi dimensi ke klip pertama (concat filter menuntut ukuran seragam)
+  const firstProbe = await probeMedia(plans[0].abs).catch(() => null)
+  const normW = firstProbe?.width || 1280
+  const normH = firstProbe?.height || 720
 
-  const listContent = videos
-    .map(v => `file '${toAbsPath(v)}'`)
-    .join('\n')
-  fs.writeFileSync(listPath, listContent, 'utf-8')
+  // ── Bangun SRT subtitle dengan durasi SETELAH trim (timing tetap sinkron) ──
+  let srtPath: string | null = null
+  if (subtitlesEnabled) {
+    const lang = getContentLanguage()
+    srtPath = await buildEpisodeSrt({
+      episodeId, lang, clipFiles: videos, storageRoot: STORAGE_ROOT,
+      clipDurations: plans.map(p => Math.max(0.2, p.end - p.start)),
+    }).catch(() => null)
+  }
 
   // File output
   const outputDir = path.join(STORAGE_ROOT, 'merged')
@@ -123,17 +154,35 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[], sub
   const outputFilename = `${uuid()}.mp4`
   const outputPath = path.join(outputDir, outputFilename)
 
-  // ── Bangun SRT subtitle jika enabled ──────────────────────────────────────
-  let srtPath: string | null = null
-  if (subtitlesEnabled) {
+  // ── filter_complex: trim + normalisasi per klip → concat → subtitle ───────
+  const filters: string[] = []
+  plans.forEach((p, i) => {
+    const s = p.start.toFixed(3)
+    const e = p.end.toFixed(3)
+    filters.push(
+      `[${i}:v]trim=start=${s}:end=${e},setpts=PTS-STARTPTS,scale=${normW}:${normH},setsar=1,fps=30,format=yuv420p[v${i}]`,
+    )
+    if (p.hasAudio) {
+      filters.push(`[${i}:a]atrim=start=${s}:end=${e},asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo[a${i}]`)
+    } else {
+      filters.push(`anullsrc=r=48000:cl=stereo:d=${Math.max(0.2, p.end - p.start).toFixed(3)}[a${i}]`)
+    }
+  })
+  filters.push(`${plans.map((_, i) => `[v${i}][a${i}]`).join('')}concat=n=${plans.length}:v=1:a=1[outv][outa]`)
+  let videoMap = '[outv]'
+  if (srtPath && fs.existsSync(srtPath)) {
     const lang = getContentLanguage()
-    srtPath = await buildEpisodeSrt({ episodeId, lang, clipFiles: videos, storageRoot: STORAGE_ROOT }).catch(() => null)
+    const fontName = SUBTITLE_FONTS[lang] || 'Arial'
+    // Escaping path untuk filter syntax: backslash → forward slash, colon → \:
+    const escapedPath = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:')
+    filters.push(`[outv]subtitles='${escapedPath}':force_style='FontName=${fontName},FontSize=22,Outline=1,Shadow=1,MarginV=20'[vout]`)
+    videoMap = '[vout]'
   }
 
   await new Promise<void>((resolve, reject) => {
     const cmd = ffmpeg()
-      .input(listPath)
-      .inputOptions(['-f', 'concat', '-safe', '0'])
+    for (const p of plans) cmd.input(p.abs)
+    cmd.complexFilter(filters, [videoMap, '[outa]'])
       .outputOptions([
         '-fflags', '+genpts',
         '-c:v', 'libx264',
@@ -145,17 +194,6 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[], sub
         '-movflags', '+faststart',
       ])
 
-    // Terapkan filter subtitle jika SRT tersedia
-    if (srtPath && fs.existsSync(srtPath)) {
-      const lang = getContentLanguage()
-      const fontName = SUBTITLE_FONTS[lang] || 'Arial'
-      // Escaping path untuk filter syntax: backslash → forward slash, colon → \:
-      const escapedPath = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:')
-      cmd.outputOptions([
-        `-vf`, `subtitles='${escapedPath}':force_style='FontName=${fontName},FontSize=22,Outline=1,Shadow=1,MarginV=20'`,
-      ])
-    }
-
     cmd.output(outputPath)
       .on('end', () => resolve())
       .on('error', (err) => reject(err))
@@ -163,7 +201,6 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[], sub
   })
 
   // Membersihkan file sementara
-  fs.unlinkSync(listPath)
   if (srtPath && fs.existsSync(srtPath)) {
     try { fs.unlinkSync(srtPath) } catch { /* abaikan */ }
   }
@@ -175,6 +212,11 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[], sub
 
   // Frame poster hasil akhir (untuk sampul halaman ekspor)
   await extractVideoPoster(mergedRelative)
+  // Sampul hasil akhir = sampul proyek (jika ada); timpa poster frame agar cover proyek muncul di hasil export
+  const [episode] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
+  const posterRel = posterPathFor(mergedRelative)
+  let coverPoster: string | null = null
+  if (episode) coverPoster = await applyDramaCoverAsPoster(episode.dramaId, mergedRelative)
 
   // Memperbarui catatan merge
   await db.update(schema.videoMerges)
@@ -183,7 +225,7 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[], sub
 
   // Memperbarui episode
   await db.update(schema.episodes)
-    .set({ videoUrl: mergedRelative, updatedAt: now() })
+    .set({ videoUrl: mergedRelative, thumbnail: coverPoster || posterRel, updatedAt: now() })
     .where(eq(schema.episodes.id, episodeId))
 
   logTaskSuccess('MergeTask', 'episode-merge', { mergeId, episodeId, output: mergedRelative, duration, clips: videos.length, subtitles: !!srtPath })
@@ -196,4 +238,28 @@ function getVideoDuration(filePath: string): Promise<number> {
       resolve(Math.round(metadata.format.duration || 0))
     })
   })
+}
+
+/**
+ * Menjadikan sampul proyek (dramas.thumbnail) sebagai poster hasil akhir episode.
+ * Menimpa poster frame hasil ekstraksi ffmpeg sehingga halaman ekspor menampilkan cover proyek.
+ * Mengembalikan path relatif poster yang dipakai, atau null jika gagal/tidak ada thumbnail.
+ */
+async function applyDramaCoverAsPoster(dramaId: number, mergedRelative: string): Promise<string | null> {
+  try {
+    const [drama] = await db.select().from(schema.dramas).where(eq(schema.dramas.id, dramaId))
+    const cover = drama?.thumbnail
+    if (!cover) return null
+    const posterRel = posterPathFor(mergedRelative)
+    await sharp(getAbsolutePath(cover))
+      .rotate()
+      .resize({ width: 640, withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toFile(getAbsolutePath(posterRel))
+    logTaskSuccess('MergeTask', 'cover-poster', { dramaId, poster: posterRel })
+    return posterRel
+  } catch (err) {
+    console.warn(`[ffmpeg-merge] Gagal memasang sampul proyek sebagai poster hasil akhir:`, (err as Error).message)
+    return null
+  }
 }

@@ -6,7 +6,10 @@ import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
+import { agentAbortSignal } from '../utils/agent-timeout.js'
+import { generateWithRetry } from '../utils/agent-retry.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { describeApiError } from '../utils/error-translate.js'
 
 export interface VideoPromptBatchStatus {
   status: 'running' | 'done' | 'error'
@@ -70,11 +73,12 @@ export async function startVideoPromptBatch(
       task.current_storyboard_id = sb.id
       logTaskProgress('VideoPrompt', 'batch-shot', { episodeId, storyboardId: sb.id, index: task.completed + task.failed + 1, total: task.total })
       try {
-        await agent.generate([{
+        await generateWithRetry(agent, [{
           role: 'user',
           content: `Buat video_prompt (prompt pembuatan video) untuk storyboard #${sb.storyboardNumber}(ID:${sb.id}). Model video:${videoLabel}, buat sesuai karakteristik dan batasan durasi model tersebut.
-Panggil read_storyboard_context terlebih dahulu untuk mendapatkan deskripsi visual storyboard ini (berisi sub-shot 【ShotN】 dan dialog/narasi), suasana, dan durasi, lalu buat video_prompt (baris pertama adalah header informasi: berisi daftar karakter dan adegan yang muncul di storyboard ini, rujuk dengan @namaKarakter/@namaAdegan; setelah itu dibagi menjadi baris per segmen 3 detik, rujuk materi referensi dengan @namaKarakter/@namaAdegan/@namaProperti; dalam satu segmen diperbolehkan beberapa shot berganti (ganti ukuran shot/sudut/objek, segmen yang berbeda boleh berupa ukuran/sudut/objek yang berbeda), tetapi tidak boleh melintasi adegan, titik potong sejajar dengan struktur 【ShotN】 pada description storyboard), lalu panggil update_storyboard untuk menyimpan ke storyboard ID:${sb.id}. Untuk parameter update_storyboard hanya kirim dua kunci: storyboard_id dan video_prompt, jangan kembalikan field lain dari storyboard ini (title, description, scene_id, dll tidak usah dikirim), jangan urai ulang seluruh episode.`,
-        }], { maxSteps: 8, requestContext })
+Panggil read_storyboard_context terlebih dahulu untuk mendapatkan deskripsi visual storyboard ini (berisi sub-shot 【ShotN】 dan dialog/narasi), suasana, dan durasi, lalu buat video_prompt (baris pertama adalah header informasi: berisi daftar karakter dan adegan yang muncul di storyboard ini, rujuk dengan @namaKarakter/@namaAdegan; setelah itu dibagi menjadi baris per segmen 3 detik, rujuk materi referensi dengan @namaKarakter/@namaAdegan/@namaProperti; dalam satu segmen diperbolehkan beberapa shot berganti (ganti ukuran shot/sudut/objek, segmen yang berbeda boleh berupa ukuran/sudut/objek yang berbeda), tetapi tidak boleh melintasi adegan, titik potong sejajar dengan struktur 【ShotN】 pada description storyboard), lalu panggil update_storyboard untuk menyimpan ke storyboard ID:${sb.id}. Untuk parameter update_storyboard hanya kirim dua kunci: storyboard_id dan video_prompt, jangan kembalikan field lain dari storyboard ini (title, description, scene_id, dll tidak usah dikirim), jangan urai ulang seluruh episode.
+Aturan gerak sambung (wajib): video_prompt dilarang memuat fade in/out, layar hitam, atau transisi — tiap segmen 3 detik dibuka di tengah aksi dan diakhiri di tengah gerakan pada keadaan akhir yang jelas; keadaan akhir segmen sebelumnya = keadaan awal segmen berikutnya, agar sambungan hard cut antar shot natural.`,
+        }], { maxSteps: 8, requestContext, abortSignal: agentAbortSignal(8) }, 'video-prompt', { episodeId, storyboardId: sb.id })
         // Menentukan keberhasilan berdasarkan apa yang benar-benar tersimpan di database
         const [fresh] = await db.select().from(schema.storyboards).where(eq(schema.storyboards.id, sb.id))
         if ((fresh?.videoPrompt || '').trim()) task.completed++
@@ -97,7 +101,7 @@ Panggil read_storyboard_context terlebih dahulu untuk mendapatkan deskripsi visu
     .catch((err: any) => {
       task.status = 'error'
       task.finished_at = new Date().toISOString()
-      task.error = err?.message || 'Pembuatan massal gagal'
+      task.error = describeApiError(err)
       logTaskError('VideoPrompt', 'batch', { episodeId, error: err?.message })
     })
   return { started: true, total: pending.length }

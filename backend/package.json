@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "1.0.0",
+  "version": "1.1.16",
   "description": "",
   "main": "src/index.ts",
   "scripts": {
@@ -28,6 +28,7 @@
     "hono": "^4.12.9",
     "pino": "^10.3.1",
     "sharp": "^0.34.5",
+    "undici": "^6.28.1",
     "uuid": "^13.0.0",
     "zod": "^4.3.6"
   },

@@ -13,7 +13,7 @@ const config = {
 test('Wan 3.0 request follows the official input/media/parameters contract', () => {
   const request = adapter.buildGenerateRequest(config, {
     id: 1,
-    prompt: '@图片1女孩 走进视频1的房间',
+    prompt: '@\u56fe\u72471\u5973\u5b69 \u8d70\u8fdb\u89c6\u98911\u7684\u623f\u95f4',
     referenceImageUrls: JSON.stringify(['https://example.com/1.png']),
     referenceVideoUrls: JSON.stringify(['https://example.com/1.mp4']),
     referenceAudioUrls: JSON.stringify(['https://example.com/1.mp3']),
@@ -34,7 +34,7 @@ test('Wan 3.0 request follows the official input/media/parameters contract', () 
   assert.deepEqual(request.body, {
     model: 'wan3.0-video-prime',
     input: {
-      prompt: '图1女孩 走进视频1的房间',
+      prompt: '\u56fe1\u5973\u5b69 \u8d70\u8fdb\u89c6\u98911\u7684\u623f\u95f4',
       media: [
         { type: 'reference_image', url: 'https://example.com/1.png' },
         { type: 'reference_video', url: 'https://example.com/1.mp4' },
@@ -57,7 +57,7 @@ test('Wan 3.0 request follows the official input/media/parameters contract', () 
 test('Wan 3.0 supports official first/last frame mode and rejects mixed media modes', () => {
   const request = adapter.buildGenerateRequest(config, {
     id: 2,
-    prompt: '从白天过渡到黑夜',
+    prompt: '\u4ece\u767d\u5929\u8fc7\u6e21\u5230\u9ed1\u591c',
     firstFrameUrl: 'data:image/png;base64,first',
     lastFrameUrl: 'data:image/png;base64,last',
   })

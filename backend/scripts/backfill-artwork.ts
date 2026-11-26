@@ -1,12 +1,12 @@
 /**
- * 存量文件回填脚本 — 为历史生成的图片/视频补生成缩略图和海报帧
+ * \u5b58\u91cf\u6587\u4ef6\u56de\u586b\u811a\u672c — \u4e3a\u5386\u53f2\u751f\u6210\u7684\u56fe\u7247/\u89c6\u9891\u8865\u751f\u6210\u7f29\u7565\u56fe\u548c\u6d77\u62a5\u5e27
  *
- * 用法：cd backend && npx tsx scripts/backfill-artwork.ts
+ * \u7528\u6cd5：cd backend && npx tsx scripts/backfill-artwork.ts
  *
- * 扫描 data/static 下：
- *   images/  → 为缺少 *_thumb.webp 的图片生成缩略图（宽 400 WebP）
- *   videos/、merged/ → 为缺少 *_poster.jpg 的视频抽取海报帧
- * 已存在的跳过，可重复执行。
+ * \u626b\u63cf data/static \u4e0b：
+ *   images/  → \u4e3a\u7f3a\u5c11 *_thumb.webp \u7684\u56fe\u7247\u751f\u6210\u7f29\u7565\u56fe（\u5bbd 400 WebP）
+ *   videos/、merged/ → \u4e3a\u7f3a\u5c11 *_poster.jpg \u7684\u89c6\u9891\u62bd\u53d6\u6d77\u62a5\u5e27
+ * \u5df2\u5b58\u5728\u7684\u8df3\u8fc7，\u53ef\u91cd\u590d\u6267\u884c。
  */
 import fs from 'fs'
 import path from 'path'
@@ -35,7 +35,7 @@ async function backfillImages(subDir: string) {
     if (ok) console.log(`  thumb ✓ ${rel}`)
     else console.warn(`  thumb ✗ ${rel}`)
   }
-  console.log(`[${subDir}] 缩略图：新生成 ${done}，已存在 ${skipped}，失败 ${failed}`)
+  console.log(`[${subDir}] \u7f29\u7565\u56fe：\u65b0\u751f\u6210 ${done}，\u5df2\u5b58\u5728 ${skipped}，\u5931\u8d25 ${failed}`)
 }
 
 async function backfillVideos(subDir: string) {
@@ -50,11 +50,11 @@ async function backfillVideos(subDir: string) {
     if (ok) console.log(`  poster ✓ ${rel}`)
     else console.warn(`  poster ✗ ${rel}`)
   }
-  console.log(`[${subDir}] 海报帧：新生成 ${done}，已存在 ${skipped}，失败 ${failed}`)
+  console.log(`[${subDir}] \u6d77\u62a5\u5e27：\u65b0\u751f\u6210 ${done}，\u5df2\u5b58\u5728 ${skipped}，\u5931\u8d25 ${failed}`)
 }
 
-console.log(`回填目录：${STORAGE_ROOT}`)
+console.log(`\u56de\u586b\u76ee\u5f55：${STORAGE_ROOT}`)
 await backfillImages('images')
 await backfillVideos('videos')
 await backfillVideos('merged')
-console.log('回填完成')
+console.log('\u56de\u586b\u5b8c\u6210')

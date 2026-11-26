@@ -25,12 +25,144 @@
           </span>
         </div>
       </div>
+      <button
+        class="btn head-action"
+        :disabled="exportingPrompts"
+        :title="t('detail.head.exportPromptsTitle')"
+        @click="exportPrompts"
+      >
+        <svg v-if="exportingPrompts" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        {{ t('detail.head.exportPrompts') }}
+      </button>
       <button class="btn btn-primary head-action" @click="openAddEpisode">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
         {{ t('detail.head.addEpisode') }}
       </button>
+    </div>
+
+    <!-- Panel produksi otomatis lintas-episode -->
+    <div class="prod-panel card">
+      <div class="prod-head">
+        <div class="prod-head-copy">
+          <div class="prod-title-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <h2 class="prod-title">{{ t('detail.production.title') }}</h2>
+            <span v-if="production" :class="['tag', 'prod-status', `prod-st-${production.status}`]">
+              <span class="status-dot" :class="prodStatusDotCls(production)"></span>
+              {{ prodStatusLabel(production) }}
+            </span>
+          </div>
+          <p class="prod-desc">
+            <template v-if="production">{{ t('detail.production.phaseLabel') }}: <b>{{ prodPhaseLabel(production) }}</b><span v-if="production.stage_detail"> — {{ production.stage_detail }}</span></template>
+            <template v-else>{{ t('detail.production.desc') }}</template>
+          </p>
+        </div>
+      </div>
+
+      <!-- Mulai produksi (belum ada job) -->
+      <div v-if="!production" class="prod-body">
+        <div v-if="drama.synopsis" class="prod-info">
+          {{ t('detail.production.readyInfo', { total: localTotalEpisodes }) }}
+        </div>
+        <div v-else class="prod-inputs">
+          <label class="field prod-field">
+            <span class="field-label">{{ t('detail.production.synopsis') }}</span>
+            <textarea v-model="localSynopsis" class="input textarea" rows="4" :placeholder="t('detail.production.synopsisPlaceholder')"></textarea>
+          </label>
+          <label class="field prod-field prod-field-num">
+            <span class="field-label">{{ t('detail.production.totalEpisodes') }}</span>
+            <input v-model.number="localTotalEpisodes" type="number" class="input" min="1" max="200" />
+          </label>
+        </div>
+        <div class="prod-actions">
+          <button class="btn btn-primary" :disabled="productionBusy" @click="startProdAuto">
+            <Loader2 v-if="productionBusy" :size="14" class="animate-spin" />
+            {{ t('detail.production.start') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Menunggu persetujuan -->
+      <div v-else-if="production.status === 'waiting_approval'" class="prod-body">
+        <div class="prod-info prod-approval">
+          <span class="prod-approval-icon">👀</span>
+          <div>
+            <p class="prod-approval-title">{{ t('detail.production.approvalTitle') }}</p>
+            <p class="prod-approval-desc">{{ t('detail.production.approvalDesc', { total: production.total_episodes }) }}</p>
+          </div>
+        </div>
+        <div class="prod-actions">
+          <button class="btn btn-primary" :disabled="productionBusy" @click="approveProd">
+            <Loader2 v-if="productionBusy" :size="14" class="animate-spin" />
+            {{ t('detail.production.approve') }}
+          </button>
+          <button class="btn" :disabled="productionBusy" @click="cancelProd">{{ t('detail.production.cancel') }}</button>
+        </div>
+      </div>
+
+      <!-- Sedang berjalan -->
+      <div v-else-if="production.status === 'running'" class="prod-body">
+        <div class="prod-progress">
+          <div class="prod-progress-track">
+            <div class="prod-progress-bar" :style="{ width: `${prodPercent(production)}%` }"></div>
+          </div>
+          <span class="prod-percent">{{ prodPercent(production) }}%</span>
+        </div>
+        <p v-if="production.stage_detail" class="prod-desc">{{ production.stage_detail }}</p>
+        <div class="prod-actions">
+          <button class="btn" :disabled="productionBusy" @click="cancelProd">{{ t('detail.production.cancel') }}</button>
+        </div>
+      </div>
+
+      <!-- Gagal -->
+      <div v-else-if="production.status === 'failed'" class="prod-body">
+        <div class="prod-error">
+          <p class="prod-error-title">{{ t('detail.production.failedTitle') }}</p>
+          <p class="prod-error-desc">{{ production.error_msg }}</p>
+        </div>
+        <div class="prod-actions">
+          <button class="btn btn-primary" :disabled="productionBusy" @click="resumeProd">
+            <Loader2 v-if="productionBusy" :size="14" class="animate-spin" />
+            {{ t('detail.production.resume') }}
+          </button>
+          <button class="btn" :disabled="productionBusy" @click="cancelProd">{{ t('detail.production.cancel') }}</button>
+        </div>
+      </div>
+
+      <!-- Terputus -->
+      <div v-else-if="production.status === 'interrupted'" class="prod-body">
+        <div class="prod-info">
+          {{ t('detail.production.interruptedInfo') }}
+        </div>
+        <div class="prod-actions">
+          <button class="btn btn-primary" :disabled="productionBusy" @click="resumeProd">
+            <Loader2 v-if="productionBusy" :size="14" class="animate-spin" />
+            {{ t('detail.production.resume') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Dibatalkan -->
+      <div v-else-if="production.status === 'cancelled'" class="prod-body">
+        <div class="prod-info">{{ t('detail.production.cancelledInfo') }}</div>
+        <div class="prod-actions">
+          <button class="btn btn-primary" :disabled="productionBusy" @click="resumeProd">
+            <Loader2 v-if="productionBusy" :size="14" class="animate-spin" />
+            {{ t('detail.production.resume') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Selesai -->
+      <div v-else class="prod-body">
+        <div class="prod-info prod-done">
+          <span class="prod-done-icon">✅</span>
+          <span>{{ t('detail.production.doneInfo') }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- Tab utama: daftar episode / perpustakaan aset -->
@@ -475,6 +607,17 @@
                 rows="5"
                 :placeholder="t('detail.mat.promptPlaceholder')"
               ></textarea>
+              <label class="switch-row mat-detail-autoimg">
+                <input
+                  type="checkbox"
+                  class="sr-only"
+                  :checked="autoImageAfterPrompt"
+                  @change="toggleAutoImageAfterPrompt"
+                />
+                <span class="switch" :class="{ on: autoImageAfterPrompt }"></span>
+                <span class="field-hint switch-hint">{{ t('episode.asset.autoImageLabel') }}</span>
+                <span class="field-hint switch-hint">{{ t('episode.asset.autoImageHint') }}</span>
+              </label>
             </section>
           </div>
 
@@ -565,8 +708,9 @@
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI } from '~/composables/useApi'
+import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI, taskAPI, productionAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
+import { Loader2 } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
 
@@ -575,6 +719,7 @@ const drama = ref(null)
 const dramaId = Number(route.params.id)
 const addDialog = ref(false)
 const creatingEpisode = ref(false)
+const exportingPrompts = ref(false)
 const newEpisodeTitle = ref('')
 const episodeToDelete = ref(null)
 const deletingEpisode = ref(false)
@@ -641,11 +786,140 @@ async function setEpisodeStatus(ep, status) {
 
 async function load() {
   try {
-    drama.value = await dramaAPI.get(dramaId)
+    const d = await dramaAPI.get(dramaId)
+    drama.value = d
+    if (!localSynopsis && d.synopsis) localSynopsis.value = d.synopsis
+    localTotalEpisodes.value = Number(d.total_episodes || d.totalEpisodes || 1)
   } catch (e) {
     toastError(e)
   }
 }
+
+// ─── Produksi otomatis lintas-episode ───────────────────────────────────────
+const production = ref(null)
+const productionBusy = ref(false)
+const productionTimer = ref(null)
+const localSynopsis = ref('')
+const localTotalEpisodes = ref(1)
+
+const phaseLabels = {
+  scripts: () => t('detail.production.phase.scripts'),
+  assets: () => t('detail.production.phase.assets'),
+  asset_images: () => t('detail.production.phase.assetImages'),
+  storyboards: () => t('detail.production.phase.storyboards'),
+  composed_images: () => t('detail.production.phase.composedImages'),
+  waiting_approval: () => t('detail.production.phase.waitingApproval'),
+  videos: () => t('detail.production.phase.videos'),
+  merging: () => t('detail.production.phase.merging'),
+}
+const statusLabels = {
+  running: () => t('detail.production.status.running'),
+  waiting_approval: () => t('detail.production.status.waitingApproval'),
+  completed: () => t('detail.production.status.completed'),
+  failed: () => t('detail.production.status.failed'),
+  cancelled: () => t('detail.production.status.cancelled'),
+  interrupted: () => t('detail.production.status.interrupted'),
+}
+
+function prodPhaseLabel(p) {
+  return phaseLabels[p?.phase] ? phaseLabels[p.phase]() : p?.phase || '-'
+}
+function prodStatusLabel(p) {
+  return statusLabels[p?.status] ? statusLabels[p.status]() : p?.status || '-'
+}
+function prodStatusDotCls(p) {
+  if (p?.status === 'completed') return 'dot-done'
+  if (['failed', 'cancelled'].includes(p?.status)) return 'dot-error'
+  if (['running', 'waiting_approval'].includes(p?.status)) return 'dot-active'
+  return 'dot-pending'
+}
+function prodPercent(p) {
+  return Math.min(100, Math.max(0, Number(p?.progress?.percent) || 0))
+}
+function isProdActive() {
+  return ['running', 'waiting_approval'].includes(production.value?.status)
+}
+function canStartProduction() {
+  return !production.value || ['completed', 'failed', 'cancelled', 'interrupted'].includes(production.value.status)
+}
+function hasProductionError() {
+  return ['failed'].includes(production.value?.status)
+}
+
+async function refreshProduction() {
+  try {
+    const res = await productionAPI.status(dramaId)
+    production.value = res?.production || null
+    if (res?.production && !['running', 'waiting_approval'].includes(res.production.status)) stopProductionPolling()
+  } catch (e) {
+    // Job belum ada → null; error lain diabaikan
+  }
+}
+
+function startProductionPolling() {
+  stopProductionPolling()
+  productionTimer.value = setInterval(refreshProduction, 5000)
+}
+function stopProductionPolling() {
+  if (productionTimer.value) {
+    clearInterval(productionTimer.value)
+    productionTimer.value = null
+  }
+}
+
+function watchProductionStatus(p) {
+  if (p?.status === 'running') startProductionPolling()
+  else stopProductionPolling()
+}
+
+async function runProductionAction(fn, successMsg) {
+  productionBusy.value = true
+  try {
+    const res = await fn()
+    production.value = res?.production || production.value
+    if (successMsg) toast.success(successMsg)
+    watchProductionStatus(production.value)
+    load()
+  } catch (e) {
+    toastError(e)
+  } finally {
+    productionBusy.value = false
+  }
+}
+
+async function startProdAuto() {
+  if (!localSynopsis.value.trim()) {
+    toast.error(t('detail.production.needSynopsis'))
+    return
+  }
+  productionBusy.value = true
+  try {
+    await dramaAPI.update(dramaId, { synopsis: localSynopsis.value.trim(), total_episodes: Math.max(1, localTotalEpisodes.value || 1) })
+    const res = await productionAPI.start(dramaId, {})
+    production.value = res?.production || production.value
+    toast.success(t('detail.production.started'))
+    watchProductionStatus(production.value)
+    load()
+  } catch (e) {
+    toastError(e)
+  } finally {
+    productionBusy.value = false
+  }
+}
+
+async function approveProd() {
+  await runProductionAction(() => productionAPI.approve(dramaId), t('detail.production.approved'))
+}
+
+async function cancelProd() {
+  await runProductionAction(() => productionAPI.cancel(dramaId), t('detail.production.cancelled'))
+}
+
+async function resumeProd() {
+  await runProductionAction(() => productionAPI.resume(dramaId), t('detail.production.resumed'))
+}
+
+onUnmounted(stopProductionPolling)
 
 function openAddEpisode() {
   newEpisodeTitle.value = ''
@@ -685,6 +959,111 @@ async function confirmDelEpisode() {
     toastError(e)
   } finally {
     deletingEpisode.value = false
+  }
+}
+
+// Ekspor semua prompt proyek (sinopsis, karakter, adegan, properti, storyboard/video) ke file teks
+// agar bisa dipakai ulang di platform lain (mis. Google Flow)
+function promptSection(title, rows) {
+  const lines = [`## ${title}`]
+  for (const row of rows) {
+    if (!row) continue
+    lines.push(`### ${row.title}`)
+    for (const [label, value] of row.fields || []) {
+      if (value) lines.push(`**${label}:** ${value}`)
+    }
+  }
+  lines.push('')
+  return lines.join('\n')
+}
+
+async function buildPromptsText() {
+  const d = await dramaAPI.get(dramaId)
+  const parts = []
+
+  parts.push(`# ${d.title || ''}`)
+  const meta = []
+  if (d.genre) meta.push(`Genre: ${d.genre}`)
+  if (d.style) meta.push(`Style: ${d.style}`)
+  if (d.aspect_ratio || d.aspectRatio) meta.push(`Aspect ratio: ${d.aspect_ratio || d.aspectRatio}`)
+  if (meta.length) parts.push(meta.join(' | '))
+  parts.push('')
+  if (d.synopsis) parts.push(`## Synopsis\n${d.synopsis}\n`)
+
+  const chars = (d.characters || [])
+    .filter((c) => !(c.deleted_at || c.deletedAt))
+    .map((c) => ({
+      title: `${c.name || '-'}${c.role ? ` (${c.role})` : ''}`,
+      fields: [
+        ['Appearance', c.appearance || ''],
+        ['Styling', c.styling || ''],
+        ['Persona', c.description || ''],
+        ['Final prompt', c.final_prompt || c.finalPrompt || ''],
+      ],
+    }))
+  parts.push(promptSection(`Characters (${chars.length})`, chars))
+
+  const scenes = (d.scenes || [])
+    .filter((s) => !(s.deleted_at || s.deletedAt))
+    .map((s) => ({
+      title: [s.location, s.time].filter(Boolean).join(' · ') || '-',
+      fields: [
+        ['Prompt', s.prompt || ''],
+        ['Lighting', s.lighting || ''],
+        ['Final prompt', s.final_prompt || s.finalPrompt || ''],
+      ],
+    }))
+  parts.push(promptSection(`Scenes (${scenes.length})`, scenes))
+
+  const props = (d.props || [])
+    .filter((p) => !(p.deleted_at || p.deletedAt))
+    .map((p) => ({
+      title: p.name || '-',
+      fields: [
+        ['Type', p.type || ''],
+        ['Description', p.description || ''],
+        ['Final prompt', p.final_prompt || p.finalPrompt || ''],
+      ],
+    }))
+  parts.push(promptSection(`Props (${props.length})`, props))
+
+  const eps = (d.episodes || []).filter((e) => !(e.deleted_at || e.deletedAt))
+  for (const ep of eps) {
+    const storyboards = await episodeAPI.storyboards(ep.id).catch(() => [])
+    const sbParts = (storyboards || []).map((sb, i) => {
+      const shotTitle = `Shot ${i + 1}${sb.video_prompt || sb.videoPrompt ? '' : ' (no video prompt)'}`
+      const fields = []
+      if (sb.scene_id) fields.push(['Scene ID', String(sb.scene_id)])
+      if (sb.location) fields.push(['Location', sb.location])
+      if (sb.duration) fields.push(['Duration', `${sb.duration}s`])
+      if (sb.video_prompt || sb.videoPrompt) fields.push(['Video prompt', sb.video_prompt || sb.videoPrompt])
+      return { title: shotTitle, fields }
+    })
+    parts.push(promptSection(`Episode ${ep.episode_number || ep.episodeNumber || ''}${ep.title ? ` — ${ep.title}` : ''} — Storyboards (${sbParts.length})`, sbParts))
+  }
+
+  return parts.join('\n').trim() + '\n'
+}
+
+async function exportPrompts() {
+  exportingPrompts.value = true
+  try {
+    const text = await buildPromptsText()
+    const filename = `${(drama.value?.title || 'drama').replace(/[\\/:*?"<>|]+/g, '_')}_prompts.txt`
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 2000)
+    toast.success(t('detail.head.exportPrompts'))
+  } catch (e) {
+    toastError(e)
+  } finally {
+    exportingPrompts.value = false
   }
 }
 
@@ -734,7 +1113,7 @@ const visibleAssets = computed(() =>
   assetTab.value === 'all' ? materials.value : materials.value.filter(m => m.kindKey === assetTab.value),
 )
 const assetTotal = computed(() => materials.value.length)
-// Berdasarkan type: mode semua dibagi menjadi tiga area 角色 / 场景 / 道具; ketika memfilter satu kategori, hanya mempertahankan kategori tersebut
+// By type: mode is split into three areas characters / scenes / props; when filtering one category, keep only that category
 const assetGroups = computed(() => {
   const groups = [
     { kindKey: 'character', label: t('common.role'), items: materials.value.filter(m => m.kindKey === 'character') },
@@ -758,19 +1137,21 @@ async function generateMaterial(m) {
   if (pendingMaterials.value.has(key)) return
   pendingMaterials.value = new Set(pendingMaterials.value).add(key)
   try {
-    if (m.kindKey === 'character') await characterAPI.generateImage(m.id, epId)
-    else if (m.kindKey === 'scene') await sceneAPI.generateImage(m.id, epId)
-    else await propAPI.generateImage(m.id, epId)
+    let res
+    if (m.kindKey === 'character') res = await characterAPI.generateImage(m.id, epId)
+    else if (m.kindKey === 'scene') res = await sceneAPI.generateImage(m.id, epId)
+    else res = await propAPI.generateImage(m.id, epId)
     toast.success(t('detail.mat.generating', { kind: m.kind, name: m.name }))
-    pollMaterial(m)
+    pollMaterial(m, res?.image_generation_id ? Number(res.image_generation_id) : null)
   } catch (e) {
     pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
     toastError(e)
   }
 }
 
-// Gambar adalah tugas asinkron: polling untuk memuat ulang drama, hingga imageUrl untuk aset ini muncul
-async function pollMaterial(m) {
+// Gambar adalah tugas asinkron: polling untuk memuat ulang drama, hingga imageUrl untuk aset ini muncul;
+// bila task backend berstatus failed, tampilkan error penyebabnya alih-alih spinner yang tidak berakhir
+async function pollMaterial(m, taskId = null) {
   const key = pendingKey(m)
   for (let i = 0; i < 40; i++) {
     await sleep(2500)
@@ -781,6 +1162,17 @@ async function pollMaterial(m) {
     if (rec && matImage(rec)) {
       pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
       return
+    }
+    if (taskId) {
+      try {
+        const task = await taskAPI.get(taskId)
+        const st = task?.status
+        if (st === 'failed' || st === 'error' || st === 'timeout') {
+          pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
+          toast.error(task?.errorMsg || t('detail.mat.genFailed', { kind: m.kind, name: m.name }))
+          return
+        }
+      } catch {}
     }
   }
   pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
@@ -838,7 +1230,7 @@ function fmtDate(s) {
   if (!s) return ''
   const d = new Date(s)
   if (isNaN(d.getTime())) return ''
-  return d.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : locale.value, { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
 }
 
 /* ===== Edit informasi bahan ===== */
@@ -846,6 +1238,15 @@ const editDialog = ref(false)
 const editSaving = ref(false)
 const editTarget = ref(null)
 const editDraft = reactive({})
+
+// Opsi: setelah prompt aset berhasil dibuat, langsung buat gambarnya juga (persisted per perangkat)
+const autoImageAfterPrompt = ref((() => {
+  try { return localStorage.getItem('hbao_auto_image_after_prompt') === '1' } catch { return false }
+})())
+function toggleAutoImageAfterPrompt() {
+  autoImageAfterPrompt.value = !autoImageAfterPrompt.value
+  try { localStorage.setItem('hbao_auto_image_after_prompt', autoImageAfterPrompt.value ? '1' : '0') } catch {}
+}
 
 function openEdit(m) {
   editTarget.value = m
@@ -871,14 +1272,19 @@ async function generateFinalPrompt(m) {
   finalPromptGen.value = true
   try {
     let res
-    if (m.kindKey === 'character') res = await characterAPI.generatePrompt(m.id, epId, true)
-    else if (m.kindKey === 'scene') res = await sceneAPI.generatePrompt(m.id, epId, true)
-    else res = await propAPI.generatePrompt(m.id, epId, true)
+    if (m.kindKey === 'character') res = await characterAPI.generatePrompt(m.id, epId, true, undefined, undefined, autoImageAfterPrompt.value)
+    else if (m.kindKey === 'scene') res = await sceneAPI.generatePrompt(m.id, epId, true, undefined, undefined, autoImageAfterPrompt.value)
+    else res = await propAPI.generatePrompt(m.id, epId, true, undefined, undefined, autoImageAfterPrompt.value)
     const fp = res?.final_prompt || res?.finalPrompt
     if (!fp) throw new Error(t('episode.asset.promptGenFailedRetry'))
     editTarget.value = { ...m, finalPrompt: fp }
     editDraft.finalPrompt = fp
     toast.success(t('episode.asset.promptGenerated'))
+    if (autoImageAfterPrompt.value) {
+      toast.success(t('detail.mat.generating', { kind: m.kind, name: m.name }))
+      pendingMaterials.value = new Set(pendingMaterials.value).add(pendingKey(m))
+      pollMaterial(m)
+    }
   } catch (e) {
     toastError(e)
   } finally {
@@ -914,7 +1320,11 @@ async function saveEdit() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  await refreshProduction()
+  watchProductionStatus(production.value)
+})
 </script>
 
 <style scoped>
@@ -936,6 +1346,58 @@ onMounted(load)
 }
 .head-info { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .head-action { flex-shrink: 0; }
+
+/* Panel produksi otomatis */
+.prod-panel {
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 14px;
+}
+.prod-head { display: flex; align-items: flex-start; gap: 12px; }
+.prod-head-copy { flex: 1; min-width: 0; }
+.prod-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.prod-title-row > svg { color: var(--accent); flex-shrink: 0; }
+.prod-title { font-size: 14px; font-weight: 700; margin: 0; }
+.prod-desc { margin: 4px 0 0; font-size: 12.5px; color: var(--text-2); line-height: 1.6; }
+.prod-status { flex-shrink: 0; }
+.prod-st-running, .prod-st-waiting_approval { color: var(--text-0); }
+.prod-st-completed { color: var(--green-1, #22c55e); }
+.prod-st-failed, .prod-st-cancelled { color: var(--danger, #ef4444); }
+.prod-st-interrupted { color: var(--amber, #f59e0b); }
+.prod-body { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.prod-info {
+  font-size: 13px; color: var(--text-2);
+  background: var(--bg-sub); border: 1px dashed var(--border);
+  border-radius: var(--radius-md); padding: 10px 14px; line-height: 1.6;
+}
+.prod-approval { display: flex; gap: 12px; align-items: flex-start; }
+.prod-approval-icon { font-size: 22px; line-height: 1; }
+.prod-approval-title { margin: 0; font-weight: 700; color: var(--text-0); font-size: 13.5px; }
+.prod-approval-desc { margin: 4px 0 0; font-size: 12.5px; color: var(--text-2); }
+.prod-done { display: flex; align-items: center; gap: 10px; border-style: solid; border-color: rgba(34,197,94,.35); color: var(--green-1, #22c55e); }
+.prod-done-icon { font-size: 18px; line-height: 1; }
+.prod-error {
+  font-size: 13px; color: var(--danger, #ef4444);
+  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.3);
+  border-radius: var(--radius-md); padding: 10px 14px;
+}
+.prod-error-title { margin: 0; font-weight: 700; font-size: 13.5px; }
+.prod-error-desc { margin: 4px 0 0; font-size: 12.5px; color: var(--text-2); line-height: 1.6; word-break: break-word; }
+.prod-progress { display: flex; align-items: center; gap: 12px; }
+.prod-progress-track {
+  flex: 1; height: 8px; border-radius: 99px;
+  background: var(--overlay-track); overflow: hidden;
+}
+.prod-progress-bar {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2, var(--accent)));
+  transition: width .5s var(--ease-out);
+}
+.prod-percent { font-size: 12.5px; font-weight: 700; color: var(--text-1); min-width: 42px; text-align: right; }
+.prod-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.prod-inputs { display: flex; gap: 14px; flex-wrap: wrap; }
+.prod-field { flex: 1 1 260px; }
+.prod-field-num { flex: 0 1 140px; }
 
 .back-btn {
   width: 30px; height: 30px; flex-shrink: 0;
@@ -1190,7 +1652,7 @@ onMounted(load)
   justify-content: start;
   gap: 10px;
 }
-/* 分组标题：角色 / 场景 / 道具，彩色左条 + 图标 + 数量 */
+/* group heading: characters / scenes / props, colored left bar + icon + count */
 .asset-group-head {
   display: flex;
   align-items: center;
@@ -1467,7 +1929,7 @@ onMounted(load)
 .viewer-title { font-size: 13px; font-weight: 600; color: var(--text-1); }
 .viewer-img { width: 100%; max-height: 76vh; object-fit: contain; border-radius: var(--radius); background: var(--bg-2); display: block; }
 
-/* ===== 素材详情 / 编辑对话框（与工作台资产卡片同款布局） ===== */
+/* ===== asset detail / edit dialog (same layout as workbench asset cards) ===== */
 .mat-detail-overlay { z-index: 118; padding: 28px; }
 .mat-detail-dialog {
   width: min(1040px, calc(100vw - 56px));
@@ -1511,7 +1973,7 @@ onMounted(load)
   font-size: 11px; font-weight: 560; letter-spacing: 0; text-align: right;
 }
 
-/* 最终提示词面板 */
+/* final prompt panel */
 .mat-detail-prompt-panel {
   margin-top: 18px;
   border-top: 1px solid var(--border);
@@ -1540,8 +2002,11 @@ onMounted(load)
 }
 .mat-detail-prompt-text:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
 .mat-detail-prompt-text::placeholder { color: var(--text-3); }
+.mat-detail-autoimg { margin-top: 2px; }
+.switch-row { display: flex; align-items: center; gap: 10px; cursor: pointer; min-height: 27px; }
+.switch-hint { margin: 0; }
 
-/* 状态标签 */
+/* status badge */
 .mat-detail-state {
   min-height: 20px; display: inline-flex; align-items: center;
   padding: 0 7px; border-radius: 999px;
@@ -1550,7 +2015,7 @@ onMounted(load)
 }
 .mat-detail-state.is-ready { color: var(--success); background: var(--success-bg); }
 
-/* 图片预览框 */
+/* image preview box */
 .mat-detail-media-frame {
   position: relative; width: 100%; aspect-ratio: 16/9;
   display: block; padding: 0;
@@ -1570,7 +2035,7 @@ onMounted(load)
   color: var(--text-3);
 }
 
-/* 元数据行（类型 + 定位） */
+/* metadata row (type + role) */
 .mat-detail-meta-row {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
 }
@@ -1589,7 +2054,7 @@ onMounted(load)
   line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* 编辑区域 */
+/* edit area */
 .mat-detail-edit-grid {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
 }
@@ -1607,7 +2072,7 @@ onMounted(load)
 .mat-detail-edit-grid--character .mat-detail-textarea,
 .mat-detail-edit-grid--scene .mat-detail-textarea { min-height: 164px; }
 
-/* 底部操作栏 */
+/* bottom action bar */
 .mat-detail-foot {
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; padding: 12px 16px;
@@ -1620,7 +2085,7 @@ onMounted(load)
   .page { padding: 16px 16px 32px; }
   .page-head { flex-wrap: wrap; }
   .ep-grid { grid-template-columns: 1fr; }
-  .ep-actions { opacity: 1; } /* 移动端始终显示操作按钮 */
+  .ep-actions { opacity: 1; } /* always show action buttons on mobile */
   .dialog-foot { flex-wrap: wrap; gap: 10px; }
   .dialog-foot-copy { display: none; }
 }

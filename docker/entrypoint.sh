@@ -1,5 +1,5 @@
 #!/bin/sh
-# 容器入口：workspace 模板 copy-once 到数据卷（与桌面版 userData 同一语义），然后启动后端
+# Container entrypoint: copy the workspace template into the data volume once (same semantics as desktop userData), then start the backend
 set -e
 
 if [ ! -e /app/data/workspace/.template-version ]; then

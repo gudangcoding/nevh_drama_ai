@@ -6,11 +6,12 @@ import path from 'path'
 import sharp from 'sharp'
 import { v4 as uuid } from 'uuid'
 import { STORAGE_ROOT } from './paths.js'
+import { robustFetch } from './http.js'
 
 /**
  * Mengunduh file remote ke penyimpanan lokal
  */
-export async function downloadFile(url: string, subDir: string): Promise<string> {
+export async function downloadFile(url: string, subDir: string, headers?: Record<string, string>): Promise<string> {
   const dir = path.join(STORAGE_ROOT, subDir)
   fs.mkdirSync(dir, { recursive: true })
 
@@ -18,7 +19,7 @@ export async function downloadFile(url: string, subDir: string): Promise<string>
   const filename = `${uuid()}${ext}`
   const filePath = path.join(dir, filename)
 
-  const resp = await fetch(url)
+  const resp = await robustFetch(url, { headers })
   if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
 
   const buffer = Buffer.from(await resp.arrayBuffer())
@@ -100,7 +101,7 @@ export async function generateImageThumb(relativePath: string): Promise<string |
       .toFile(getAbsolutePath(thumbRel))
     return thumbRel
   } catch (err) {
-    console.warn(`[storage] 缩略图生成失败 ${relativePath}:`, (err as Error).message)
+    console.warn(`[storage] Gagal membuat thumbnail ${relativePath}:`, (err as Error).message)
     return null
   }
 }
@@ -135,8 +136,8 @@ export async function fetchImageAsCompressedDataUrl(
     quality?: number
   } = {},
 ): Promise<string> {
-  const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) })
-  if (!resp.ok) throw new Error(`下载参考图失败: HTTP ${resp.status}`)
+  const resp = await robustFetch(url, { signal: AbortSignal.timeout(30_000) })
+  if (!resp.ok) throw new Error(`Gagal mengunduh gambar referensi: HTTP ${resp.status}`)
   return compressImageAsDataUrl(Buffer.from(await resp.arrayBuffer()), options)
 }
 

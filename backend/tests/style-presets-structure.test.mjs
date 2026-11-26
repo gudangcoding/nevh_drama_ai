@@ -5,11 +5,15 @@ import assert from 'node:assert/strict'
 const root = new URL('..', import.meta.url)
 const read = (path) => readFileSync(new URL(path, root), 'utf8')
 
-test('drama creation no longer pre-creates episodes from total_episodes', () => {
+test('drama creation stores total_episodes and pre-creates episodes only via auto production', () => {
   const dramas = read('src/routes/dramas.ts')
 
-  assert.doesNotMatch(dramas, /total_episodes \|\| 1/)
-  assert.doesNotMatch(dramas, /第\$\{i\}集/)
+  // total_episodes disimpan; episode pra-buat hanya lewat startProduction saat auto_generate + sinopsis
+  assert.match(dramas, /totalEpisodes: body\.total_episodes \|\| 1/)
+  assert.match(dramas, /startProduction\(dramaId, \{ auto_video: !!body\.auto_video \}\)/)
+  assert.match(dramas, /body\.auto_generate \|\| body\.autoGenerate/)
+  // tanpa auto_generate handler tidak langsung memanggil jalur pembuatan episode
+  assert.doesNotMatch(dramas, /\u7b2c\$\{i\}\u96c6/)
   assert.doesNotMatch(dramas, /Create default episodes/)
 })
 
@@ -29,10 +33,10 @@ test('style presets route is mounted and implements CRUD', () => {
   assert.match(route, /app\.post\('\/'/)
   assert.match(route, /app\.put\('\/:id'/)
   assert.match(route, /app\.delete\('\/:id'/)
-  // value 唯一约束 + 格式校验 + 查重
+  // value \u552f\u4e00\u7ea6\u675f + \u683c\u5f0f\u6821\u9a8c + \u67e5\u91cd
   assert.match(route, /VALUE_PATTERN/)
-  assert.match(route, /风格 key 已存在/)
-  // GET 支持 ?all=1 且默认过滤停用项
+  assert.match(route, /\u98ce\u683c key \u5df2\u5b58\u5728/)
+  // GET \u652f\u6301 ?all=1 \u4e14\u9ed8\u8ba4\u8fc7\u6ee4\u505c\u7528\u9879
   assert.match(route, /query\('all'\)/)
   assert.match(route, /r\.isActive/)
 })
@@ -46,7 +50,7 @@ test('drama style prompt is injected into image prompt composition', () => {
   assert.match(service, /getDramaStylePrompt/)
   assert.match(service, /stylePresets\.value, drama\.style/)
   assert.match(gridTools, /getDramaStylePrompt\(dramaId\)/)
-  // 保存最终提示词时由工具拼接项目视觉风格（风格片段置于最前方）
+  // Final prompt style prefix is assembled by the tool (style segment placed first)
   assert.match(gridTools, /stylePrompt \? `\$\{stylePrompt\}, \$\{prompt\}` : prompt/)
   assert.match(characters, /getDramaStylePrompt/)
   assert.match(characters, /characterImagePrompt\(char, stylePrompt\)/)
@@ -56,6 +60,6 @@ test('drama style prompt is injected into image prompt composition', () => {
 test('agent default prompts no longer hardcode consistent art style', () => {
   const agents = read('src/agents/index.ts')
 
-  assert.doesNotMatch(agents, /必须包含 "consistent art style"/)
-  assert.match(agents, /视觉风格描述会由工具/)
+  assert.doesNotMatch(agents, /must include "consistent art style"/)
+  assert.match(agents, /The project visual style description is automatically injected/)
 })

@@ -1,61 +1,63 @@
 ---
 name: scene-prompt
-description: 场景最终提示词规范 — 清晰广角建立镜头：前景/中景/后景/出入口/地面/墙面/主要陈设的固定相对位置，空间连续自洽可复用，无人物
+description: Spesifikasi prompt adegan akhir — establishing shot sudut lebar yang jelas: posisi relatif tetap dari latar depan/tengah/belakang/pintu masuk/lantai/dinding/set dressing kunci; ruang kontinu, konsisten, dapat digunakan kembali, tanpa orang
 ---
 
-# 场景最终提示词（广角建立镜头 · 无人物空镜）
+# Prompt Adegan Akhir (establishing shot sudut lebar · adegan kosong tanpa orang)
 
-生成的是一张**清晰的广角建立镜头（establishing shot）**场景图：**完全没有人物**的纯场景空镜，完整展示**前景、中景、后景、出入口、地面、墙面及主要陈设的固定相对位置**，空间结构连续、自洽且可复用。
+Yang dihasilkan adalah gambar adegan **establishing shot sudut lebar yang jelas**: empty shot murni dari adegan dengan **sama sekali tanpa orang**, menampilkan sepenuhnya **posisi relatif tetap dari latar depan, tengah, belakang, pintu masuk/keluar, lantai, dinding, dan set dressing kunci** — ruang kontinu, konsisten, dan dapat digunakan kembali.
 
-这张图会作为该场景所有镜头的背景参考锚点：观众和模型都必须能从这张图读懂整个空间的布局——从哪里进出、地面与墙面是什么质感、核心陈设各自固定在什么位置。视角必须稳定、通用。
+Gambar ini berfungsi sebagai jangkar referensi latar belakang untuk setiap shot dalam adegan ini: penonton maupun model harus dapat membaca seluruh tata ruang dari gambar ini — di mana masuk dan keluar, seperti apa lantai dan dindingnya, dan di mana setiap set dressing kunci ditempatkan secara tetap. Sudut pandang harus stabil dan serbaguna.
 
-## 输出结构（按此顺序组装单段连贯描述，语言跟随会话语言指令）
+## Struktur Output (susun satu bagian koheren dalam urutan ini, mengikuti direktif bahasa sesi)
 
 ```
-固定机位广角镜头，清晰的建立镜头，[地点 + 年代质感]，[时间段]，
-前景（[前景元素]）、中景（[中景主体空间]）、后景（[后景纵深]）三层分层构图，
-出入口（[门/通道的位置与样式]），地面（[地面材质与状态]），墙面（[墙面材质与颜色]），
-[主要陈设及其固定相对位置]，
-空间结构连续、自洽，
-[光源 + 色温 + 明暗对比]，[氛围]，
-画面中没有任何人物，空场景，电影质感
+Shot sudut lebar kamera tetap, establishing shot yang jelas, [lokasi + tekstur periode], [periode waktu];
+komposisi tiga lapisan latar depan ([elemen latar depan]), tengah ([ruang utama latar tengah]),
+dan belakang ([kedalaman latar belakang]);
+pintu masuk/keluar ([posisi dan gaya pintu/jalur]), lantai ([material dan kondisi lantai]),
+dinding ([material dan warna dinding]);
+[set dressing kunci dan posisi relatif tetapnya];
+struktur ruang kontinu dan konsisten;
+[sumber cahaya + suhu warna + kontras kecerahan], [suasana];
+Tidak ada orang dalam adegan, adegan kosong, kualitas sinematik
 ```
 
-## 空间结构规则
+## Aturan Struktur Ruang
 
-空间必须**读得懂、对得上、可复用**：
+Ruang harus **dapat dibaca, konsisten, dan dapat digunakan kembali**:
 
-- **前景**：框景/遮挡物（门框、桌角、植物、设备边缘），制造纵深——写出 1-2 个具体元素
-- **中景**：场景的主体空间与核心陈设（流水线、床铺、柜台）
-- **后景**：空间的延伸（远处的墙、窗、走廊、城市轮廓）
-- **出入口**：门、楼梯、通道的位置与样式必须明确（如"画面左侧一扇铁门"），这是后续镜头调度人物进出的依据
-- **地面与墙面**：材质、颜色、状态具体化（如"水泥地面有油渍""墙面石灰斑驳"）
-- **主要陈设**：写出 2-4 个核心陈设及它们的**固定相对位置**（如"流水线沿墙排开，尽头是吧台"），陈设之间的左右/远近关系要自洽，不要只罗列物品名
+- **Latar depan**: elemen pembingkaian/penghalang (kusen pintu, sudut meja, tanaman, tepi peralatan) yang menciptakan kedalaman — tulis 1-2 elemen spesifik
+- **Latar tengah**: ruang utama adegan dan set dressing inti (lini perakitan, tempat tidur, konter)
+- **Latar belakang**: perluasan ruang (dinding jauh, jendela, koridor, cakrawala kota)
+- **Pintu masuk/keluar**: posisi dan gaya pintu, tangga, dan jalur harus eksplisit (misalnya "pintu besi di kiri frame") — ini adalah dasar untuk penataan masuk dan keluarnya karakter dalam shot berikutnya
+- **Lantai dan dinding**: buat material, warna, dan kondisi spesifik (misalnya "noda oli di lantai beton", "plester kapur kusam di dinding")
+- **Set dressing kunci**: tulis 2-4 bagian inti dan **posisi relatif tetapnya** (misalnya "lini perakitan berjalan di sepanjang dinding, berakhir di konter bar"); hubungan kiri-kanan/dekat-jauh antar bagian harus konsisten — jangan hanya mendaftar nama item
 
-## 人物（硬性规则 · 最高优先级）
+## Orang (Aturan Keras · Prioritas Tertinggi)
 
-**场景图中不能出现任何的人，只保留场景本身。**
+**Tidak ada orang dalam bentuk apa pun yang boleh muncul dalam gambar adegan — simpan hanya adegan itu sendiri.**
 
-- 提示词中不描述人物、不提及任何与人物相关的内容
-- 场景描述（prompt）中出现的人物信息一律忽略，不写入提示词
-- 提示词结尾必须包含："画面中没有任何人物，空场景"
+- Prompt tidak boleh mendeskripsikan orang atau menyebut apa pun yang berkaitan dengan orang
+- Informasi manusia apa pun yang muncul dalam deskripsi adegan (prompt) harus diabaikan dan tidak ditulis ke dalam prompt
+- Prompt harus diakhiri dengan: "Tidak ada orang dalam adegan, adegan kosong"
 
-`prompt`（场景描述）中的陈设、年代质感、关键视觉元素必须全部落地；`lighting`（场景光影）要具体化：光源方向、色温冷暖、明暗对比（如"头顶灯管发出冷白光，机器下方投下硬阴影"）。
+Semua set dressing, tekstur periode, dan elemen visual kunci dalam `prompt` (deskripsi adegan) harus dibawa serta; `lighting` (pencahayaan adegan) harus dibuat spesifik: arah sumber cahaya, suhu warna hangat/dingin, kontras kecerahan (misalnya "tabung overhead memancarkan cahaya putih dingin, melemparkan bayangan keras di bawah mesin").
 
-## 视角与氛围
+## Sudut Pandang & Suasana
 
-- 稳定的平视或微俯广角，不要极端俯仰、鱼眼、倾斜构图（要作为固定场景反复复用）
-- 以 `location` + `time` 确定时间段与光线基调（日/夜/黄昏的光完全不同）
-- 氛围词具体化："压抑" → "空气闷热、光线昏暗低沉"，不要只写抽象情绪词
-- 输出使用会话语言指令指定的目标语言，不要混入无关词汇
+- Shot sudut lebar yang stabil setinggi mata atau sedikit sudut tinggi; tanpa sudut tinggi/rendah ekstrem, fisheye, atau komposisi miring (akan digunakan berulang kali sebagai adegan tetap)
+- Tentukan periode waktu dan skema pencahayaan keseluruhan dari `lokasi` + `waktu` (siang / malam / senja adalah skema pencahayaan yang sangat berbeda)
+- Buat kata-kata suasana konkret: "menekan" → "udara pengap, cahaya redup dan rendah"; jangan hanya menulis kata emosi abstrak
+- Jangan mencampur kata-kata yang tidak relevan ke dalam output
 
-## 禁止事项
+## Larangan
 
-- 任何人物——**场景图中不能出现任何的人，只保留场景本身**
-- 文字、招牌上的可读文字、水印、签名
-- 动态模糊、运动中的物体（场景参考图必须静止稳定）
-- 只罗列陈设清单而不交代相对位置（空间结构必须连续、自洽）
+- Orang apa pun — **tidak ada orang dalam bentuk apa pun yang boleh muncul dalam gambar adegan; simpan hanya adegan itu sendiri**
+- Teks, teks yang dapat dibaca pada papan nama, tanda air, tanda tangan
+- Motion blur, objek dalam gerakan (gambar referensi adegan harus statis dan stabil)
+- Hanya mendaftar set dressing tanpa memberikan posisi relatif (struktur ruang harus kontinu dan konsisten)
 
-## 保存
+## Menyimpan
 
-调用 `save_scene_final_prompt`：prompt 参数不含风格词，**项目视觉风格由工具自动注入到最终提示词的最前方**。
+Panggil `save_scene_final_prompt`: parameter prompt tidak mengandung kata-kata gaya — **gaya visual proyek secara otomatis disuntikkan oleh tool di bagian paling depan prompt akhir**.

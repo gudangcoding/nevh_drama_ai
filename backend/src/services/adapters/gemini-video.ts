@@ -1,8 +1,10 @@
 /**
- * Adapter pembuatan video Google Gemini (Veo) melalui Google AI Studio
+ * Adapter pembuatan video Google Gemini (Veo) melalui Google AI Studio / API developer
  *
- * Endpoint: POST /v1beta/models/{model}:generateVideos
- * Respons awal: { name: "operations/xxx" } → polling untuk mendapatkan status
+ * Endpoint: POST /v1beta/models/{model}:predictLongRunning
+ * (Model veo-* di API developer hanya mengumumkan supportedGenerationMethods=s["predictLongRunning"];
+ *  alias lama :generateVideos sekarang 404.)
+ * Respons awal: { name: "models/{model}/operations/xxx" } → polling GET /v1beta/models/{model}/operations/xxx
  *
  * Mendukung model Veo:
  * - veo-3.1-generate-preview   (Veo 3.1)
@@ -33,11 +35,16 @@ const DEFAULT_MODEL = 'veo-3.1-generate-preview'
 /** Batas referensi: gambar 3, ekstensi 1 */
 const REF_LIMITS = { images: 3 } as const
 
-/** Durasi didukung per model */
-const DURATION_MAP: Record<string, { min: number; max: number }> = {
-  'veo-3.1': { min: 2, max: 8 },
-  'veo-3.0': { min: 4, max: 8 },
-  'veo-2.0': { min: 5, max: 8 },
+/**
+ * Durasi yang DIDUKUNG per model — bukan rentang bebas! Dokumen resmi Veo 3.x:
+ * "Video lengths: 4, 6, or 8 seconds; reference image to video only supports 8 seconds."
+ * Veo 2.0: 5 atau 8 detik. Durasi selain nilai ini (mis. 5/6/7 detik di Veo 3.x)
+ * ditolak API dengan error validasi, jadi harus di-snap ke nilai terdekat.
+ */
+const DURATION_MAP: Record<string, number[]> = {
+  'veo-3.1': [4, 6, 8],
+  'veo-3.0': [4, 6, 8],
+  'veo-2.0': [5, 8],
 }
 
 const VALID_RATIOS = new Set(['16:9', '9:16'])
@@ -54,10 +61,10 @@ function parseUrlArray(raw?: string | null): string[] {
 }
 
 /**
- * Mengurai data gambar referensi menjadi format yang dipahami Gemini API.
- * Mendukung data URL, HTTP URL, atau path statis.
+ * Mengurai data gambar referensi menjadi format Vertex/Gemini API untuk Veo (bytesBase64Encoded).
+ * mendukung data URL, HTTP URL, atau path statis.
  */
-function buildImageRef(url: string): { gcsUri?: string; base64?: string; mimeType: string } | null {
+function buildImageRef(url: string): { mimeType: string; bytesBase64Encoded?: string; uri?: string } | null {
   if (!url) return null
   const trimmed = url.trim()
 
@@ -65,25 +72,23 @@ function buildImageRef(url: string): { gcsUri?: string; base64?: string; mimeTyp
   const b64Match = trimmed.match(/^data:image\/(jpeg|jpg|png|webp|gif);base64,(.+)$/i)
   if (b64Match) {
     const mime = b64Match[1].toLowerCase() === 'jpg' ? 'image/jpeg' : `image/${b64Match[1].toLowerCase()}`
-    return { base64: b64Match[2], mimeType: mime }
+    return { mimeType: mime, bytesBase64Encoded: b64Match[2] }
   }
 
-  // HTTP/HTTPS URL → kirim sebagai URI (Google AI Studio mendukung HTTP URL sebagai input)
+  // HTTP/HTTPS URL → public URL (Veo menerima URL publik via uri)
   if (/^https?:\/\//.test(trimmed)) {
-    const ext = trimmed.split('?')[0].split('.').pop()?.toLowerCase() || ''
-    const mimeMap: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' }
-    return { gcsUri: trimmed, mimeType: mimeMap[ext] || 'image/jpeg' }
+    return { mimeType: 'image/jpeg', uri: trimmed }
   }
 
   return null
 }
 
-function getDurationRange(model: string): { min: number; max: number } {
+function getDurationAllowed(model: string): number[] {
   const lower = model.toLowerCase()
-  for (const [prefix, range] of Object.entries(DURATION_MAP)) {
-    if (lower.includes(prefix)) return range
+  for (const [prefix, allowed] of Object.entries(DURATION_MAP)) {
+    if (lower.includes(prefix)) return allowed
   }
-  return { min: 2, max: 8 }
+  return [4, 6, 8]
 }
 
 export class GeminiVideoAdapter implements VideoProviderAdapter {
@@ -99,52 +104,64 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
     if (!prompt && !firstFrame && !refImages.length) {
       throw new Error('Gemini Veo membutuhkan minimal prompt atau gambar referensi')
     }
-    if (refImages.length > REF_LIMITS.images) {
-      throw new Error(`Gemini Veo maksimal ${REF_LIMITS.images} gambar referensi`)
-    }
-    if (lastFrame && !firstFrame) {
-      throw new Error('Gemini Veo frame terakhir harus dikirim bersamaan dengan frame pertama')
-    }
 
     // Bangun instance
     const instance: Record<string, any> = {}
     if (prompt) instance.prompt = prompt
 
-    // Image-to-video (single reference)
-    if (firstFrame) {
-      const img = buildImageRef(firstFrame)
-      if (img) instance.image = img
-    }
-
-    // First/last frame (Veo 3.1)
+    // First/last frame + referensi adalah jalur eksklusif per dokumen resmi Veo 3.1:
+    //   - instance.image      → frame pertama (image-to-video)
+    //   - instance.lastFrame  → frame terakhir (harus disertai image; tanpa wrapper image)
+    //   - instance.referenceImages[].image → referensi (hanya saat image & lastFrame absen)
     if (firstFrame && lastFrame) {
       const firstImg = buildImageRef(firstFrame)
       const lastImg = buildImageRef(lastFrame)
-      if (firstImg) instance.firstFrame = firstImg
-      if (lastImg) instance.lastFrame = lastImg
-      delete instance.image // firstFrame/lastFrame menggantikan image
+      if (firstImg && firstImg.bytesBase64Encoded) instance.image = firstImg
+      if (lastImg && lastImg.bytesBase64Encoded) instance.lastFrame = lastImg
+    } else if (firstFrame) {
+      const img = buildImageRef(firstFrame)
+      if (img && img.bytesBase64Encoded) instance.image = img
+    } else if (refImages.length > 0) {
+      // Dokumen resmi Veo: referenceImages saat ini HANYA mendukung rasio 16:9.
+      // Bila proyek memakai 9:16 (potret) dan ada gambar referensi, jangan kirim referenceImages
+      // (akan ditolak API "9:16 not supported for referenceImages") — gunakan referensi pertama
+      // sebagai frame awal (image-to-video) yang mendukung 9:16.
+      const ratio = record.aspectRatio || '16:9'
+      if (ratio === '9:16') {
+        const images = refImages
+          .map(buildImageRef)
+          .filter((img): img is { mimeType: string; bytesBase64Encoded: string } => !!img && !!img.bytesBase64Encoded)
+          .slice(0, 1)
+        if (images.length > 0) {
+          instance.image = images[0]
+        }
+      } else {
+        const images = refImages
+          .map(buildImageRef)
+          .filter((img): img is { mimeType: string; bytesBase64Encoded: string } => !!img && !!img.bytesBase64Encoded)
+          .slice(0, REF_LIMITS.images)
+        if (images.length > 0) {
+          instance.referenceImages = images.map((image) => ({ referenceType: 'asset', image }))
+        }
+      }
     }
 
-    // Reference images (Veo 3.1, max 3)
-    if (refImages.length > 0) {
-      const images = refImages.map(buildImageRef).filter(Boolean)
-      if (images.length > 0) instance.images = images
-    }
-
-    // Parameters
-    const durationRange = getDurationRange(model)
-    const duration = this.normalizeDuration(record.duration, durationRange)
+    // Parameters: Vertex/Gemini API Veo
+    const allowedDurations = getDurationAllowed(model)
+    // Referensi/frame memaksa durasi 8 detik sesuai dokumen resmi
+    const forced8s = Boolean(instance.referenceImages) || Boolean(instance.lastFrame)
+    const duration = forced8s ? 8 : this.normalizeDuration(record.duration, allowedDurations)
 
     const parameters: Record<string, any> = {
-      numberOfVideos: 1,
+      sampleCount: 1,
     }
 
-    if (record.aspectRatio && VALID_RATIOS.has(record.aspectRatio)) {
-      parameters.aspectRatio = record.aspectRatio
-    }
+    if (record.aspectRatio && VALID_RATIOS.has(record.aspectRatio)) parameters.aspectRatio = record.aspectRatio
     if (duration) parameters.durationSeconds = duration
-    if (record.resolution && VALID_RESOLUTIONS.has(record.resolution)) {
-      parameters.resolution = record.resolution
+    if (record.resolution && VALID_RESOLUTIONS.has(record.resolution)) parameters.resolution = record.resolution
+    if (record.seed != null && Number.isFinite(record.seed)) {
+      const seed = Math.round(record.seed)
+      if (seed >= 0) parameters.seed = seed % 4_294_967_296
     }
 
     // Audio: Veo 3.x always generates audio; Veo 2.0 has optional audio
@@ -154,7 +171,7 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
     }
 
     return {
-      url: joinProviderUrl(config.baseUrl, '/v1beta', `/models/${model}:generateVideos`),
+      url: joinProviderUrl(config.baseUrl, '/v1beta', `/models/${model}:predictLongRunning`),
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -168,9 +185,11 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
   }
 
   parseGenerateResponse(result: any): VideoGenResponse {
-    // Operasi async: { name: "operations/xxx" }
-    if (result.name && result.name.startsWith('operations/')) {
-      return { isAsync: true, taskId: result.name }
+    // Operasi async: { name: "operations/xxx" } (alias lama) atau
+    // { operations: "operations/xxx" | ["operations/xxx"] | [{ name: ... }] } (predictLongRunning)
+    const op = this.extractOperationName(result)
+    if (op) {
+      return { isAsync: true, taskId: op }
     }
     // Sinkron (jarang terjadi untuk Veo, tapi kompatibel)
     const videoUrl = this.extractVideoUrl(result)
@@ -180,8 +199,24 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
     throw new Error('No operation name or video URL in Gemini response')
   }
 
+  private extractOperationName(result: any): string | null {
+    if (!result || typeof result !== 'object') return null
+    // Respons predictLongRunning Gemini/Vertex: { name: "models/{model}/operations/xxx" } atau
+    // "projects/{proj}/locations/{loc}/publishers/google/models/{model}/operations/xxx"
+    const fullName = result.name || result.operationName
+    if (typeof fullName === 'string' && fullName.includes('/operations/')) {
+      return fullName
+    }
+    // Alias lama: "operations/xxx" langsung
+    if (typeof fullName === 'string' && fullName.startsWith('operations/')) {
+      return fullName
+    }
+    return null
+  }
+
   buildPollRequest(config: AIConfig, taskId: string): ProviderRequest {
-    // taskId berisi "operations/xxx"
+    // taskId berisi "models/{model}/operations/xxx" (atau "operations/xxx" lama).
+    // buildPollRequest dipanggil pollTask, ia menerima taskId penuh; cukup tempel.
     return {
       url: joinProviderUrl(config.baseUrl, '/v1beta', `/${taskId}`),
       method: 'GET',
@@ -193,26 +228,30 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
   }
 
   parsePollResponse(result: any): VideoPollResponse {
-    if (result.done === false) {
+    if (result.done === false || result.state === 'RUNNING') {
       return { status: 'processing' }
     }
-    if (result.done === true) {
-      const response = result.response || {}
-      const generatedVideos = response.generatedVideos || response.generated_videos || []
-      const firstVideo = generatedVideos[0]
-      if (firstVideo) {
-        const video = firstVideo.video || firstVideo
+    if (result.done === true || result.state === 'SUCCEEDED') {
+      // Gemini API: { response: { generateVideoResponse: { generatedSamples: [{ video: { uri, bytes } }] } } }
+      // Vertex:       { response: { generatedVideos: [{ video: { uri } }] } }
+      const response = result.response || result
+      const genResp = response.generateVideoResponse || response
+      const samples = genResp.generatedSamples || genResp.generatedVideos || response.generatedVideos || response.generated_videos || []
+      const firstSample = Array.isArray(samples) ? samples[0] : null
+      if (firstSample) {
+        const video = firstSample.video || firstSample
         const videoUrl = video.uri || video.url || video.videoUri || null
         if (videoUrl) {
           return { status: 'completed', videoUrl }
         }
-        // videoBytes (base64 inline)
-        if (video.videoBytes || video.video_bytes) {
-          return { status: 'completed', videoUrl: `data:video/mp4;base64,${video.videoBytes || video.video_bytes}` }
+        // video bytes base64 inline
+        const b64 = video.videoBytes || video.video_bytes || video.bytesBase64Encoded || firstSample.bytesInlineData?.data
+        if (b64) {
+          return { status: 'completed', videoUrl: `data:video/mp4;base64,${b64}` }
         }
       }
       // Error dari response
-      const error = result.error || response.error
+      const error = result.error || response.error || response.errorMessage
       if (error) {
         const msg = typeof error === 'string' ? error : (error.message || JSON.stringify(error))
         return { status: 'failed', error: msg }
@@ -225,16 +264,20 @@ export class GeminiVideoAdapter implements VideoProviderAdapter {
 
   extractVideoUrl(result: any): string | null {
     const response = result.response || result
-    const generatedVideos = response.generatedVideos || response.generated_videos || []
-    const firstVideo = generatedVideos[0]
-    if (!firstVideo) return null
-    const video = firstVideo.video || firstVideo
-    return video.uri || video.url || video.videoUri || null
+    const genResp = response.generateVideoResponse || response
+    const samples = genResp.generatedSamples || genResp.generatedVideos || response.generatedVideos || response.generated_videos || genResp.videos || []
+    const firstSample = Array.isArray(samples) ? samples[0] : null
+    if (!firstSample) return null
+    const video = firstSample.video || firstSample
+    return video.uri || video.url || video.videoUri || video.gcsUri || null
   }
 
-  private normalizeDuration(duration?: number | null, range = { min: 2, max: 8 }): number {
-    const parsed = Math.round(Number(duration || range.max))
-    if (!Number.isFinite(parsed)) return range.max
-    return Math.min(range.max, Math.max(range.min, parsed))
+  private normalizeDuration(duration?: number | null, allowed = [4, 6, 8]): number {
+    const parsed = Math.round(Number(duration || allowed[allowed.length - 1]))
+    if (!Number.isFinite(parsed)) return allowed[allowed.length - 1]
+    // Snap ke nilai durasi yang didukung (4/6/8 untuk Veo 3.x) agar tidak ditolak API
+    return allowed.reduce((best, candidate) =>
+      Math.abs(candidate - parsed) < Math.abs(best - parsed) ? candidate : best,
+    allowed[0])
   }
 }

@@ -15,7 +15,7 @@ export interface UpdateState {
 
 export interface HuobaoDesktopBridge {
   pickDirectory: () => Promise<{ ok: boolean, path?: string, freeBytes?: number | null, error?: string, canceled?: boolean }>
-  startMigration: (opts: { targetDir: string, migrateFiles: boolean }) => Promise<{ ok: boolean }>
+  startMigration: (opts: { targetDir: string, migrateFiles: boolean }) => Promise<{ ok: boolean, error?: string }>
   onMigrateProgress: (cb: (progress: { phase: string, message?: string, copiedBytes?: number, totalBytes?: number }) => void) => () => void
   getUpdateState: () => Promise<UpdateState>
   checkUpdate: () => Promise<UpdateState>

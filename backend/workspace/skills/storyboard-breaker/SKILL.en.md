@@ -45,7 +45,7 @@ Dialogue that does not fit must be moved to the next segment; cramming unperform
 4. **Shot size**: the dominant shot size of the segment; for multi-size segments write a combination, e.g. "medium shot + close-up"
 5. **Angle**: eye-level / low angle / high angle / side / back
 6. **Camera move**: static / push-in / pull-back / pan / tracking / dolly (different sub-shots within a segment may differ)
-7. **Visual description** `description`: describe sub-shot by sub-shot as `【镜头1】…【镜头2】…` what the audience actually sees and hears — the visuals (who + specific action + body-language details + expression) come first; when a sub-shot has dialogue, write it inside the corresponding `【镜头N】` as "CharacterName says: "line"", and narration as "Narration: content"
+7. **Visual description** `description`: describe sub-shot by sub-shot as `【Shot1】…【Shot2】…` what the audience actually sees and hears — the visuals (who + specific action + body-language details + expression) come first; when a sub-shot has dialogue, write it inside the corresponding `【ShotN】` as "CharacterName says: "line"", and narration as "Narration: content"
 8. **Visual result** `result`: the immediate consequence at the end of the segment + visual details
 9. **Atmosphere** `atmosphere`: lighting + color tone + sound + overall mood
 10. **Duration** `duration`: total segment duration 8-15 seconds, and it must satisfy the dialogue duration floor
@@ -77,7 +77,7 @@ Dialogue that does not fit must be moved to the next segment; cramming unperform
 
 ## Quality Requirements
 
-- `description` should be human-readable, describing sub-shot by sub-shot what the audience actually sees and hears; dialogue/narration is written directly inside the corresponding `【镜头N】`
+- `description` should be human-readable, describing sub-shot by sub-shot what the audience actually sees and hears; dialogue/narration is written directly inside the corresponding `【ShotN】`
 - `image_prompt` should highlight the single-frame composition, character appearance, environment, and lighting (corresponding to the segment's first sub-shot)
 - `bgm_prompt` and `sound_effect` may be concise phrases, but must not be as vague as just "tense" or "sad"
 - To make adjustments, call `update_storyboard` to modify the specific segment

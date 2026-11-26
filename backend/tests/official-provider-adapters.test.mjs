@@ -58,19 +58,21 @@ test('backend rejects unsupported providers at DB and route boundaries', () => {
   assert.match(ai, /officialProviders/)
   assert.match(ai, /text:\s*\[\s*'openai',\s*'gemini',\s*'volcengine'\s*\]/)
   assert.match(ai, /image:\s*\[\s*'openai',\s*'gemini',\s*'volcengine'\s*\]/)
-  assert.match(ai, /video:\s*\[\s*'volcengine',\s*'minimax',\s*'aliyun'\s*\]/)
+  assert.match(ai, /video:\s*\[\s*'volcengine',\s*'minimax',\s*'aliyun',\s*'gemini'\s*\]/)
   assert.doesNotMatch(ai, /'deepseek'/)
   assert.doesNotMatch(ai, /'ali'/)
   assert.doesNotMatch(ai, /'vidu'/)
   assert.doesNotMatch(ai, /audio:\s*\[/)
   assert.match(ai, /isOfficialProvider/)
-  assert.match(ai, /isOfficialProvider\(serviceType,\s*r\.provider\)/)
-  assert.match(ai, /isOfficialProvider\(row\.serviceType as ServiceType,\s*row\.provider\)/)
+  assert.match(ai, /if \(serviceType === 'text'\) return true/)
+  assert.match(ai, /isOfficialProvider\(serviceType,\s*provider\)/)
+  assert.match(ai, /isSupportedProvider\(serviceType,\s*r\.provider\)/)
+  assert.match(ai, /isSupportedProvider\(row\.serviceType as ServiceType,\s*row\.provider\)/)
 
-  assert.match(route, /isOfficialProvider/)
-  assert.match(route, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
-  assert.match(route, /isOfficialProvider\(serviceType,\s*provider\)/)
-  assert.match(route, /不支持的 service_type\/provider/)
+  assert.match(route, /isSupportedProvider/)
+  assert.match(route, /isSupportedProvider\(body\.service_type,\s*body\.provider\)/)
+  assert.match(route, /isSupportedProvider\(serviceType,\s*provider\)/)
+  assert.match(route, /service_type\/provider tidak didukung/)
 })
 
 test('AI config routes reject unsupported service/provider pairs in create, test, and update paths', () => {
@@ -80,19 +82,19 @@ test('AI config routes reject unsupported service/provider pairs in create, test
   const updateRoute = routeBlock(route, "app.put('/:id',")
 
   assert.match(createRoute, /if \(!body\.service_type \|\| !body\.provider\)/)
-  assert.match(createRoute, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
-  assert.match(createRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
+  assert.match(createRoute, /isSupportedProvider\(body\.service_type,\s*body\.provider\)/)
+  assert.match(createRoute, /badRequest\(c,\s*'service_type\/provider tidak didukung'\)/)
 
   assert.match(testRoute, /if \(!body\.service_type \|\| !body\.provider \|\| !body\.base_url\)/)
-  assert.match(testRoute, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
-  assert.match(testRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
+  assert.match(testRoute, /isSupportedProvider\(body\.service_type,\s*body\.provider\)/)
+  assert.match(testRoute, /badRequest\(c,\s*'service_type\/provider tidak didukung'\)/)
 
   assert.match(updateRoute, /const serviceType = 'service_type' in body \? body\.service_type : existing\.serviceType/)
   assert.match(updateRoute, /const provider = 'provider' in body \? body\.provider : existing\.provider/)
   assert.doesNotMatch(updateRoute, /body\.service_type \|\| existing\.serviceType/)
   assert.doesNotMatch(updateRoute, /body\.provider \|\| existing\.provider/)
-  assert.match(updateRoute, /isOfficialProvider\(serviceType,\s*provider\)/)
-  assert.match(updateRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
+  assert.match(updateRoute, /isSupportedProvider\(serviceType,\s*provider\)/)
+  assert.match(updateRoute, /badRequest\(c,\s*'service_type\/provider tidak didukung'\)/)
 })
 
 test('AI config update route persists service type changes after validation', () => {
@@ -179,13 +181,13 @@ test('new image and video models use their current API shapes', () => {
   assert.match(geminiImage, /response_format/)
   assert.doesNotMatch(geminiImage, /Authorization': `Bearer/)
   assert.match(volcVideo, /doubao-seedance-2-0-mini-260615/)
-  // Seedance 2.0 多模态能力
+  // Seedance 2.0 \u591a\u6a21\u6001\u80fd\u529b
   assert.match(volcVideo, /SEEDANCE2_MODEL_PREFIX/)
   assert.match(volcVideo, /startsWith\(SEEDANCE2_MODEL_PREFIX\)/)
   assert.match(volcVideo, /reference_video/)
   assert.match(volcVideo, /reference_audio/)
   assert.match(volcVideo, /generate_audio:\s*record\.generateAudio/)
-  // Wan 3.0 使用阿里云百炼官方异步视频生成协议
+  // Wan 3.0 \u4f7f\u7528\u963f\u91cc\u4e91\u767e\u70bc\u5b98\u65b9\u5f02\u6b65\u89c6\u9891\u751f\u6210\u534f\u8bae
   assert.match(wanVideo, /wan3\.0-video-prime/)
   assert.match(wanVideo, /wan3\.0-video/)
   assert.match(wanVideo, /\/services\/aigc\/video-generation\/video-synthesis/)

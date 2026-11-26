@@ -117,7 +117,7 @@ export async function importMysqlData(
   })()
 
   if (mismatch.length) {
-    throw new Error(`行数不一致: ${mismatch.join(', ')}`)
+    throw new Error(`Jumlah baris tidak konsisten: ${mismatch.join(', ')}`)
   }
   return { totalSrc, totalDst }
 }
@@ -142,7 +142,7 @@ export async function maybeAutoImportMysql(sqlite: SqliteDB, dbPath: string): Pr
     pool = mysql.createPool({ uri: url, connectionLimit: 4, charset: 'utf8mb4', connectTimeout: 3000 })
     await pool.query('SELECT 1')
   } catch (err) {
-    console.warn(`${tag} 已配置 MySQL 但连接失败（${(err as Error).message}），本次跳过自动迁移，下次启动重试`)
+    console.warn(`${tag} MySQL dikonfigurasi tetapi koneksi gagal（${(err as Error).message}）, migrasi otomatis dilewati kali ini, dicoba lagi saat start berikutnya`)
     await pool?.end().catch(() => {})
     return
   }
@@ -156,19 +156,19 @@ export async function maybeAutoImportMysql(sqlite: SqliteDB, dbPath: string): Pr
       return
     }
 
-    console.log(`${tag} 检测到 MySQL 旧数据（${mysqlRows} 行关键表记录），开始自动迁移到 SQLite…`)
+    console.log(`${tag} Terdeteksi data lama MySQL (${mysqlRows} baris record tabel kunci), mulai migrasi otomatis ke SQLite…`)
     if (fs.existsSync(dbPath)) {
       const backup = `${dbPath}.bak-${Date.now()}`
       fs.copyFileSync(dbPath, backup)
-      console.log(`${tag} 已备份现有库 → ${backup}`)
+      console.log(`${tag} Database saat ini dicadangkan → ${backup}`)
     }
 
     const { totalSrc, totalDst } = await importMysqlData(pool, sqlite, msg => console.log(`${tag} ${msg}`))
     fs.writeFileSync(marker, `imported ${totalSrc} rows at ${new Date().toISOString()}\n`)
-    console.log(`${tag} 迁移完成 ✓（mysql=${totalSrc} sqlite=${totalDst}）`)
-    console.log(`${tag} 提示：若旧部署的 data/static 媒体文件不在本机，请手动拷贝，否则历史素材将无法访问`)
+    console.log(`${tag} Migrasi selesai ✓ (mysql=${totalSrc} sqlite=${totalDst}）`)
+    console.log(`${tag} Catatan: jika file media data/static dari deployment lama tidak ada di mesin ini, salin secara manual, jika tidak materi lama tidak dapat diakses`)
   } catch (err) {
-    console.error(`${tag} 自动迁移失败（已回滚，不影响本次启动，下次启动将重试）:`, (err as Error).message)
+    console.error(`${tag} Migrasi otomatis gagal (sudah di-rollback, tidak memengaruhi start ini, dicoba lagi saat start berikutnya):`, (err as Error).message)
   } finally {
     await pool.end().catch(() => {})
   }

@@ -13,7 +13,7 @@
 
       <div class="settings-content">
 
-        <!-- ===== 通用（内容语言） ===== -->
+        <!-- ===== General (content language) ===== -->
         <div v-if="tab === 'general'" class="settings-scroll">
           <div class="settings-head">
             <h2 class="settings-title">{{ t('settings.general.title') }}</h2>
@@ -45,7 +45,7 @@
             <p class="config-empty">{{ t('settings.general.languageHint') }}</p>
           </section>
 
-          <!-- 外观主题 -->
+          <!-- Appearance theme -->
           <section class="card svc-group">
             <div class="svc-group-head">
               <div class="svc-group-heading">
@@ -72,7 +72,7 @@
           </section>
         </div>
 
-        <!-- ===== AI 服务配置 ===== -->
+        <!-- ===== AI service configs ===== -->
         <div v-if="tab === 'ai'" class="settings-scroll">
           <div class="settings-head">
             <h2 class="settings-title">{{ t('settings.ai.title') }}</h2>
@@ -91,7 +91,7 @@
               </a>
             </p>
             <div class="huobao-quick-row">
-              <input v-model="huobaoApiKey" class="input" type="password" placeholder="Kunci API Huobao" />
+              <input v-model="huobaoApiKey" class="input" type="password" placeholder="Kunci API Nevh" />
               <button class="btn btn-primary" :disabled="huobaoSaving" @click="applyHuobaoQuickConfig">
                 <Loader2 v-if="huobaoSaving" :size="13" class="animate-spin" />
                 <Sparkles v-else :size="13" />
@@ -178,7 +178,7 @@
           </div>
         </div>
 
-        <!-- ===== 风格预设 ===== -->
+        <!-- ===== Style presets ===== -->
         <div v-else-if="tab === 'styles'" class="settings-scroll">
           <div class="settings-head">
             <h2 class="settings-title">{{ t('settings.styles.title') }}</h2>
@@ -214,7 +214,7 @@
           </section>
         </div>
 
-        <!-- ===== 存储位置 ===== -->
+        <!-- ===== Storage location ===== -->
         <div v-else-if="tab === 'storage'" class="settings-scroll">
           <div class="settings-head">
             <h2 class="settings-title">{{ t('settings.storage.title') }}</h2>
@@ -262,7 +262,7 @@
           </section>
         </div>
 
-        <!-- ===== 关于更新 ===== -->
+        <!-- ===== About / updates ===== -->
         <div v-else-if="tab === 'about'" class="settings-scroll">
           <div class="settings-head">
             <h2 class="settings-title">{{ t('settings.about.title') }}</h2>
@@ -293,18 +293,18 @@
                 <div v-if="updateState.status === 'downloading' || updateDownloading" class="update-bar">
                   <div class="update-bar-fill" :style="{ width: `${updateProgress}%` }"></div>
                 </div>
-                <!-- 服务器手动模式：无 Watchtower，给出更新命令 -->
+                <!-- Server manual mode: no Watchtower, show the update command -->
                 <div v-if="!desktopBridge && serverUpdateMode === 'manual'" class="config-sub">
                   {{ t('settings.about.serverManualHint') }} <span class="mono">docker compose pull && docker compose up -d</span>
                 </div>
               </div>
-              <!-- 桌面版：下载更新包 -->
+              <!-- Desktop build: download the update package -->
               <button v-if="desktopBridge" class="btn btn-primary btn-sm" :disabled="updateDownloading" @click="downloadUpdate">
                 <Loader2 v-if="updateDownloading" :size="13" class="animate-spin" />
                 <Download v-else :size="13" />
                 {{ updateDownloading ? t('settings.about.downloading', { p: updateProgress }) : t('settings.about.download') }}
               </button>
-              <!-- 服务器 + Watchtower：一键触发拉镜像重建 -->
+                      <!-- ===== Server + Watchtower: one-click pull-and-rebuild ===== -->
               <button v-else-if="serverUpdateMode === 'watchtower'" class="btn btn-primary btn-sm" :disabled="updateApplying" @click="applyUpdate">
                 <Loader2 v-if="updateApplying" :size="13" class="animate-spin" />
                 <Download v-else :size="13" />
@@ -336,9 +336,9 @@
           <p v-else class="config-empty">{{ t('settings.about.serverNote') }}</p>
         </div>
 
-        <!-- ===== Agent 配置（左侧 tab 切换，Prompt 与 Skills 整合在同一 Agent 下） ===== -->
+                <!-- ===== Agent config (left tab switch, Prompt with Skills under the same Agent) ===== -->
         <div v-else-if="tab === 'agents'" class="skills-layout">
-          <!-- Agent 左侧 tab 列表 -->
+          <!-- Agent left tab list -->
           <aside class="skills-agent-list">
             <div class="skills-agent-title">{{ t('settings.skills.agentList') }}</div>
             <button
@@ -353,7 +353,7 @@
             </button>
           </aside>
 
-          <!-- 右侧主区域 -->
+          <!-- main area on the right -->
           <div class="settings-scroll skills-main">
             <div class="settings-head skills-head">
               <span class="agent-type-badge skills-head-badge">{{ selectedAgentIcon }}</span>
@@ -370,7 +370,7 @@
               </button>
             </div>
 
-            <!-- Prompt 面板（子 tab 作为卡片头，与卡片同宽对齐） -->
+            <!-- Prompt panel (sub-tab as card header, aligned to the card width) -->
             <div v-if="agentPane === 'prompt'" class="card agent-card">
               <div class="agent-pane-tabs">
                 <div class="agent-pane-tabs-nav">
@@ -403,7 +403,7 @@
               </div>
             </div>
 
-            <!-- Skills 面板（子 tab 同为卡片头） -->
+            <!-- Skills panel (sub-tab also acts as card header) -->
             <template v-else>
               <div class="agent-pane-tabs-wrap card">
                 <div class="agent-pane-tabs">
@@ -420,7 +420,7 @@
               </div>
               <p class="settings-desc" style="margin-top:0">{{ t('settings.skills.desc') }}</p>
 
-              <!-- 无 skill 提示 -->
+              <!-- no-skill hint -->
               <div v-if="!currentSkills.length" class="card skills-empty">
                 <div class="skills-empty-icon">
                   <FileText :size="24" />
@@ -429,7 +429,7 @@
                 <div class="skills-empty-desc">{{ t('settings.skills.emptyDesc') }}</div>
               </div>
 
-              <!-- Skill 列表 -->
+              <!-- Skill list -->
               <div class="skill-list" v-else>
                 <div v-for="s in currentSkills" :key="s.id" class="card skill-card">
                   <div class="skill-card-head" @click="toggleSkillEdit(s.id)">
@@ -599,7 +599,7 @@
         </div>
       </form>
     </div>
-    <!-- 迁移确认（自建 dialog：ConfirmDialog 的删除语义/Enter 快捷键不合此处） -->
+        <!-- Migration confirm (custom dialog: ConfirmDialog's delete semantics / Enter shortcut do not fit here) -->
     <div v-if="migrateDialog" class="overlay" @click.self="!migrating && (migrateDialog = false)">
       <form class="dialog" @submit.prevent="startMigrate">
         <div class="dialog-head"><span class="dialog-title">{{ t('settings.migrate.title') }}</span></div>
@@ -660,7 +660,6 @@ import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
 import { useTheme } from '~/composables/useTheme'
 import { providerIconUrl } from '~/composables/useProviderIcon'
-import { startTour, autoTour } from '~/composables/useTour'
 import { confirmUnifiedLanguage } from '~/composables/useUnifiedLanguage'
 import { useStylePresetLocale } from '~/composables/useStylePresetLocale'
 
@@ -721,13 +720,13 @@ const providerPresets = {
   },
 }
 const huobaoQuickConfigs = [
-  { service_type: 'text', provider: 'gemini', name: 'Layanan Teks Huobao · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3-flash-preview'], priority: 100 },
-  { service_type: 'text', provider: 'openai', name: 'Layanan Teks Huobao · OpenAI', base_url: 'https://api.firemux.com', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 101 },
-  { service_type: 'image', provider: 'openai', name: 'Layanan Gambar Huobao · OpenAI', base_url: 'https://api.firemux.com', model: ['gpt-image-2'], priority: 99 },
-  { service_type: 'image', provider: 'gemini', name: 'Layanan Gambar Huobao · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 97 },
-  { service_type: 'video', provider: 'volcengine', name: 'Layanan Video Huobao · Seedance', base_url: 'https://api.firemux.com/volcengine', model: ['doubao-seedance-2-0-mini-260615', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128'], priority: 98 },
-  { service_type: 'video', provider: 'aliyun', name: 'Layanan Video Huobao · Wan 3.0', base_url: 'https://api.firemux.com/qwen', model: ['wan3.0-video-prime', 'wan3.0-video'], priority: 97 },
-  { service_type: 'video', provider: 'minimax', name: 'Layanan Video Huobao · MiniMax', base_url: 'https://api.firemux.com/minimax', model: ['MiniMax-H3'], priority: 96 },
+  { service_type: 'text', provider: 'gemini', name: 'Layanan Teks Nevh · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3-flash-preview'], priority: 100 },
+  { service_type: 'text', provider: 'openai', name: 'Layanan Teks Nevh · OpenAI', base_url: 'https://api.firemux.com', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 101 },
+  { service_type: 'image', provider: 'openai', name: 'Layanan Gambar Nevh · OpenAI', base_url: 'https://api.firemux.com', model: ['gpt-image-2'], priority: 99 },
+  { service_type: 'image', provider: 'gemini', name: 'Layanan Gambar Nevh · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 97 },
+  { service_type: 'video', provider: 'volcengine', name: 'Layanan Video Nevh · Seedance', base_url: 'https://api.firemux.com/volcengine', model: ['doubao-seedance-2-0-mini-260615', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128'], priority: 98 },
+  { service_type: 'video', provider: 'aliyun', name: 'Layanan Video Nevh · Wan 3.0', base_url: 'https://api.firemux.com/qwen', model: ['wan3.0-video-prime', 'wan3.0-video'], priority: 97 },
+  { service_type: 'video', provider: 'minimax', name: 'Layanan Video Nevh · MiniMax', base_url: 'https://api.firemux.com/minimax', model: ['MiniMax-H3'], priority: 96 },
 ]
 
 function byType(t) { return cfgs.value.filter(c => c.service_type === t) }
@@ -975,11 +974,9 @@ const selectedAgentLabel = computed(() => agentDefs.value.find(a => a.type === s
 const selectedAgentIcon = computed(() => agentDefs.value.find(a => a.type === selectedAgent.value)?.icon || '')
 
 // ===== Umum: Bahasa konten AI (pengaturan global, independen dengan bahasa antarmuka) =====
-const contentLanguage = ref('zh')
+const contentLanguage = ref('id')
 const contentLangOptions = [
-  { value: 'zh', label: '中文', shortLabel: '中文' },
   { value: 'en', label: 'English', shortLabel: 'EN' },
-  { value: 'ja', label: '日本語', shortLabel: '日本語' },
   { value: 'ko', label: '한국어', shortLabel: '한국어' },
   { value: 'id', label: 'Bahasa Indonesia', shortLabel: 'ID' },
 ]
@@ -996,7 +993,7 @@ const contentLangLabel = computed(() =>
 
 // Bahasa konten berubah, segarkan panel Agent secara sinkron (prompt, daftar skill dan konten yang ditebarkan)
 // Setelah bahasa konten berubah, halaman di-refresh secara keseluruhan (setUnifiedLanguage), tidak perlu watch lokal untuk sinkron
-// ===== 通用：外观主题（localStorage 持久化，即时生效） =====
+// ===== General: Appearance theme (persisted in localStorage, applied instantly) =====
 const { themeMode, setThemeMode } = useTheme()
 const themeOptions = computed(() => [
   { value: 'light', label: t('settings.general.appearanceLight') },
@@ -1006,14 +1003,14 @@ const themeOptions = computed(() => [
 
 async function loadContentLanguage() {
   try {
-    const lang = (await settingsAPI.contentLanguage())?.language || 'zh'
+    const lang = (await settingsAPI.contentLanguage())?.language || 'id'
     contentLanguage.value = lang
-    editLang.value = lang  // Agent 编辑器默认跟随内容语言
-  } catch { /* 保持默认 */ }
+        editLang.value = lang  // Agent editor follows the content language by default
+  } catch { /* keep the default */ }
 }
 async function setContentLanguage(lang) {
   if (contentLanguage.value === lang) return
-  // UI 语言 = AI 内容语言：确认弹窗 → 统一切换 → 刷新（顶栏 LocaleSwitcher 同一入口）
+  // UI language = AI content language: confirm dialog → unified switch → refresh (same entry as the top-bar LocaleSwitcher)
   await confirmUnifiedLanguage(lang)
 }
 onMounted(loadContentLanguage)
@@ -1195,14 +1192,6 @@ async function saveStyle() {
 
 onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills(); loadAgentPrompt(selectedAgent.value); loadStylePresets() })
 
-// ===== Panduan dalam aplikasi (halaman pengaturan): dua langkah konfigurasi cepat + template manual =====
-const SETTINGS_TOUR = [
-  { element: '.quick-card', titleKey: 'tour.settings.quick.title', descKey: 'tour.settings.quick.desc', popoverSide: 'bottom' },
-  { element: '.nav-item:has(.lucide-cpu), .nav-item:nth-of-type(1)', titleKey: 'tour.settings.nav.title', descKey: 'tour.settings.nav.desc', popoverSide: 'right' },
-]
-onMounted(() => setTimeout(() => autoTour('settings', SETTINGS_TOUR, t), 800))
-function replaySettingsTour() { startTour('settings', SETTINGS_TOUR, t) }
-
 // ===== Lokasi penyimpanan =====
 const desktopBridge = useDesktopBridge()
 const { begin: beginMigrate, update: updateMigrate, end: endMigrate } = useMigrateState()
@@ -1259,8 +1248,9 @@ async function startMigrate() {
   migrating.value = true
   beginMigrate()
   try {
-    await desktopBridge.startMigration({ targetDir: migrateTarget.value, migrateFiles: migrateFiles.value })
-    // 成功的完成提示与页面刷新由全局进度订阅（app.vue）处理
+    const res = await desktopBridge.startMigration({ targetDir: migrateTarget.value, migrateFiles: migrateFiles.value })
+    if (!res.ok) throw new Error(res.error || 'Migrasi gagal')
+        // Success notice and page refresh are handled by the global progress subscription (app.vue)
   } catch (e) {
     endMigrate()
     toastError(e, { fallback: 'settings.migrate.failed' })
@@ -1279,13 +1269,13 @@ function formatBytes(n) {
   return `${n} B`
 }
 
-// ===== 应用内更新（桌面版走 Electron 桥；服务器/Docker 走后端 server-update 路由） =====
+// ===== In-app update (desktop uses the Electron bridge; server/Docker uses the backend server-update route) =====
 const updateState = ref(null)
 const updateChecking = ref(false)
 const updateDownloading = ref(false)
 const updateProgress = ref(0)
 const updateApplying = ref(false)
-const serverUpdateMode = ref('manual') // 'watchtower' | 'manual'，仅服务器模式有意义
+const serverUpdateMode = ref('manual') // 'watchtower' | 'manual', server mode only
 
 async function refreshUpdateState() {
   try {
@@ -1353,7 +1343,7 @@ async function applyUpdate() {
 
 watch(tab, (t) => {
   if (t === 'about') refreshUpdateState()
-  // 进入 Agent 页总是按当前内容语言重载（幂等）：兜住「先切语言、后进 Agent」的时序
+    // Always reload the Agent page in the current content language (idempotent): guard against the "switch language first, then open Agent" timing
   if (t === 'agents') {
     loadAgentPrompt(selectedAgent.value)
     loadAllSkills()
@@ -1585,7 +1575,7 @@ onBeforeUnmount(stopUsagePoll)
   font-size: 16px; flex-shrink: 0;
 }
 .agent-card-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
-/* tab 头在上，body 不再需要顶边框（头自带 border-bottom） */
+/* tab header on top, body no longer needs a top border (header has its own border-bottom) */
 .agent-card-foot { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
 
 /* Agent sub tab kanan (System Prompt / Skills): sebagai header kartu, sama lebar dengan kartu, tidak lagi mengambang sendiri */
@@ -1624,12 +1614,12 @@ onBeforeUnmount(stopUsagePoll)
 .agent-prompt-input { min-height: max(320px, calc(100vh - 340px)); resize: vertical; }
 .skill-content-input { min-height: max(300px, calc(100vh - 420px)); resize: vertical; }
 
-/* Skills 布局 */
+/* Skills layout */
 .skills-layout { display: flex; height: 100%; overflow: hidden; }
 .skills-agent-list {
   width: 210px; flex-shrink: 0; border-right: 1px solid var(--border);
   display: flex; flex-direction: column; gap: 4px;
-  overflow-y: auto; padding: 20px 10px 16px;  /* 顶 padding 与右侧标题行起点对齐 */
+  overflow-y: auto; padding: 20px 10px 16px;  /* top padding aligns with the right title row start */
 }
 .skills-agent-title {
   font-size: 11px; font-weight: 650; letter-spacing: 0.06em;
@@ -1655,11 +1645,11 @@ onBeforeUnmount(stopUsagePoll)
 .skills-main { flex: 1; min-width: 0; }
 .skills-head {
   display: flex;
-  align-items: flex-start;   /* 以标题块顶部为基线，徽章/按钮对齐标题第一行 */
+  align-items: flex-start;   /* baseline is the top of the title block, badge/button aligned with the first title line */
   gap: 12px;
 }
 .skills-head .settings-title { line-height: 26px; }
-.skills-head .btn { margin-top: -2px; }  /* 视觉上与标题第一行居中（按钮比标题行高） */
+.skills-head .btn { margin-top: -2px; }  /* visually centered on the first title line (button is taller than the title line) */
 .skills-head-badge { width: 32px; height: 32px; font-size: 16px; }
 .skills-head-copy { min-width: 0; }
 .skills-empty { padding: 48px 24px; text-align: center; }
@@ -1734,7 +1724,7 @@ onBeforeUnmount(stopUsagePoll)
   word-break: break-all;
 }
 
-/* 存储位置 */
+/* Storage location */
 .storage-breakdown {
   display: flex;
   flex-wrap: wrap;

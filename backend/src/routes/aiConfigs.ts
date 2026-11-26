@@ -4,7 +4,7 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { success, notFound, created, badRequest, now } from '../utils/response.js'
 import { toSnakeCase } from '../utils/transform.js'
 import { joinProviderUrl } from '../services/adapters/url.js'
-import { isOfficialProvider, parseConfigTemperature } from '../services/ai.js'
+import { isOfficialProvider, isSupportedProvider, parseConfigTemperature } from '../services/ai.js'
 import { redactUrl, logTaskError, logTaskProgress, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
@@ -51,11 +51,14 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
     // endpoint interactions banyak yang tidak dikonfigurasi oleh relay, probing akan menghasilkan false positive 500.
     // Gunakan request body legal minimum bukan body kosong — body kosong di beberapa relay akan memicu false positive kegagalan autentikasi upstream
     if (serviceType === 'video') {
-      // Video: probe endpoint generateVideos dengan body kosong untuk memverifikasi autentikasi dan endpoint
+      // Video: endpoint resmi Veo di API developer hanya mendukung :predictLongRunning
+      // (alias :generateVideos lama kini 404). Probe dengan body kosong: tidak memulai tugas
+      // penagihan (untuk body penuh akan memulai video berbayar), cukup verifikasi path+auth.
+      // Respons yang diharapkan: 400/429/200 → reachable; 404 → endpoint/path salah.
       const modelName = m || 'veo-3.1-generate-preview'
       return {
         method: 'POST',
-        url: joinProviderUrl(baseUrl, '/v1beta', `/models/${modelName}:generateVideos`),
+        url: joinProviderUrl(baseUrl, '/v1beta', `/models/${modelName}:predictLongRunning`),
         headers: geminiHeaders(apiKey, true),
         body: {},
       }
@@ -77,6 +80,21 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
       url: joinProviderUrl(baseUrl, '/v1', '/models'),
       headers: bearerHeaders(apiKey),
       body: undefined,
+    }
+  }
+
+  // Penyedia teks kustom (kompatibel OpenAI) diterima: provider lain selain gemini/openai/volcengine
+  // diperlakukan sebagai endpoint /v1/chat/completions (pola ala Trae / new-api / api.hcnsec.cn).
+  // Base URL bisa berisi atau tidak berisi /v1; probe mencoba kedua varian.
+  if (serviceType === 'text' && !['gemini', 'openai', 'volcengine'].includes(p)) {
+    const candidates = [joinProviderUrl(baseUrl, '/v1', '/models'), joinProviderUrl(baseUrl, '', '/models')]
+    const baseURL = candidates[0]
+    return {
+      method: 'GET',
+      url: baseURL,
+      headers: bearerHeaders(apiKey),
+      body: undefined,
+      fallbackUrls: candidates.slice(1),
     }
   }
 
@@ -142,10 +160,10 @@ app.post('/', async (c) => {
 
   // Validasi field yang wajib diisi
   if (!body.service_type || !body.provider) {
-    return badRequest(c, '需要 service_type 与 provider')
+    return badRequest(c, 'service_type dan provider diperlukan')
   }
-  if (!isOfficialProvider(body.service_type, body.provider)) {
-    return badRequest(c, '不支持的 service_type/provider')
+  if (!isSupportedProvider(body.service_type, body.provider)) {
+    return badRequest(c, 'service_type/provider tidak didukung')
   }
 
   let temperature: number | null = null
@@ -153,7 +171,7 @@ app.post('/', async (c) => {
     try {
       temperature = normalizeTemperature(body.temperature)
     } catch {
-      return badRequest(c, 'temperature 须为 0 到 2 之间的数字')
+      return badRequest(c, 'temperature harus angka antara 0 sampai 2')
     }
   }
 
@@ -181,15 +199,22 @@ app.post('/', async (c) => {
 app.post('/test', async (c) => {
   const body = await c.req.json()
   if (!body.service_type || !body.provider || !body.base_url) {
-    return badRequest(c, '需要 service_type、provider 与 base_url')
+    return badRequest(c, 'service_type, provider, dan base_url diperlukan')
   }
-  if (!isOfficialProvider(body.service_type, body.provider)) {
-    return badRequest(c, '不支持的 service_type/provider')
+  if (!isSupportedProvider(body.service_type, body.provider)) {
+    return badRequest(c, 'service_type/provider tidak didukung')
   }
 
   const model = Array.isArray(body.model) ? body.model[0] : body.model
-  const probe = buildProbe(body.service_type, body.provider, body.base_url, model, body.api_key)
-  const probeUrl = redactUrl(probe.url)
+  const probe = buildProbe(body.service_type, body.provider, body.base_url, model, body.api_key) as {
+    url: string
+    method: string
+    headers: Record<string, string>
+    body?: unknown
+    fallbackUrls?: string[]
+  }
+  const urls = [probe.url, ...(probe.fallbackUrls || [])]
+  const probeUrl = redactUrl(urls[0])
 
   logTaskProgress('AIConfig', 'probe-start', {
     serviceType: body.service_type,
@@ -199,36 +224,54 @@ app.post('/test', async (c) => {
   })
 
   try {
-    const resp = await fetch(probe.url, {
-      method: probe.method,
-      headers: probe.headers,
-      body: probe.body ? JSON.stringify(probe.body) : undefined,
-    })
-    const text = await resp.text()
-    const reachable = [200, 204, 400, 401, 403].includes(resp.status)
+    let resp: Response | null = null
+    let usedUrl = urls[0]
+    for (const url of urls) {
+      const candidate = await fetch(url, {
+        method: probe.method,
+        headers: probe.headers,
+        body: probe.body ? JSON.stringify(probe.body) : undefined,
+      })
+      resp = candidate
+      usedUrl = url
+      // 404 pada varian pertama (Base URL tanpa prefiks /v1 yang benar) → coba varian berikutnya
+      if (candidate.status !== 404 && candidate.status !== 400) break
+    }
+    const text = await (resp as Response).text()
+    const reachable = [200, 204, 400, 401, 403, 429].includes((resp as Response).status)
+    const usedUrlRedacted = redactUrl(usedUrl)
+    const status = (resp as Response).status
+    let message: string
+    if (!reachable) {
+      message = 'Endpoint tidak merespons sesuai harapan, periksa Base URL dan prefiks proxy'
+    } else if (status === 429) {
+      message = 'Endpoint dapat diakses, tetapi kuota/saldo layanan AI habis atau dibatasi (429)'
+    } else if ((resp as Response).ok) {
+      message = 'Endpoint dapat diakses, autentikasi dan path berfungsi normal'
+    } else {
+      message = 'Endpoint merespons, periksa kode status untuk memastikan autentikasi/path benar'
+    }
     const payload = {
-      ok: resp.ok,
+      ok: (resp as Response).ok,
       reachable,
-      status: resp.status,
-      status_text: resp.statusText,
+      status,
+      status_text: (resp as Response).statusText,
       method: probe.method,
-      url: probeUrl,
-      message: reachable
-        ? (resp.ok ? '端点可访问，认证与路径基本正常' : '端点已响应，请根据状态码判断认证或路径是否正确')
-        : '端点未按预期响应，请检查 Base URL 和代理前缀',
+      url: usedUrlRedacted,
+      message,
       response_preview: text.slice(0, 240),
     }
     if (reachable) {
       logTaskSuccess('AIConfig', 'probe-done', {
         provider: body.provider,
-        status: resp.status,
-        url: probeUrl,
+        status: (resp as Response).status,
+        url: usedUrlRedacted,
       })
     } else {
       logTaskError('AIConfig', 'probe-unexpected', {
         provider: body.provider,
-        status: resp.status,
-        url: probeUrl,
+        status: (resp as Response).status,
+        url: usedUrlRedacted,
       })
     }
     return success(c, payload)
@@ -243,7 +286,7 @@ app.post('/test', async (c) => {
       reachable: false,
       method: probe.method,
       url: probeUrl,
-      message: error.message || '请求失败',
+      message: error.message || 'Permintaan gagal',
       response_preview: '',
     })
   }
@@ -266,8 +309,8 @@ app.put('/:id', async (c) => {
 
   const serviceType = 'service_type' in body ? body.service_type : existing.serviceType
   const provider = 'provider' in body ? body.provider : existing.provider
-  if (!isOfficialProvider(serviceType, provider)) {
-    return badRequest(c, '不支持的 service_type/provider')
+  if (!isSupportedProvider(serviceType, provider)) {
+    return badRequest(c, 'service_type/provider tidak didukung')
   }
 
   const updates: Record<string, any> = { updatedAt: now() }
@@ -285,7 +328,7 @@ app.put('/:id', async (c) => {
     try {
       temperature = normalizeTemperature(body.temperature)
     } catch {
-      return badRequest(c, 'temperature 须为 0 到 2 之间的数字')
+      return badRequest(c, 'temperature harus angka antara 0 sampai 2')
     }
     // Digabungkan dengan settings yang sudah ada, temperature yang dikosongkan dihapus dari JSON
     let settings: Record<string, any> = {}

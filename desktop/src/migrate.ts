@@ -2,7 +2,11 @@
  * Engine migrasi penyimpanan (proses utama)
  *
  * Runtutan: validate → stop backend → pindah → tulis config → restart backend → done
- * Aturan besi: copy harus validasi dulu sebelum hapus direktori lama; config baru ditulis setelah file selesai dipindah; setiap kegagalan rollback dan jalankan backend dengan direktori lama.
+ * Aturan besi:
+ *  - copy divalidasi dulu sebelum menghapus direktori lama (lintas volume: verifikasi byte → hapus; volume sama: rename per entri)
+ *  - pemindahan bersifat rollback-selamat: jika satu entri gagal, entri yang sudah dipindah dikembalikan ke lokasi lama
+ *  - rename berulang dengan jeda singkat untuk menangani file yang ter-kunci sementara (ffmpeg/antivirus masih memegang handle)
+ *  - config baru ditulis setelah file selesai dipindah; kegagalan → restore; jika backend baru tidak sehat → data DIKEMBALIKAN ke lokasi lama + config lama
  *
  * Progress melalui IPC 'huobao:migrate-progress' (throttle 80ms, done/error wajib kirim).
  */
@@ -22,7 +26,7 @@ export interface MigrationDeps {
   stopBackend(): Promise<void>
   startBackend(): void
   waitHealthy(port: number, timeoutMs: number): Promise<void>
-  /** Lifecycle backend telah selesai (sudah healthy atau sudah pulih) whena mereset flag */
+  /** Lifecycle backend telah selesai (sudah healthy atau sudah pulih) ketika mereset flag */
   markRestartingFalse(): void
   writeConfig(dataDir: string): void
   configPath(): string
@@ -43,8 +47,14 @@ export interface MigrateOptions {
 
 export function registerMigrationIpc(deps: MigrationDeps): void {
   ipcMain.handle('huobao:start-migration', async (_event, opts: MigrateOptions) => {
-    await runMigration(deps, opts)
-    return { ok: true }
+    try {
+      await runMigration(deps, opts)
+      return { ok: true }
+    } catch (err) {
+      // Kembalikan pesan asli ke renderer (jangan biarkan terbungkus pesan techy Electron,
+      // agar frontend bisa menampilkan alasan kegagalan yang sebenarnya)
+      return { ok: false, error: (err as Error)?.message || 'Migrasi gagal' }
+    }
   })
 }
 
@@ -61,6 +71,31 @@ function makeReporter(getWindow: () => BrowserWindow | null) {
 }
 
 // ---- Validasi ----
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+/** Cek apakah error khas "file ter-kunci" di Windows (rename/hapus bisa ditunda dengan short retry) */
+function isLockedError(err: unknown): boolean {
+  const code = (err as { code?: string })?.code || ''
+  return process.platform === 'win32'
+    ? code === 'EBUSY' || code === 'EPERM' || code === 'EACCES'
+    : code === 'EBUSY' || code === 'EACCES'
+}
+
+/** Jalankan operasi file dengan retry pendek untuk menangani kunci handle sementara */
+async function retryFile<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
+  let lastErr: unknown = null
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastErr = err
+      if (!isLockedError(err)) throw err
+    }
+    await sleep(600 * (i + 1))
+  }
+  throw lastErr
+}
 
 async function sameVolume(a: string, b: string): Promise<boolean> {
   try {
@@ -79,13 +114,15 @@ async function validateTarget(deps: MigrationDeps, target: string, currentDir: s
     throw new Error('Path target bukan direktori')
   } else {
     const children = await fsp.readdir(target)
-    if (children.length > 0) throw new Error('Direktori target harus kosong')
+    if (children.length > 0) throw new Error('Direktori target harus kosong (pilih folder kosong atau folder baru)')
   }
 
   // Probe keterbatasan tulis
-  const probe = path.join(target, `.huobao-probe-${Date.now()}`)
-  await fsp.writeFile(probe, 'probe')
-  await fsp.rm(probe)
+  await retryFile(async () => {
+    const probe = path.join(target, `.huobao-probe-${Date.now()}`)
+    await fsp.writeFile(probe, 'probe')
+    await fsp.rm(probe)
+  })
 
   // Hubungan path (win32 huruf besar/kecil tidak peka)
   const a = deps.normCase(path.resolve(currentDir))
@@ -94,7 +131,7 @@ async function validateTarget(deps: MigrationDeps, target: string, currentDir: s
   if (b.startsWith(a + path.sep)) throw new Error('Direktori target berada di dalam direktori data saat ini')
   if (a.startsWith(b + path.sep)) throw new Error('Direktori target adalah direktori induk dari direktori data saat ini')
   const userData = deps.normCase(path.resolve(path.dirname(currentDir))) // <userData>
-  if (b === userData || a.startsWith(b + path.sep)) throw new Error('Tidak dapat memilih direktori data aplikasi dan direktori induknya')
+  if (b === userData) throw new Error('Tidak dapat memilih direktori data aplikasi dan direktori induknya')
 
   // Total yang akan dipindah (validasi ruang lintas volume + progress migrasi)
   let totalBytes = 0
@@ -144,74 +181,129 @@ interface FileEntry {
   size: number
 }
 
+const ignore = async () => undefined
+
+/** Kembalikan entri yang sudah dipindah (volume sama) kembali ke direktori lama saat terjadi kegagalan */
+async function rollbackRenamed(moved: string[], oldDir: string, newDir: string): Promise<void> {
+  for (const name of [...moved].reverse()) {
+    await fsp.rename(path.join(newDir, name), path.join(oldDir, name)).catch(ignore)
+  }
+}
+
+/** Bersihkan isi direktori target yang masih tersisa setelah kegagalan copy (tidak menyentuh direktori lama) */
+async function cleanupPartialTarget(target: string): Promise<void> {
+  await fsp.rm(target, { recursive: true, force: true }).catch(ignore)
+}
+
 /**
- * Pindahkan isi direktori data. Aturan besi: tidak hapus direktori lama sebelum verifikasi copy berhasil.
- * Volume sama: rename per entri top-level (EXDEV fallback ke copy lintas volume); lintas volume: copy berdasarkan manifest + verifikasi byte + hapus lama.
+ * Pindahkan isi direktori data.
+ * Aturan besi: tidak hapus direktori lama sebelum seluruh pemindahan berhasil DIVERIFIKASI.
+ *  - Volume sama: rename per entri top-level; saat gagal → entri yang sudah dipindah dikembalikan (rollback)
+ *  - Lintas volume: copy berdasarkan manifest (dengan retry) + verifikasi byte → baru hapus lama
  */
 async function moveData(
   oldDir: string,
   newDir: string,
   report: (p: MigrateProgress, force?: boolean) => void,
 ): Promise<void> {
-  await fsp.mkdir(newDir, { recursive: true })
+  await retryFile(async () => fsp.mkdir(newDir, { recursive: true }))
   const topEntries = await fsp.readdir(oldDir, { withFileTypes: true })
 
   if (await sameVolume(oldDir, newDir)) {
+    const moved: string[] = []
     for (const e of topEntries) {
       const src = path.join(oldDir, e.name)
       const dst = path.join(newDir, e.name)
       try {
-        fs.renameSync(src, dst)
+        await retryFile(async () => fs.renameSync(src, dst))
       } catch (err: unknown) {
-        if ((err as NodeJS.ErrnoException)?.code === 'EXDEV') {
-          await copyAcross([src], oldDir, newDir, report)
-        } else throw err
+        if ((err as NodeJS.ErrnoException)?.code === 'EXDEV') { break }
+        // Rollback entri yang sudah dipindah, lalu teruskan error asli
+        await rollbackRenamed(moved, oldDir, newDir)
+        throw err
       }
+      moved.push(e.name)
     }
-    await fsp.rm(oldDir, { recursive: true, force: true })
+    // Jika salah satu entri ternyata lintas volume (EXDEV): turunkan seluruhnya ke copy lintas volume (aman, tidak hapus sebelum verifikasi)
+    if (moved.length < topEntries.length) {
+      await rollbackRenamed(moved, oldDir, newDir)
+      await copyAcrossTop(topEntries, oldDir, newDir, report)
+      return
+    }
+    await fsp.rm(oldDir, { recursive: true, force: true }).catch(ignore)
     return
   }
 
-  // Lintas volume: daftar lengkap → copy per file → verifikasi byte → hapus lama
+  // Lintas volume: daftar lengkap → copy per file (retry) → verifikasi byte → hapus lama
   const files = await collectFileList(oldDir)
   const totalBytes = files.reduce((s, f) => s + f.size, 0)
   let copied = 0
-  for (const f of files) {
-    const dst = path.join(newDir, f.rel)
-    await fsp.mkdir(path.dirname(dst), { recursive: true })
-    await fsp.copyFile(path.join(oldDir, f.rel), dst)
-    copied += f.size
-    report({ phase: 'moving', copiedBytes: copied, totalBytes })
+  try {
+    for (const f of files) {
+      const dst = path.join(newDir, f.rel)
+      await retryFile(async () => fsp.mkdir(path.dirname(dst), { recursive: true }))
+      await retryFile(async () => {
+        await fsp.copyFile(path.join(oldDir, f.rel), dst)
+      })
+      copied += f.size
+      report({ phase: 'moving', copiedBytes: copied, totalBytes })
+    }
+    // Verifikasi byte
+    const copiedFiles = await collectFileList(newDir)
+    const copiedTotal = copiedFiles.reduce((s, f) => s + f.size, 0)
+    if (copiedFiles.length !== files.length || copiedTotal !== totalBytes) {
+      throw new Error(`Verifikasi migrasi gagal: jumlah file ${copiedFiles.length}/${files.length}, byte ${copiedTotal}/${totalBytes}`)
+    }
+  } catch (err) {
+    await cleanupPartialTarget(newDir)
+    throw err
   }
-  // Verifikasi byte
-  const copiedFiles = await collectFileList(newDir)
-  const copiedTotal = copiedFiles.reduce((s, f) => s + f.size, 0)
-  if (copiedFiles.length !== files.length || copiedTotal !== totalBytes) {
-    throw new Error(`Verifikasi migrasi gagal: jumlah file ${copiedFiles.length}/${files.length}, byte ${copiedTotal}/${totalBytes}`)
-  }
-  await fsp.rm(oldDir, { recursive: true, force: true })
+  await fsp.rm(oldDir, { recursive: true, force: true }).catch(ignore)
 }
 
-/** Saat rename menghadapi EXDEV, entri top-level tertentu diturunkan ke copy lintas volume (jarang, progress sederhana) */
-async function copyAcross(sources: string[], oldDir: string, newDir: string, report: (p: MigrateProgress, force?: boolean) => void): Promise<void> {
-  let total = 0
-  const files: string[] = []
-  for (const src of sources) {
-    const list = await collectFileList(src, oldDir)
-    files.push(...list.map(f => f.rel))
-    total += list.reduce((s, f) => s + f.size, 0)
+/** Copy lintas volume untuk seluruh entri top-level (fallback setelah EXDEV saat mode volume sama) */
+async function copyAcrossTop(
+  topEntries: fs.Dirent[],
+  oldDir: string,
+  newDir: string,
+  report: (p: MigrateProgress, force?: boolean) => void,
+): Promise<void> {
+  const files = await collectFileList(oldDir)
+  const totalBytes = files.reduce((s, f) => s + f.size, 0)
+  let copied = 0
+  try {
+    for (const f of files) {
+      const dst = path.join(newDir, f.rel)
+      await retryFile(async () => fsp.mkdir(path.dirname(dst), { recursive: true }))
+      await retryFile(async () => fsp.copyFile(path.join(oldDir, f.rel), dst))
+      copied += f.size
+      report({ phase: 'moving', copiedBytes: copied, totalBytes })
+    }
+    const copiedFiles = await collectFileList(newDir)
+    const copiedTotal = copiedFiles.reduce((s, f) => s + f.size, 0)
+    if (copiedFiles.length !== files.length || copiedTotal !== totalBytes) {
+      throw new Error('Verifikasi migrasi gagal')
+    }
+  } catch (err) {
+    await cleanupPartialTarget(newDir)
+    throw err
   }
-  let done = 0
-  for (const rel of files) {
-    const dst = path.join(newDir, rel)
-    await fsp.mkdir(path.dirname(dst), { recursive: true })
-    await fsp.copyFile(path.join(oldDir, rel), dst)
-    done += 1
-    report({ phase: 'moving', copiedBytes: done, totalBytes: total })
-  }
+  await fsp.rm(oldDir, { recursive: true, force: true }).catch(ignore)
 }
 
 // ---- Alur utama ----
+
+/** Ubah error teknis pemindahan menjadi pesan yang mudah dipahami pengguna */
+function friendlyMigrationError(err: unknown): string {
+  const msg = (err as Error)?.message || String(err)
+  if (/EBUSY|EACCES|EPERM|resource busy|another process|already running|being used|sharing violation|in use/i.test(msg)) {
+    return 'Gagal memindahkan data: ada file yang masih digunakan oleh aplikasi lain (contohnya proses latar penggabungan video atau antivirus). Selesaikan produksi yang sedang berjalan, lalu coba lagi.'
+  }
+  if (/ENOENT|no such file/i.test(msg)) {
+    return 'Gagal memindahkan data: ada file/data yang tidak ditemukan. Periksa kembali direktori data.'
+  }
+  return msg
+}
 
 export async function runMigration(deps: MigrationDeps, opts: MigrateOptions): Promise<void> {
   const report = makeReporter(deps.getWindow)
@@ -219,6 +311,7 @@ export async function runMigration(deps: MigrationDeps, opts: MigrateOptions): P
   const target = path.resolve(opts.targetDir)
   const backendWasAlive = deps.isBackendAlive()
 
+  // state jejak pemulihan: apakah data sudah dipindah / config baru sudah ditulis
   try {
     report({ phase: 'validating' }, true)
     const totalBytes = await validateTarget(deps, target, oldDir)
@@ -232,47 +325,82 @@ export async function runMigration(deps: MigrationDeps, opts: MigrateOptions): P
       report({ phase: 'moving', copiedBytes: 0, totalBytes }, true)
       await moveData(oldDir, target, report)
     } else {
-      await fsp.mkdir(target, { recursive: true })
+      await retryFile(async () => fsp.mkdir(target, { recursive: true }))
     }
 
-    // Config baru ditulis setelah file selesai dipindah; jika penulisan gagal, rollback ke nilai lama (atau hapus = fallback ke direktori default)
+    // Config baru ditulis setelah file selesai dipindah; jika penulisan gagal → restore nilai lama
     report({ phase: 'config' }, true)
     const configExisted = fs.existsSync(deps.configPath())
     const oldConfigRaw = configExisted ? fs.readFileSync(deps.configPath(), 'utf8') : null
     try {
       deps.writeConfig(target)
     } catch (err) {
-      if (oldConfigRaw !== null) fs.writeFileSync(deps.configPath(), oldConfigRaw)
-      else fs.rmSync(deps.configPath(), { force: true })
+      if (oldConfigRaw !== null) {
+        try { fs.writeFileSync(deps.configPath(), oldConfigRaw) } catch { /* abaikan */ }
+      } else {
+        fs.rmSync(deps.configPath(), { force: true })
+      }
       throw err
     }
 
     report({ phase: 'restarting' }, true)
     deps.setDataDir(target)
     deps.startBackend()
-    await deps.waitHealthy(deps.getPort(), 20_000)
+    try {
+      await deps.waitHealthy(deps.getPort(), 20_000)
+    } catch (err) {
+      // Backend baru tidak sehat setelah perpindahan: KEMBALIKAN data + config ke lokasi lama,
+      // lalu hidupkan ulang di lokasi lama. Jangan biarkan requestConfig/data tertinggal di lokasi baru.
+      await restoreToOldDir(deps, oldDir, target, report)
+      deps.setDataDir(oldDir)
+      deps.startBackend()
+      await deps.waitHealthy(deps.getPort(), 20_000)
+      deps.markRestartingFalse()
+      throw err
+    }
     deps.markRestartingFalse()
     report({ phase: 'done' }, true)
   } catch (err) {
-    const message = (err as Error)?.message || String(err)
+    const message = friendlyMigrationError(err)
     report({ phase: 'error', message }, true)
 
-    // Pemulihan: backend seharusnya dalam kondisi berjalan; jika pemulihan gagal, keluar dari aplikasi secara eksplisit, jangan biarkan jendela zombie
-    if (backendWasAlive && !deps.isBackendAlive()) {
-      deps.setDataDir(oldDir)
-      try {
+    // Pemulihan umum: backend seharusnya dalam kondisi berjalan; jika pemulihan gagal, dialog + keluar
+    const tryRestoreBackend = async (): Promise<void> => {
+      if (!deps.isBackendAlive()) {
+        deps.setDataDir(oldDir)
         deps.startBackend()
         await deps.waitHealthy(deps.getPort(), 20_000)
         deps.markRestartingFalse()
-      } catch (recoverErr) {
-        console.error('[migrate] Pemulihan backend gagal:', recoverErr)
-        dialog.showErrorBox('Huobao Drama', `Migrasi penyimpanan gagal dan pemulihan layanan latar belakang gagal, aplikasi akan ditutup.\nError asli: ${message}`)
-        app.quit()
-        return
+      } else {
+        deps.markRestartingFalse()
       }
-    } else {
-      deps.markRestartingFalse()
     }
-    throw err
+    try {
+      await tryRestoreBackend()
+    } catch (recoverErr) {
+      console.error('[migrate] Pemulihan backend gagal:', recoverErr)
+      dialog.showErrorBox('Nevh Drama', `Migrasi penyimpanan gagal dan pemulihan layanan latar belakang gagal, aplikasi akan ditutup.\nError asli: ${message}`)
+      app.quit()
+      return
+    }
+    throw new Error(message)
   }
+}
+
+/**
+ * Data + config sudah dipindah ke target namun backend baru tidak sehat:
+ * stop backend → pindahkan balik target → oldDir → tulis config lama → restore.
+ */
+async function restoreToOldDir(
+  deps: MigrationDeps,
+  oldDir: string,
+  target: string,
+  report: (p: MigrateProgress, force?: boolean) => void,
+): Promise<void> {
+  await deps.stopBackend()
+  if (fs.existsSync(target)) {
+    await fsp.mkdir(oldDir, { recursive: true })
+    await moveData(target, oldDir, report)
+  }
+  deps.writeConfig(oldDir)
 }
