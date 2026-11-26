@@ -199,7 +199,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🔑 Penggunaan Pertama: Konfigurasi Layanan AI
 
-Semua fitur AI (teks/gambar/video) memerlukan layanan model dikonfigurasi terlebih dahulu — banner di bagian atas halaman memandu Anda sampaisaat itu:
+Semua fitur AI (teks/gambar/video) memerlukan layanan model dikonfigurasi terlebih dahulu — banner di bagian atas halaman memandu Anda sampai saat itu:
 
 1. Buka halaman "Pengaturan"
 2. Tempel kunci API Huobao Anda di "Pengaturan Cepat Huobao" ([dapatkan di api.firemux.com](https://api.firemux.com)) untuk menulis tiga konfigurasi yang direkomendasikan (teks, gambar, video) dalam satu klik
